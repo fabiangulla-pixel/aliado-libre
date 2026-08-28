@@ -15,6 +15,15 @@ que hace falta navegador para todo — si aparece un dominio tipo `admin.es.*` o
 
 | Fuente | URL | Tipo de contenido | Notas técnicas |
 |---|---|---|---|
+> **Techo del método BFS confirmado (28-ago-2026)**: el crawler vía "Vigencias" se
+> estabilizó en ~2.381 normas tras tres intentos de ampliar semillas (25 decretos
+> sectoriales: +15 docs; 6 códigos generales: +2 docs; 9 leyes nombradas: +3 docs).
+> Las leyes/códigos individuales (a diferencia de los "decretos únicos reglamentarios"
+> modernos) tienen seguimiento de "Vigencias" muy pobre en el sitio — el contenido en
+> sí es valioso y ya está en el corpus, pero no abre más camino de BFS. Para crecer
+> más allá de esto hace falta otro método (enumeración de rango de IDs, o un listado
+> oficial de normas por tipo/año en vez de seguir el grafo de modificaciones).
+
 | **Gestor Normativo** (Función Pública) | funcionpublica.gov.co/eva/gestornormativo | Legislación nacional: 1.601 leyes (1886-2019) + 7.404 decretos (1826-hoy) | HTML plano. Requiere `requests.Session()` con cookie de la home antes de pedir `norma.php` (curl solo falla por manejo de cookies, no por bloqueo). Encoding roto server-side (declara ISO-8859-1, sirve UTF-8 doble-codificado) — se corrige con `texto.encode('latin1').decode('utf-8')`. La sección "Vigencias" de cada norma trae el grafo de modifica/deroga/reglamenta ya estructurado, con enlaces a los IDs relacionados — no hace falta inferirlo. **Ingester funcionando** (`ingest/fuentes/gestor_normativo.py`). |
 | **Corte Constitucional** (relatoría) | corteconstitucional.gov.co/relatoria | Sentencias, ~49.630 providencias indexadas | SPA Angular, pero tiene API JSON interna en `/relatoria/buscador_new/?accion=...`. Confirmado `accion=ver_total_providencias`. El `accion=` exacto para búsqueda de texto completo **no está mapeado aún**. ⚠️ El dominio comparte WAF con SUIN — tras pruebas repetidas devolvió "The URL you requested has been blocked"; probablemente rate-limit temporal, reintentar con pausas largas (5s+) entre requests. |
 | **Consejo de Estado** | consejodeestado.gov.co | Jurisprudencia contencioso-administrativa | Buscador web accesible. Dos sistemas: SAMAI/Mi Relatoría (desde dic-2021) y sistema tradicional para lo anterior. Ingester aún no escrito. |
