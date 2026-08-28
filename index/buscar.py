@@ -28,10 +28,21 @@ class IndiceBusqueda:
         self._cliente = chromadb.PersistentClient(path=str(DIR_INDICE))
         self._coleccion = self._cliente.get_or_create_collection(COLECCION)
 
-        todo = self._coleccion.get(include=["documents", "metadatas"])
-        self._ids: list[str] = todo["ids"]
-        self._textos: list[str] = todo["documents"]
-        self._metadatas: list[dict] = todo["metadatas"]
+        # .get() sin límite genera una consulta SQL con demasiadas variables
+        # para corpus grandes ("too many SQL variables") -> se pagina.
+        self._ids: list[str] = []
+        self._textos: list[str] = []
+        self._metadatas: list[dict] = []
+        tamanio_lote = 5000
+        offset = 0
+        while True:
+            lote = self._coleccion.get(include=["documents", "metadatas"], limit=tamanio_lote, offset=offset)
+            if not lote["ids"]:
+                break
+            self._ids.extend(lote["ids"])
+            self._textos.extend(lote["documents"])
+            self._metadatas.extend(lote["metadatas"])
+            offset += len(lote["ids"])
         self._bm25 = BM25Okapi([_tokenizar(t) for t in self._textos]) if self._textos else None
 
     def buscar(self, consulta: str, k: int = 8) -> list[dict]:
