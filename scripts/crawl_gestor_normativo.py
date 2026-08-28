@@ -43,6 +43,17 @@ SEMILLAS = [
     "77714",  # Decreto 1085 de 2015 - Deporte
     "62870",  # Decreto 1170 de 2015 - Información Estadística
     "77813",  # Decreto 780 de 2016 - Salud y Protección Social
+    # Códigos generales: el grafo de vigencias de los "decretos únicos"
+    # anteriores resultó muy interconectado entre sí (una corrida ampliada
+    # con 25 semillas de sector solo sumó 15 documentos nuevos) -- los
+    # códigos son universos de modificación separados, abren territorio
+    # genuinamente nuevo en vez de reconverger al mismo núcleo.
+    "41102",  # Decreto 410 de 1971 - Código de Comercio
+    "199983",  # Decreto 2663 de 1950 - Código Sustantivo del Trabajo
+    "6388",  # Ley 599 de 2000 - Código Penal
+    "39535",  # Ley 57 de 1887 - adopta el Código Civil
+    "48425",  # Ley 1564 de 2012 - Código General del Proceso
+    "41249",  # Ley 1437 de 2011 - CPACA (procedimiento administrativo)
 ]
 
 SALIDA = Path(__file__).resolve().parent.parent / "data" / "raw" / "gestor_normativo.json"
