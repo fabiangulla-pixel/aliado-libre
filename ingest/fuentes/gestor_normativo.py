@@ -124,9 +124,12 @@ def crawl(
     ids_semilla: list[str],
     max_documentos: int = 50,
     pausa_segundos: float = 1.0,
+    al_guardar=None,
 ) -> list[Documento]:
     """BFS a partir de IDs semilla, siguiendo los enlaces de la sección Vigencias.
-    pausa_segundos por defecto es conservador para no golpear el servidor del Estado."""
+    pausa_segundos por defecto es conservador para no golpear el servidor del Estado.
+    Si se pasa `al_guardar(documentos)`, se invoca cada 25 documentos nuevos como
+    checkpoint incremental (para no perder el avance si el proceso se interrumpe)."""
     sesion = _sesion()
     vistos: set[str] = set()
     cola = list(ids_semilla)
@@ -143,6 +146,9 @@ def crawl(
         if doc is None:
             continue
         documentos.append(doc)
+
+        if al_guardar is not None and len(documentos) % 25 == 0:
+            al_guardar(documentos)
 
         for rel in doc.metadata.get("vigencias", []):
             if rel["id_relacionado"] not in vistos:

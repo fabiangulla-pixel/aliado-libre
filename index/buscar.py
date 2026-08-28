@@ -74,6 +74,7 @@ class IndiceBusqueda:
 if __name__ == "__main__":
     import sys
 
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     consulta = " ".join(sys.argv[1:]) or "incentivos bienestar social"
     indice = IndiceBusqueda()
     for r in indice.buscar(consulta, k=5):
