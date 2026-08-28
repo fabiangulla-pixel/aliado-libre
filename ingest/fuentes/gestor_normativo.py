@@ -5,6 +5,7 @@ y trae, además del texto, una sección "Vigencias" con las relaciones normativa
 explícitas (modifica/deroga/reglamenta/etc.) hacia otras normas por su propio ID.
 Esa sección es oro: nos da el grafo de vigencia normativa sin tener que inferirlo.
 """
+
 from __future__ import annotations
 
 import re
@@ -94,8 +95,10 @@ def _parsear_documento(html_crudo: str, norma_id: str, url: str) -> Documento | 
     fecha_match = re.search(r"Fecha de Expedici[oó]n:\s*([^<\n]+)", html)
     fecha = fecha_match.group(1).strip() if fecha_match else None
 
-    tipo = "decreto" if "decreto" in titulo.lower() else (
-        "ley" if titulo.lower().startswith("ley") or " ley " in titulo.lower() else "resolucion"
+    tipo = (
+        "decreto"
+        if "decreto" in titulo.lower()
+        else ("ley" if titulo.lower().startswith("ley") or " ley " in titulo.lower() else "resolucion")
     )
 
     return Documento(

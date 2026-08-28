@@ -1,6 +1,7 @@
 """Lanza un crawl real de Gestor Normativo a partir de varias normas semilla
 importantes, guardando avances incrementalmente (checkpoint) para poder
 reanudar si se interrumpe."""
+
 from __future__ import annotations
 
 import json
@@ -13,11 +14,11 @@ from ingest.fuentes.gestor_normativo import crawl
 # Semillas: decretos únicos reglamentarios de varios sectores (alta densidad
 # de relaciones "Vigencias" -> el BFS se expande rápido a normas relacionadas).
 SEMILLAS = [
-    "62866",   # Decreto 1083 de 2015 - Función Pública
-    "62703",   # Decreto 1072 de 2015 - Trabajo
-    "62477",   # Decreto 1071 de 2015 - Agropecuario
-    "62258",   # Decreto 1069 de 2015 - Defensa
-    "62255",   # (categoría decretos únicos, referencia adicional)
+    "62866",  # Decreto 1083 de 2015 - Función Pública
+    "62703",  # Decreto 1072 de 2015 - Trabajo
+    "62477",  # Decreto 1071 de 2015 - Agropecuario
+    "62258",  # Decreto 1069 de 2015 - Defensa
+    "62255",  # (categoría decretos únicos, referencia adicional)
 ]
 
 SALIDA = Path(__file__).resolve().parent.parent / "data" / "raw" / "gestor_normativo.json"

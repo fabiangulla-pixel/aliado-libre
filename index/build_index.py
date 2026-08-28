@@ -1,5 +1,6 @@
 """Construye el índice de búsqueda (Chroma + embeddings locales) a partir de
 los JSON de documentos crudos en data/raw/. Sin costo de API: modelo local."""
+
 from __future__ import annotations
 
 import json
@@ -68,5 +69,6 @@ def construir(dir_raw: Path) -> None:
 
 
 if __name__ == "__main__":
-    dir_raw = Path(sys.argv[1]) if len(sys.argv) > 1 else Path(__file__).resolve().parent.parent / "data" / "raw"
+    dir_por_defecto = Path(__file__).resolve().parent.parent / "data" / "raw"
+    dir_raw = Path(sys.argv[1]) if len(sys.argv) > 1 else dir_por_defecto
     construir(dir_raw)

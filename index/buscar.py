@@ -2,9 +2,9 @@
 fusión por rango recíproco (RRF), como en ReactivosFlow. La búsqueda léxica
 importa para citas exactas (números de ley, artículos) que los embeddings
 por sí solos suelen perder."""
+
 from __future__ import annotations
 
-import json
 import re
 from pathlib import Path
 

@@ -1,6 +1,7 @@
 """Servidor MCP de Aliado Libre: expone el índice legal colombiano como
 herramientas para Claude u otro cliente MCP. Equivalente libre y gratuito
 al conector de aliado.pro."""
+
 from __future__ import annotations
 
 import sys

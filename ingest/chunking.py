@@ -3,6 +3,7 @@
 Prioriza cortar por límites de artículo (unidad citable en derecho colombiano);
 si el documento no tiene esa estructura, cae a un corte por tamaño con solape.
 """
+
 from __future__ import annotations
 
 import re
