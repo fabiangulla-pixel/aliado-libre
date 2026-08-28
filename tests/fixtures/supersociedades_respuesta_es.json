@@ -1,0 +1,174 @@
+{
+  "took" : 1,
+  "timed_out" : false,
+  "_shards" : {
+    "total" : 5,
+    "successful" : 5,
+    "skipped" : 0,
+    "failed" : 0
+  },
+  "hits" : {
+    "total" : {
+      "value" : 10000,
+      "relation" : "gte"
+    },
+    "max_score" : 1.0,
+    "hits" : [
+      {
+        "_index" : "index_thesaurus",
+        "_type" : "_doc",
+        "_id" : "U3RXE4IBwA8Rhfy3fZ3-",
+        "_score" : 1.0,
+        "_source" : {
+          "etiquetas" : [
+            {
+              "informacion" : "Información",
+              "ficha_estadistica" : "Ficha estadistica",
+              "ficha_juridica" : "Ficha juridica",
+              "documento_principal" : "Documento principal",
+              "descriptores" : "Descriptores",
+              "temas" : "Temas",
+              "fuentes_juridicas" : "Fuentes juridicas",
+              "partes" : "Partes que intervienen",
+              "id_relatoria" : false,
+              "fecha_radicacion" : "Fecha de radicación",
+              "fecha_publicacion_relatoria" : "Fecha de publicación",
+              "fecha_sentencia" : "Fecha de sentencia",
+              "tipo_proceso" : "Tipo de proceso",
+              "pretensiones_esgrimidas_reconvencion" : "Pretensiones esgrimidas reconvencion",
+              "excepciones_esgrimidas_reconvencion" : "Excepciones esgrimidas reconvencion",
+              "parte_resolutiva_primera_instancia" : "Parte resolutiva primera instancia",
+              "correccion_sentencia" : "Corrección sentencia",
+              "parte_resolutiva_segunda_instancia" : "Parte resolutiva segunda instancia",
+              "Numero_relatoria" : "Numero relatoria",
+              "ano_expediente" : "Año expediente",
+              "numero_radicado" : "Numero de radicado",
+              "numero_proceso" : "Numero de proceso",
+              "numero_ficha_estadistica" : "Numero de ficha estadistica",
+              "encargado_ficha_estadistica" : "Encargado de ficha estadistica",
+              "num_exp_tribunal" : "Numero expediente tribunal",
+              "num_postal" : "Numero postal",
+              "sentencia_oral" : "Sentencia oral",
+              "fecha_segunda_instancia" : "Fecha segunda instancia",
+              "intervencion_terceros" : "Intervención de terceros",
+              "acumulacion_procesos" : "Acumulación procesos",
+              "hechos_relevantes" : "Hechos relevantes",
+              "hechos_contestacion" : "Hechos contestación",
+              "pretensiones_demanda" : "Pretensiones de demanda",
+              "juramento_estimatorio" : "Juramento estimatorio",
+              "numero_ficha_juridica" : "Numero de ficha juridica",
+              "problemas_juridicos" : "Problemas juridicos",
+              "nombre_descriptor" : "Nombre descriptor",
+              "descriptor_principal" : "Descriptor principal",
+              "descriptores_secundarios" : "Descriptores secundarios",
+              "informacion_suministrada" : "Informacion suministrada",
+              "id_archivo" : "Id archivo",
+              "tipo_contenido" : "Tipo de contenido",
+              "fecha_ultima_modificacion" : "Fecha de última modificación",
+              "ruta_s3" : "Documento Principal",
+              "sanciones_procesales" : "Sanciones procesales",
+              "fuente_reforma" : "Fuente que la reforma",
+              "analisis_juridico" : "Análisis jurídico",
+              "consideraciones_adicionales" : "Consideraciones adicionales",
+              "rattio_decidendi" : "Rattio decidendi",
+              "aclaracion_o_adicion" : "Aclaración o adición",
+              "segunda_instancia" : "Segunda instancia",
+              "hechos_relevantes_demanda" : "Hechos relevantes demanda",
+              "hechos_relevantes_contestacion_de_demanda" : "Hechos relevantes contestación de demanda",
+              "pretensiones_presentadas_en_la_demanda" : "Pretensiones presentadas en la demanda",
+              "excepciones_esgrimidas_contra_la_demanda" : "Excepciones esgrimidas contra la demanda",
+              "sentido_del_fallo_primera_instancia" : "Sentido del fallo primera instancia",
+              "expediente_tribunal" : "Expediente tribunal",
+              "sentido_del_fallo_segunda_instancia" : "Sentido del fallo segunda instancia",
+              "analisis_estadistico" : "Análisis estadístico",
+              "metadatos" : "Detalles Sentencia",
+              "tipo_doc" : false,
+              "numero_doc" : false,
+              "citas" : "Citado en",
+              "tipoContenido" : "Tipo de contenido",
+              "problemas_juridicos_temas" : "Problemas Jurídicos",
+              "posicion_doctrinal_actual" : "Posición doctrinal actual",
+              "posicion_doctrinal_contraria" : "Posición doctrinal contraria",
+              "reiteracion_doctrina" : "Reiteración de la doctrina"
+            }
+          ],
+          "titulo" : "Inhabilidad Frente A Los Administradores Que Ostentas Varios Cargos.",
+          "borrador" : [
+            "Costas",
+            "Resuelve",
+            "Consideraciones",
+            "problemas_juridicos",
+            "rattio_decidendi",
+            "segunda_instancia"
+          ],
+          "informacion" : {
+            "tipo_contenido" : "Conceptos jurídicos",
+            "numero_radicado" : "2012-01-315437",
+            "fecha_sentencia" : "2012-11-12",
+            "consecutivo" : "220-099022",
+            "ano_expediente" : "2012",
+            "fecha_ultima_modificacion" : null
+          },
+          "documento_principal" : {
+            "ruta_s3" : "s3://ssociedades-prod-relatorias-document/DocumentPdf/220-099022_2012-01-315437-1.pdf",
+            "contenido_archivo" : "ASUNTO: INHABILIDAD FRENTE A LOS ADMINISTRADORES QUE \nOSTENTAS VARIOS CARGOS. \nNo referimos a su consulta radicada bajo el número 2012-01-286588, respecto de \nla cual efectúa las siguientes preguntas relacionadas con una sociedad de encomia \nmixta prestadora de servicios públicos:  \n\n1. Existe inhabilidad para ocupar el cargo de Gerente además de ser Presidente \nde la junta directiva y socio  \n\n2. Si existiera inhabilidad, pueden ser considerados los actos administrativos \nemanados por el Gerente y Junta Directiva con vicio de nulidad  \n\n3. Sí no existiese inhabilidad alguna consideran ustedes que el Gerente puede \ncontinuar gerenciando siendo Juez y Parte o por ética debería renunciar \n\nSobre el particular y antes de contestar sus inquietudes, es necesario indicar que \nlos conceptos que la Superintendencia emite en atención a las consultas \nformuladas sobre las materias de su competencia, tienen sentido general y \nabstracto y en esa medida no tiene carácter vinculante, ni comprometen la \nresponsabilidad de la misma.  \nNo obstante lo anterior, también es importante aclarar que esta Superintendencia \nde Sociedades es competente para supervisar las sociedades del sector real de la \neconomía no vigiladas por otras Superintendencias, esta aclaración se efectúa en \nconsideración a que el cuestionamiento planteado se refiere a una sociedad de \neconomía mixta prestadora de servicios públicos, razón por la cual se sugiere \nconsultar la ley que la crea o autoriza y el contrato de social.  \n\n1. Aclarado lo anterior, frente a la primera inquietud, esto es, si Existe \ninhabilidad para ocupar el cargo de Gerente además de ser Presidente de la \njunta directiva y socio  \n\nMe permito manifestarle que dentro de la normatividad legal colombiana, que regula \ntodo lo atinente al derecho societario, particularmente en lo relacionado con el \nEstatuto Mercantil y la Ley 222 de 1995, no existe norma legal que prohíba, el que \nuna persona socia de una compaía, sea a su vez gerente de una compaía y \n\nmiembro de la junta directiva de la misma persona jurídica o que se postule para \nlograr su nombramiento como representante legal y desempear de manera \nconcomitante los dos cargos. \n\nDiferente es que dentro de los estatutos sociales que gobiernan al ente societario, \nse encuentre alguna cláusula que de manera abierta contemple la inhabilidad que \npermita a los asociados en un momento determinado, en ejercicio de la voluntad \nprivada de la que gozan, decidir en reunión del máximo órgano social, y con las \nmayorías establecidas para el efecto o establecer que una persona no puede ser al \nmismo tiempo miembro de la junta directiva y gerente de la misma sociedad.  \nFinalmente valga tener en cuenta, que tanto el representante legal como el miembro \ndel cuerpo colegiado, son administradores de la compaía a la luz de lo consagrado \nen el artículo 22 de la Ley 222 de 1995 y por ende, tanto al uno como al otro, les \nincumbe los mismos deberes y responsabilidades a que hacen mención los \nartículos 23 y 24 de la citada ley. Particularmente en cuanto hace con los deberes, \nhay uno que es de especial atención y sobre el cual el celo debe ser regla general, \ny es el contenido en el numeral 7 del artículo 23 al expresar que los administradores \ndeben de abstenerse de participar por sí o por interpuesta persona en interés \npersonal o de terceros, en actividades o actos que impliquen conflicto de intereses.  \n\n2. Respecto a Si existiera inhabilidad, pueden ser considerados los actos \nadministrativos emanados por el Gerente y Junta Directiva con vicio de \nnulidad  \n\nPara comenzar es importante traer a colación lo que en su momento La Corte \nSuprema de Justicia sealó respecto al significado de la palabra inhabilidad la \ninhabilidad es aquella circunstancia negativa del individuo, el defecto o impedimento para \nejercer u obtener un empleo o que le resta mérito para ejercer ciertas funciones en un cargo \ndeterminado y se traduce en la prohibición legal para desempearlo independientemente \n\nde otras.La constitución y la ley son los encargados de sealar esta circunstancia sala \nplena junio 988.  \nBajo estas consideraciones, corresponde para el caso concreto definir al interior de \nla compaía, la determinación de la ocurrencia o no de la causal a la luz de los \nestatutos sociales, por consiguiente no es procedente atender su inquietud por vía \nde consulta, así como tampoco solicitar de esta Entidad la calificación de la sanción \nderivada del caso hipotético.  \n\n3. Si no existiese inhabilidad alguna consideran ustedes que el Gerente puede \ncontinuar gerenciando siendo Juez y parte o por ética debería renunciar  \n\nAl respecto, tal como se manifestó en el numeral anterior, no es procedente por vía \nde consulta responder a su inquietud, por lo que se repite se sugiere discutir al \ninterior de la compaía, la pertinencia o no de la situación que plantea en su escrito. \n\nEn los anteriores términos se ha dado contestación a su consulta, no sin antes \nanotarle que los efectos del presente pronunciamiento son los descritos en el \nartículo 25 del Código Contencioso Administrativo. \n\n"
+          },
+          "descriptores" : [
+            {
+              "descriptor_principal" : "Contrato",
+              "descriptores_secundarios" : [
+                "Subcontrato"
+              ]
+            },
+            {
+              "descriptor_principal" : "Deberes",
+              "descriptores_secundarios" : [
+                "Responsabilidad"
+              ]
+            },
+            {
+              "descriptor_principal" : "Impedimentos",
+              "descriptores_secundarios" : [
+                "Efectos"
+              ]
+            }
+          ],
+          "tesauro_filtro" : [
+            {
+              "descriptor_principal" : "Contrato",
+              "descriptores_secundarios" : "Subcontrato"
+            },
+            {
+              "descriptor_principal" : "Deberes",
+              "descriptores_secundarios" : "Responsabilidad"
+            },
+            {
+              "descriptor_principal" : "Impedimentos",
+              "descriptores_secundarios" : "Efectos"
+            }
+          ],
+          "partes" : [ ],
+          "fuentes_juridicas" : [
+            {
+              "fuente" : "Artículo 22 de la Ley 222 de 1995",
+              "tipo" : "Legal",
+              "estado" : "Vigente",
+              "hipervinculo" : null,
+              "fuente_reforma" : null
+            },
+            {
+              "fuente" : "Artículo 25 del Código contencioso Administrativo",
+              "tipo" : "Legal",
+              "estado" : null,
+              "hipervinculo" : "",
+              "fuente_reforma" : null
+            }
+          ],
+          "citas" : [ ],
+          "archivos" : [ ],
+          "id_relatoria" : "31473"
+        }
+      }
+    ]
+  }
+}

@@ -3,6 +3,14 @@
 Estado de cada fuente investigada para Aliado Libre, con fecha de verificación
 técnica (no solo búsqueda web). Última actualización: 28-ago-2026.
 
+**Patrón recurrente a explotar en fuentes nuevas**: varios sitios .gov.co con
+frontend SPA (React/Vue/Angular) hablan directo con un **Elasticsearch expuesto
+públicamente** (sin proxy que oculte la consulta), en vez de una API propia. Ya
+confirmado en SIC y Supersociedades. Vale la pena, para cada SPA nueva, capturar
+las llamadas de red con Playwright durante una búsqueda de prueba antes de asumir
+que hace falta navegador para todo — si aparece un dominio tipo `admin.es.*` o
+`*.es.prod.*` respondiendo a `_search`, es oro: acceso a consultas DSL completas.
+
 ## ✅ Accesibles con contenido real confirmado
 
 | Fuente | URL | Tipo de contenido | Notas técnicas |
@@ -10,7 +18,7 @@ técnica (no solo búsqueda web). Última actualización: 28-ago-2026.
 | **Gestor Normativo** (Función Pública) | funcionpublica.gov.co/eva/gestornormativo | Legislación nacional: 1.601 leyes (1886-2019) + 7.404 decretos (1826-hoy) | HTML plano. Requiere `requests.Session()` con cookie de la home antes de pedir `norma.php` (curl solo falla por manejo de cookies, no por bloqueo). Encoding roto server-side (declara ISO-8859-1, sirve UTF-8 doble-codificado) — se corrige con `texto.encode('latin1').decode('utf-8')`. La sección "Vigencias" de cada norma trae el grafo de modifica/deroga/reglamenta ya estructurado, con enlaces a los IDs relacionados — no hace falta inferirlo. **Ingester funcionando** (`ingest/fuentes/gestor_normativo.py`). |
 | **Corte Constitucional** (relatoría) | corteconstitucional.gov.co/relatoria | Sentencias, ~49.630 providencias indexadas | SPA Angular, pero tiene API JSON interna en `/relatoria/buscador_new/?accion=...`. Confirmado `accion=ver_total_providencias`. El `accion=` exacto para búsqueda de texto completo **no está mapeado aún**. ⚠️ El dominio comparte WAF con SUIN — tras pruebas repetidas devolvió "The URL you requested has been blocked"; probablemente rate-limit temporal, reintentar con pausas largas (5s+) entre requests. |
 | **Consejo de Estado** | consejodeestado.gov.co | Jurisprudencia contencioso-administrativa | Buscador web accesible. Dos sistemas: SAMAI/Mi Relatoría (desde dic-2021) y sistema tradicional para lo anterior. Ingester aún no escrito. |
-| **Supersociedades** (Tesauro) | tesauro.supersociedades.gov.co | +9.000 conceptos jurídicos catalogados por tema | Accesible públicamente. Ingester aún no escrito. |
+| **Supersociedades** (Tesauro) | tesauro.supersociedades.gov.co | +10.000 conceptos jurídicos y jurisprudencia mercantil | App Vite/SPA que habla directo con Elasticsearch expuesto públicamente: `admin.es.prod.ssociedades.nuvu.cc/index_thesaurus/_search`. **Mejor que SIC: el texto completo viene embebido** en `documento_principal.contenido_archivo`, sin depender de PDFs en S3. Metadata rica: descriptores del tesauro, fuentes jurídicas citadas (con estado de vigencia), tipo de contenido. **Ingester funcionando** (`ingest/fuentes/supersociedades.py`), sin BFS (paginación simple por `from`/`size`). |
 | **DIAN** (normograma) | normograma.dian.gov.co/dian/compilacion | Doctrina tributaria compilada, 1987-hoy | Accesible, organizado por tipo/año/tema. Ingester aún no escrito. |
 | **Superfinanciera** | superfinanciera.gov.co | Jurisprudencia + boletines jurídicos periódicos | Accesible. Ingester aún no escrito. |
 | **SIC — jurisdiccional** | relatoria.sic.gov.co | 1.807 providencias por competencia desleal y propiedad industrial | App React que habla **directo con un Elasticsearch expuesto públicamente**: `relatoria.sic.gov.co/sic-relatoria-idx/_search` (acepta DSL completo: `match_all`, `size`, `from`, agregaciones). Metadata rica (tesauro, fechas, tipo de proceso). **Texto completo en PDF/DOCX vive en S3 (`prod-relatorias-document`), bucket NO público (403 directo)** — falta encontrar el endpoint de descarga que usa la propia web (probablemente firma URLs por backend, no capturado aún). |
