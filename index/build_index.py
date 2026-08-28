@@ -4,8 +4,11 @@ los JSON de documentos crudos en data/raw/. Sin costo de API: modelo local."""
 from __future__ import annotations
 
 import json
+import os
 import sys
 from pathlib import Path
+
+os.environ.setdefault("HF_HUB_OFFLINE", "1")  # modelo ya cacheado; evita golpear la red en cada corrida
 
 import chromadb
 from sentence_transformers import SentenceTransformer

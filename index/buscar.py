@@ -5,8 +5,15 @@ por sí solos suelen perder."""
 
 from __future__ import annotations
 
+import os
 import re
 from pathlib import Path
+
+# El modelo ya queda cacheado localmente tras la primera descarga; sin esto,
+# cada arranque (cada consulta MCP) golpea la red de Hugging Face solo para
+# verificar que el caché sigue vigente, lo cual añade latencia innecesaria
+# y puede fallar sin conexión.
+os.environ.setdefault("HF_HUB_OFFLINE", "1")
 
 import chromadb
 from rank_bm25 import BM25Okapi

@@ -19,6 +19,17 @@ def test_fix_mojibake_no_rompe_texto_ya_correcto():
     assert _fix_mojibake("producción normal") == "producción normal"
 
 
+def test_fix_mojibake_corrige_palabras_sueltas_en_texto_mixto():
+    # Caso real observado en producción: una línea larga con la MAYORÍA de
+    # palabras doblemente codificadas y alguna ya correcta (o viceversa) no
+    # debe perder la corrección de las demás solo porque una falla el re-decode
+    # de la línea completa.
+    texto = "La producciÃ³n normativa y también la protección de datos."
+    corregido = _fix_mojibake(texto)
+    assert "producción normativa" in corregido
+    assert "protección de datos" in corregido
+
+
 def test_parsear_documento_extrae_texto_completo():
     doc = _parsear_documento(_html_fixture(), "62866", "https://example.test/norma.php?i=62866")
     assert doc is not None

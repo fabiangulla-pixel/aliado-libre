@@ -9,11 +9,11 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from mcp.server.fastmcp import FastMCP
+from mcp.server.mcpserver import MCPServer
 
 from index.buscar import IndiceBusqueda
 
-mcp = FastMCP("aliado-libre")
+mcp = MCPServer("aliado-libre")
 _indice: IndiceBusqueda | None = None
 
 
