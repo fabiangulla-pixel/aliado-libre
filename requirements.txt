@@ -6,3 +6,4 @@ sentence-transformers
 rank-bm25
 chromadb
 mcp
+pypdf
