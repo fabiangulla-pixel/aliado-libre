@@ -1,8 +1,7 @@
 venv/
 __pycache__/
 *.pyc
+.pytest_cache/
 index/chroma_db/
-data/raw/_test_*
-data/raw/_build_log.txt
-data/raw/_st_log.txt
-data/raw/_cookies.txt
+data/raw/_*
+data/raw/*.json

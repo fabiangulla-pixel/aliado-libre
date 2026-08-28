@@ -73,13 +73,9 @@ def _parsear_vigencias(soup: BeautifulSoup) -> list[RelacionVigencia]:
     return relaciones
 
 
-def obtener_norma(sesion: requests.Session, norma_id: str) -> Documento | None:
-    url = f"{BASE}/norma.php?i={norma_id}"
-    r = sesion.get(url, verify=False, timeout=30)
-    if r.status_code != 200:
-        return None
-
-    html = _fix_mojibake(r.text)
+def _parsear_documento(html_crudo: str, norma_id: str, url: str) -> Documento | None:
+    """Parseo puro (sin red) — separado para poder probarse con fixtures."""
+    html = _fix_mojibake(html_crudo)
     soup = BeautifulSoup(html, "lxml")
 
     titulo_tag = soup.title
@@ -118,6 +114,14 @@ def obtener_norma(sesion: requests.Session, norma_id: str) -> Documento | None:
             ]
         },
     )
+
+
+def obtener_norma(sesion: requests.Session, norma_id: str) -> Documento | None:
+    url = f"{BASE}/norma.php?i={norma_id}"
+    r = sesion.get(url, verify=False, timeout=30)
+    if r.status_code != 200:
+        return None
+    return _parsear_documento(r.text, norma_id, url)
 
 
 def crawl(
