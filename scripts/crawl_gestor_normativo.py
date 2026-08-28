@@ -54,6 +54,16 @@ SEMILLAS = [
     "39535",  # Ley 57 de 1887 - adopta el Código Civil
     "48425",  # Ley 1564 de 2012 - Código General del Proceso
     "41249",  # Ley 1437 de 2011 - CPACA (procedimiento administrativo)
+    # Leyes generales importantes, fuera del grafo de los decretos únicos:
+    "304",  # Ley 80 de 1993 - Estatuto de Contratación Estatal
+    "80538",  # Ley 1801 de 2016 - Código Nacional de Policía y Convivencia
+    "22106",  # Ley 1098 de 2006 - Código de la Infancia y la Adolescencia
+    "14787",  # Ley 906 de 2004 - Código de Procedimiento Penal
+    "6533",  # Decreto 624 de 1989 - Estatuto Tributario
+    "49981",  # Ley 1581 de 2012 - Habeas Data / Protección de Datos Personales
+    "292",  # Ley 115 de 1994 - Ley General de Educación
+    "22657",  # Ley 1116 de 2006 - Régimen de Insolvencia Empresarial
+    "4162",  # Ley 675 de 2001 - Régimen de Propiedad Horizontal
 ]
 
 SALIDA = Path(__file__).resolve().parent.parent / "data" / "raw" / "gestor_normativo.json"
