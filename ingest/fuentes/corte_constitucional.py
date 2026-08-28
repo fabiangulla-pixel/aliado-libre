@@ -14,6 +14,7 @@ import time
 
 import requests
 
+from ingest.normalizar import fix_mojibake
 from ingest.schema import Documento
 
 BASE = "https://www.corteconstitucional.gov.co/relatoria/buscador_new/"
@@ -45,7 +46,7 @@ def _buscar_por_anio(sesion: requests.Session, anio: int) -> list[dict]:
 def _a_documento(hit: dict) -> Documento | None:
     src = hit["_source"]
     sentencia = src.get("prov_sentencia")
-    sintesis = (src.get("prov_sintesis") or "").strip()
+    sintesis = fix_mojibake((src.get("prov_sintesis") or "").strip())
     if not sentencia or sintesis in ("", "Sin información"):
         return None
 

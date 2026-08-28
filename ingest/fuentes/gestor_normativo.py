@@ -15,6 +15,7 @@ from dataclasses import dataclass
 import requests
 from bs4 import BeautifulSoup
 
+from ingest.normalizar import fecha_es_a_iso, fix_mojibake
 from ingest.schema import Documento
 
 BASE = "https://www.funcionpublica.gov.co/eva/gestornormativo"
@@ -25,35 +26,10 @@ HEADERS = {
     )
 }
 
-
-def _fix_mojibake(texto: str) -> str:
-    """El sitio sirve bytes UTF-8 pero declara ISO-8859-1 en el <meta>, lo que
-    produce texto doblemente codificado ("producciÃ³n"). Se revierte reinterpretando
-    como latin1 y decodificando como utf-8.
-
-    Algunas páginas (contenido legado en su CMS) tienen bytes realmente corruptos
-    en algún punto ("ARTÃCULO" en vez de "ARTÃ­CULO") que rompen el re-decode de
-    TODO el string si se intenta de una sola vez. Por eso se corrige línea por
-    línea: una línea corrupta se deja tal cual, en vez de arrastrar a todo el
-    documento a quedar sin corregir."""
-    try:
-        return texto.encode("latin1").decode("utf-8")
-    except (UnicodeDecodeError, UnicodeEncodeError):
-        pass
-
-    # Por línea tampoco basta: hay líneas de miles de caracteres (un <p> entero
-    # en una sola línea) donde un byte corrupto en cualquier punto tumba la
-    # corrección de toda la línea. Se baja a nivel de palabra (separando por
-    # espacios, preservando los separadores) para que un byte roto solo afecte
-    # a esa palabra puntual.
-    partes = re.split(r"(\s+)", texto)
-    corregidas = []
-    for parte in partes:
-        try:
-            corregidas.append(parte.encode("latin1").decode("utf-8"))
-        except (UnicodeDecodeError, UnicodeEncodeError):
-            corregidas.append(parte)
-    return "".join(corregidas)
+# Alias por compatibilidad: la lógica vive en ingest.normalizar (compartida
+# con otros ingesters), pero se mantiene el nombre aquí porque tests y el
+# resto del módulo lo referencian como _fix_mojibake.
+_fix_mojibake = fix_mojibake
 
 
 @dataclass
@@ -113,7 +89,7 @@ def _parsear_documento(html_crudo: str, norma_id: str, url: str) -> Documento | 
     vigencias = _parsear_vigencias(soup)
 
     fecha_match = re.search(r"Fecha de Expedici[oó]n:\s*([^<\n]+)", html)
-    fecha = fecha_match.group(1).strip() if fecha_match else None
+    fecha = fecha_es_a_iso(fecha_match.group(1).strip()) if fecha_match else None
 
     tipo = (
         "decreto"

@@ -28,6 +28,10 @@ def _query(desde: int, tamanio: int) -> dict:
         "from": desde,
         "size": tamanio,
         "query": {"match_all": {}},
+        # Sin sort explícito, from/size no garantiza orden estable entre
+        # requests -> paginación profunda puede devolver el mismo documento
+        # dos veces (visto en producción: 1 duplicado en 5.000 documentos).
+        "sort": [{"_id": "asc"}],
     }
     url = f"{ES_BASE}?source={urllib.parse.quote(json.dumps(source))}&source_content_type=application/json"
     r = requests.get(url, headers=HEADERS, timeout=30)
@@ -72,6 +76,7 @@ def _a_documento(hit: dict) -> Documento | None:
 
 def crawl(max_documentos: int = 200, pausa_segundos: float = 1.0, al_guardar=None) -> list[Documento]:
     documentos: list[Documento] = []
+    ids_vistos: set[str] = set()
     desde = 0
 
     while len(documentos) < max_documentos:
@@ -83,7 +88,8 @@ def crawl(max_documentos: int = 200, pausa_segundos: float = 1.0, al_guardar=Non
 
         for hit in hits:
             doc = _a_documento(hit)
-            if doc is not None:
+            if doc is not None and doc.id not in ids_vistos:
+                ids_vistos.add(doc.id)
                 documentos.append(doc)
 
         desde += len(hits)
