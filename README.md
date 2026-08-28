@@ -12,10 +12,11 @@ Cuando el índice no tiene algo, el servidor MCP debe decirlo explícitamente �
 
 ## Estado (28-ago-2026)
 
-**Funcionando de punta a punta, validado con consultas reales**: 800 documentos indexados
-(500 Gestor Normativo + 300 Supersociedades) → 49.209 fragmentos → búsqueda híbrida →
-servidor MCP. Consultas de prueba devolvieron citas correctas y verificables (ej. Ley 1258
-de 2008, artículo exacto, para "requisitos SAS").
+**Funcionando de punta a punta, validado con consultas reales**: 3.861 documentos indexados
+(2.361 Gestor Normativo + 1.500 Supersociedades) → 134.633 fragmentos → búsqueda híbrida →
+servidor MCP. Múltiples consultas de prueba en distintos temas (societario, laboral) devolvieron
+citas correctas y verificables, incluyendo detección automática de normas derogadas
+(ej. "Decreto 1848 de 1969 ... Derogado por el Decreto 1083 de 2015").
 
 - ✅ **Gestor Normativo** (legislación nacional): ingester + crawl a escala + índice, funcionando.
   Incluye extracción del grafo de vigencias (modifica/deroga/reglamenta) nativo del sitio.
