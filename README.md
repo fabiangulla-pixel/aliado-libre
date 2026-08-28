@@ -3,6 +3,9 @@
 RAG legal colombiano libre y gratuito — alternativa abierta a ALI Cerebro Legal (aliado.pro).
 Conecta asistentes de IA (vía MCP) a legislación y jurisprudencia colombiana con citas verificables.
 
+Es la primera herramienta de [Suite Legal Libre](../suite-legal-libre) — 100% local por
+diseño (solo hace búsqueda, no genera texto, no necesita el módulo `llm_dual` de la suite).
+
 **Cobertura honesta**: este proyecto NO pretende cubrir "toda" la data jurídica de Colombia.
 Cubre lo que tiene fuente abierta confirmada y documentada (ver `docs/fuentes.md`).
 Cuando el índice no tiene algo, el servidor MCP debe decirlo explícitamente — nunca inventar.
