@@ -49,22 +49,32 @@ def construir(dir_raw: Path) -> None:
     cliente = chromadb.PersistentClient(path=str(DIR_INDICE))
     coleccion = cliente.get_or_create_collection(COLECCION)
 
-    coleccion.upsert(
-        ids=[f.id for f in fragmentos],
-        embeddings=embeddings,
-        documents=textos,
-        metadatas=[
-            {
-                "documento_id": f.documento_id,
-                "fuente": f.fuente,
-                "identificador_documento": f.identificador_documento,
-                "titulo_documento": f.titulo_documento,
-                "url_original": f.url_original,
-                "orden": f.orden,
-            }
-            for f in fragmentos
-        ],
-    )
+    metadatas = [
+        {
+            "documento_id": f.documento_id,
+            "fuente": f.fuente,
+            "identificador_documento": f.identificador_documento,
+            "titulo_documento": f.titulo_documento,
+            "url_original": f.url_original,
+            "orden": f.orden,
+        }
+        for f in fragmentos
+    ]
+    ids = [f.id for f in fragmentos]
+
+    # Chroma limita el tamaño de cada upsert (ver max_batch_size del cliente);
+    # se sube en lotes para no reventar con corpus grandes.
+    tamanio_lote = 5000
+    for inicio in range(0, len(ids), tamanio_lote):
+        fin = inicio + tamanio_lote
+        coleccion.upsert(
+            ids=ids[inicio:fin],
+            embeddings=embeddings[inicio:fin],
+            documents=textos[inicio:fin],
+            metadatas=metadatas[inicio:fin],
+        )
+        print(f"  lote {inicio}-{min(fin, len(ids))}/{len(ids)} subido", flush=True)
+
     print(f"Índice actualizado en {DIR_INDICE} ({coleccion.count()} fragmentos totales)")
 
 
