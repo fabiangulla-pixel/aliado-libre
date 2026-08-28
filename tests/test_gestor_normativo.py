@@ -1,6 +1,8 @@
 from pathlib import Path
+from unittest.mock import patch
 
-from ingest.fuentes.gestor_normativo import _fix_mojibake, _parsear_documento
+from ingest.fuentes.gestor_normativo import _fix_mojibake, _parsear_documento, crawl
+from ingest.schema import Documento
 
 FIXTURE = Path(__file__).parent / "fixtures" / "gestor_normativo_decreto1083.html"
 
@@ -55,3 +57,48 @@ def test_parsear_documento_devuelve_none_si_falta_contenido():
     html_vacio = "<html><head><title>Norma vacía</title></head><body>nada aquí</body></html>"
     doc = _parsear_documento(html_vacio, "1", "https://example.test/norma.php?i=1")
     assert doc is None
+
+
+def _doc_previo(norma_id: str, vigencias: list[dict] | None = None) -> Documento:
+    return Documento(
+        id=f"gestor_normativo:{norma_id}",
+        fuente="gestor_normativo",
+        tipo="decreto",
+        identificador=f"Decreto {norma_id}",
+        titulo=f"Decreto {norma_id}",
+        fecha=None,
+        texto="texto ya conocido de una corrida anterior",
+        url_original=f"https://example.test/norma.php?i={norma_id}",
+        metadata={"vigencias": vigencias or []},
+    )
+
+
+def test_crawl_no_vuelve_a_descargar_documentos_previos():
+    previos = [_doc_previo("100"), _doc_previo("200")]
+    with (
+        patch("ingest.fuentes.gestor_normativo._sesion"),
+        patch("ingest.fuentes.gestor_normativo.obtener_norma") as mock_obtener,
+    ):
+        resultado = crawl(["100"], max_documentos=2, pausa_segundos=0, documentos_previos=previos)
+
+    mock_obtener.assert_not_called()
+    assert len(resultado) == 2
+    assert {d.id for d in resultado} == {"gestor_normativo:100", "gestor_normativo:200"}
+
+
+def test_crawl_expande_desde_vigencias_de_documentos_previos():
+    previos = [
+        _doc_previo("100", vigencias=[{"tipo": "Modifica", "id_relacionado": "300", "descripcion": ""}])
+    ]
+    nuevo = _doc_previo("300")
+
+    with (
+        patch("ingest.fuentes.gestor_normativo._sesion"),
+        patch("ingest.fuentes.gestor_normativo.obtener_norma", return_value=nuevo) as mock_obtener,
+    ):
+        resultado = crawl(["100"], max_documentos=2, pausa_segundos=0, documentos_previos=previos)
+
+    # "100" no se refetch (ya estaba); "300" sí, porque salió de sus vigencias
+    mock_obtener.assert_called_once()
+    assert mock_obtener.call_args[0][1] == "300"
+    assert {d.id for d in resultado} == {"gestor_normativo:100", "gestor_normativo:300"}
