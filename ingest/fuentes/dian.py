@@ -99,12 +99,20 @@ def _extraer_documento(sesion: requests.Session, materia: str, tipo: str, ruta: 
     )
 
 
-def crawl(max_documentos: int = 500, pausa_segundos: float = 0.5, al_guardar=None) -> list[Documento]:
+def crawl(
+    max_documentos: int = 500,
+    pausa_segundos: float = 0.5,
+    al_guardar=None,
+    documentos_previos: list[Documento] | None = None,
+) -> list[Documento]:
+    """Si se pasa `documentos_previos` (de una corrida anterior), no se
+    vuelven a descargar — permite reanudar un crawl interrumpido."""
     sesion = requests.Session()
     sesion.headers.update(HEADERS)
 
-    documentos: list[Documento] = []
-    vistos: set[str] = set()
+    documentos_previos = documentos_previos or []
+    documentos: list[Documento] = list(documentos_previos)
+    vistos: set[str] = {f"{d.metadata.get('materia')}:docs/{d.identificador}.htm" for d in documentos_previos}
 
     for materia, paginas_opcion in MATERIAS.items():
         for pagina_opcion in paginas_opcion:
@@ -112,7 +120,7 @@ def crawl(max_documentos: int = 500, pausa_segundos: float = 0.5, al_guardar=Non
                 return documentos
             tipo = TIPO_POR_PREFIJO.get(pagina_opcion[2], "concepto")
             rutas = _listar_partes(sesion, pagina_opcion)
-            for ruta in rutas:
+            for i, ruta in enumerate(rutas):
                 if len(documentos) >= max_documentos:
                     break
                 clave = f"{materia}:{ruta}"
@@ -123,6 +131,11 @@ def crawl(max_documentos: int = 500, pausa_segundos: float = 0.5, al_guardar=Non
                 if doc is not None:
                     documentos.append(doc)
                 time.sleep(pausa_segundos)
+                # algunas opciones (ej. normativa tributaria) traen miles de
+                # documentos — sin este checkpoint intermedio, una corrida
+                # interrumpida a mitad de camino perdería todo el progreso
+                if al_guardar is not None and i % 50 == 0:
+                    al_guardar(documentos)
             if al_guardar is not None:
                 al_guardar(documentos)
 

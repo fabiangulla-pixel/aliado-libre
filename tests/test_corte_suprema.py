@@ -52,3 +52,35 @@ def test_crawl_descarta_textos_muy_cortos():
     ):
         docs = cs.crawl(max_documentos=10, pausa_segundos=0)
     assert docs == []
+
+
+def test_crawl_reanuda_sin_repetir_ruta_ya_vista():
+    from ingest.schema import Documento
+
+    previo = Documento(
+        id="corte_suprema:civil:AC1-2026",
+        fuente="corte_suprema",
+        tipo="sentencia",
+        identificador="AC1-2026",
+        titulo="Corte Suprema - Sala Civil - AC1-2026.pdf",
+        fecha=None,
+        texto="texto previo",
+        url_original="https://x",
+        metadata={"sala": "Civil", "magistrado": "Dr. X", "ruta": "/x/AC1-2026.pdf"},
+    )
+    resultados_pagina = [
+        {"title": "AC1-2026.pdf", "onlinePath": "/x/AC1-2026.pdf", "doctor": "Dr. X"},  # ya visto
+        {"title": "AC2-2026.pdf", "onlinePath": "/x/AC2-2026.pdf", "doctor": "Dr. Y"},  # nuevo
+    ]
+    texto_largo = "Texto suficientemente largo. " * 10
+    with (
+        patch("ingest.fuentes.corte_suprema._buscar_pagina", side_effect=[resultados_pagina, [], [], [], []]),
+        patch("ingest.fuentes.corte_suprema._texto_completo", return_value=texto_largo) as mock_texto,
+        patch("ingest.fuentes.corte_suprema.time.sleep"),
+    ):
+        docs = cs.crawl(max_documentos=10, pausa_segundos=0, documentos_previos=[previo])
+    identificadores = {d.identificador for d in docs}
+    assert identificadores == {"AC1-2026", "AC2-2026"}
+    # solo se pidió texto completo para el documento nuevo, no para el ya visto
+    assert mock_texto.call_count == 1
+    assert mock_texto.call_args[0][1] == "/x/AC2-2026.pdf"

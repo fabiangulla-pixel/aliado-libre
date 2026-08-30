@@ -38,6 +38,48 @@ def test_a_documento_prefiere_texto_completo_si_es_mas_largo():
     assert doc.texto == texto_largo
 
 
+def test_extraer_texto_binario_docx():
+    contenido = (FIXTURES / "superfinanciera_concepto.docx").read_bytes()
+    texto = sf._extraer_texto_binario(contenido)
+    assert texto is not None
+    assert "Concepto de prueba" in texto
+    assert "Segundo párrafo" in texto
+
+
+def test_extraer_texto_binario_no_confunde_docx_con_texto_plano():
+    # bug real de una corrida anterior: decodificar el .docx (zip binario)
+    # como texto producía basura ~30x más pesada que el contenido real
+    contenido = (FIXTURES / "superfinanciera_concepto.docx").read_bytes()
+    texto = sf._extraer_texto_binario(contenido)
+    assert len(texto) < len(contenido)
+
+
+def test_extraer_texto_binario_none_si_docx_corrupto():
+    assert sf._extraer_texto_binario(b"PK\x03\x04basura_no_es_un_zip_valido") is None
+
+
 def test_a_documento_none_si_bloque_vacio():
     doc = sf._a_documento(MagicMock(), "<div>nada relevante aquí</div>", 1)
     assert doc is None
+
+
+def test_crawl_reanuda_desde_el_indice_global_previo():
+    from ingest.schema import Documento
+
+    previos = [
+        Documento(
+            id="superfinanciera:37:algo",
+            fuente="superfinanciera",
+            tipo="concepto",
+            identificador="algo",
+            titulo="algo",
+            fecha=None,
+            texto="texto previo",
+            url_original="https://x",
+        )
+    ]
+    with patch("ingest.fuentes.superfinanciera._obtener_pagina", return_value="<html></html>") as mock_pagina:
+        docs = sf.crawl(max_documentos=2, documentos_previos=previos)
+    assert docs == previos  # sin bloques nuevos, no agrega nada más
+    llamada_desde = mock_pagina.call_args[0][1]
+    assert llamada_desde == 38  # 37 + 1, no reempieza en 1

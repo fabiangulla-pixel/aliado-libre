@@ -9,9 +9,12 @@ from __future__ import annotations
 
 import re
 import time
+from io import BytesIO
 
 import requests
 from bs4 import BeautifulSoup
+from docx import Document as DocumentoWord
+from pypdf import PdfReader
 
 from ingest.schema import Documento
 
@@ -48,6 +51,33 @@ def _texto_campo(bloque_html: str, etiqueta: str) -> str | None:
     return texto or None
 
 
+def _extraer_texto_binario(contenido: bytes) -> str | None:
+    """El "Archivo de texto" del catálogo casi siempre es en realidad un
+    .docx (confirmado por Content-Disposition: filename="...docx") — a pesar
+    del nombre del enlace, NO es texto plano. Decodificarlo directo como
+    texto (bug real de una corrida anterior) produce basura binaria escapada
+    en JSON, ~30x más pesada que el texto real. Se detecta el formato por
+    firma de bytes en vez de confiar en la extensión."""
+    if contenido[:2] == b"PK":  # .docx (zip) — Word Open XML
+        try:
+            documento = DocumentoWord(BytesIO(contenido))
+            return "\n".join(p.text for p in documento.paragraphs if p.text.strip())
+        except Exception:
+            return None
+    if contenido[:4] == b"%PDF":
+        try:
+            lector = PdfReader(BytesIO(contenido))
+            return "\n".join(p.extract_text() or "" for p in lector.pages).strip()
+        except Exception:
+            return None
+    for codec in ("utf-8", "iso-8859-1"):
+        try:
+            return contenido.decode(codec)
+        except UnicodeDecodeError:
+            continue
+    return None
+
+
 def _descargar_archivo_texto(sesion: requests.Session, bloque_html: str) -> str | None:
     m = re.search(r"idFile=(\d+)", bloque_html)
     if not m:
@@ -56,12 +86,7 @@ def _descargar_archivo_texto(sesion: requests.Session, bloque_html: str) -> str 
     r = sesion.get(DESCARGA_URL, params=params, timeout=30)
     if r.status_code != 200 or not r.content:
         return None
-    for codec in ("utf-8", "iso-8859-1"):
-        try:
-            return r.content.decode(codec)
-        except UnicodeDecodeError:
-            continue
-    return None
+    return _extraer_texto_binario(r.content)
 
 
 def _a_documento(sesion: requests.Session, bloque_html: str, indice_global: int) -> Documento | None:
@@ -99,13 +124,22 @@ def _a_documento(sesion: requests.Session, bloque_html: str, indice_global: int)
     )
 
 
-def crawl(max_documentos: int = 500, pausa_segundos: float = 0.5, al_guardar=None) -> list[Documento]:
+def crawl(
+    max_documentos: int = 500,
+    pausa_segundos: float = 0.5,
+    al_guardar=None,
+    documentos_previos: list[Documento] | None = None,
+) -> list[Documento]:
+    """Si se pasa `documentos_previos` (de una corrida anterior), reanuda
+    desde el índice global donde se quedó en vez de reempezar desde el
+    registro 1 — la paginación del catálogo es puramente secuencial."""
     sesion = requests.Session()
     sesion.headers.update(HEADERS)
 
-    documentos: list[Documento] = []
-    desde = 1  # el motor ABCD/ISIS es 1-indexado; desde=0 devuelve el formulario vacío
-    indice_global = 0
+    documentos_previos = documentos_previos or []
+    documentos: list[Documento] = list(documentos_previos)
+    indice_global = max((int(d.id.split(":")[1]) for d in documentos_previos), default=0)
+    desde = indice_global + 1  # el motor ABCD/ISIS es 1-indexado; desde=0 devuelve el formulario vacío
 
     while len(documentos) < max_documentos:
         html = _obtener_pagina(sesion, desde)

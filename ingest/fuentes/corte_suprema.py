@@ -115,15 +115,35 @@ def _identificador_desde_titulo(titulo: str) -> str:
     return m.group(1) if m else titulo.rsplit(".", 1)[0]
 
 
-def crawl(max_documentos: int = 500, pausa_segundos: float = 1.0, al_guardar=None) -> list[Documento]:
+def crawl(
+    max_documentos: int = 500,
+    pausa_segundos: float = 1.0,
+    al_guardar=None,
+    documentos_previos: list[Documento] | None = None,
+) -> list[Documento]:
+    """Si se pasa `documentos_previos`, no se vuelve a pedir el texto completo
+    de rutas ya vistas (dedupe exacto vía `metadata["ruta"]`), y por cada Sala
+    se salta el listado hasta un `start` estimado a partir de cuántos
+    documentos de esa Sala ya se tienen — el orden `NEW_FIRST` es estable
+    entre corridas cercanas en el tiempo, así que no hace falta re-listar
+    desde cero (cada documento real aparece ~2 veces en los resultados,
+    .pdf y .docx, de ahí el factor 2 en la estimación)."""
     sesion = requests.Session()
     sesion.headers.update(HEADERS)
 
-    documentos: list[Documento] = []
-    vistos: set[str] = set()
+    documentos_previos = documentos_previos or []
+    documentos: list[Documento] = list(documentos_previos)
+    vistos: set[str] = {
+        d.metadata["ruta"].rsplit(".", 1)[0] for d in documentos_previos if d.metadata.get("ruta")
+    }
+
+    documentos_previos_por_sala: dict[str, int] = {}
+    for d in documentos_previos:
+        sala_previa = d.metadata.get("sala", "")
+        documentos_previos_por_sala[sala_previa] = documentos_previos_por_sala.get(sala_previa, 0) + 1
 
     for sala in SALAS:
-        start = 0
+        start = documentos_previos_por_sala.get(sala, 0) * 2
         while len(documentos) < max_documentos:
             resultados = _buscar_pagina(sesion, sala, start)
             if not resultados:
@@ -155,7 +175,7 @@ def crawl(max_documentos: int = 500, pausa_segundos: float = 1.0, al_guardar=Non
                         fecha=None,
                         texto=texto,
                         url_original="https://consultaprovidencias.cortesuprema.gov.co/busqueda",
-                        metadata={"sala": sala, "magistrado": item.get("doctor")},
+                        metadata={"sala": sala, "magistrado": item.get("doctor"), "ruta": ruta},
                     )
                 )
 

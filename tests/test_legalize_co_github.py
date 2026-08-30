@@ -35,3 +35,16 @@ def test_crawl_lee_directorio_local(tmp_path):
     docs = lc.crawl(raiz=tmp_path)
     assert len(docs) == 1
     assert docs[0].identificador == "LEY-1-1873"
+
+
+def test_crawl_no_relee_documentos_previos(tmp_path):
+    contenido = (FIXTURES / "LEY-1-1873.md").read_text(encoding="utf-8")
+    (tmp_path / "LEY-1-1873.md").write_text(contenido, encoding="utf-8")
+    (tmp_path / "LEY-2-1900.md").write_text(contenido.replace("LEY-1-1873", "LEY-2-1900"), encoding="utf-8")
+
+    previos = lc.crawl(raiz=tmp_path, max_documentos=1)
+    assert len(previos) == 1
+
+    completos = lc.crawl(raiz=tmp_path, documentos_previos=previos)
+    identificadores = {d.identificador for d in completos}
+    assert identificadores == {"LEY-1-1873", "LEY-2-1900"}

@@ -8,3 +8,4 @@ chromadb
 mcp
 pypdf
 pyyaml
+python-docx

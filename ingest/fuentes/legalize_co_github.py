@@ -66,7 +66,15 @@ def _parsear_archivo(ruta: Path) -> Documento | None:
     )
 
 
-def crawl(max_documentos: int = 5000, raiz: Path | None = None, al_guardar=None) -> list[Documento]:
+def crawl(
+    max_documentos: int = 5000,
+    raiz: Path | None = None,
+    al_guardar=None,
+    documentos_previos: list[Documento] | None = None,
+) -> list[Documento]:
+    """Lectura local, sin red — pero igual soporta `documentos_previos` para
+    poder correr en varios lotes (por ejemplo si `max_documentos` limita el
+    tamaño del checkpoint) sin reprocesar archivos ya leídos."""
     raiz = raiz or RAIZ_DEFECTO
     if not raiz.is_dir():
         raise FileNotFoundError(
@@ -75,13 +83,19 @@ def crawl(max_documentos: int = 5000, raiz: Path | None = None, al_guardar=None)
             "data/respaldo_legalize_co"
         )
 
-    documentos: list[Documento] = []
+    documentos_previos = documentos_previos or []
+    documentos: list[Documento] = list(documentos_previos)
+    vistos: set[str] = {d.identificador for d in documentos_previos}
+
     for i, ruta in enumerate(sorted(raiz.glob("*.md"))):
         if len(documentos) >= max_documentos:
             break
+        if ruta.stem in vistos:
+            continue
         doc = _parsear_archivo(ruta)
         if doc is not None:
             documentos.append(doc)
+            vistos.add(doc.identificador)
         if al_guardar is not None and i % 1000 == 0:
             al_guardar(documentos)
 
