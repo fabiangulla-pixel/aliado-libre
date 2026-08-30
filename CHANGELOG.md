@@ -1,5 +1,54 @@
 # Changelog
 
+## 2026-08-29 (tarde) — Escalado real: corpus 44.733 → 120.133+ documentos
+
+Continuación de la sesión de la mañana: se le dio soporte de reanudación a
+los 4 ingesters nuevos y se corrieron crawls reales a escala.
+
+### Resuelto
+
+- **DIAN**: 3.000 documentos (tope del lote, hay más disponible — el crawl
+  se detuvo por `max_documentos`, no porque se agotaran las fuentes).
+- **legalize-co**: **71.900 documentos** — el respaldo completo, leído en
+  una sola corrida (lectura local, sin red, ~15 minutos).
+- **Superfinanciera**: en progreso al cierre (500+ de 3.000 objetivo), corre
+  en background y es reanudable.
+- **Corte Suprema**: **0 documentos** — el backend GraphQL resultó mucho más
+  inestable de lo esperado: 3 sesiones completas de reintentos (15 intentos
+  en total, ~50 minutos) sin lograr una sola respuesta 200 sostenida. Queda
+  documentado como pendiente a reintentar en otro momento — el código del
+  ingester está verificado y funciona (se confirmó con éxito real durante la
+  investigación de la mañana), el problema es enteramente de disponibilidad
+  del servidor de la Corte, no del cliente.
+- **2 bugs reales encontrados y corregidos al correr a escala** (nunca
+  aparecieron en las pruebas con lotes de 5-10 documentos):
+  1. El "archivo de texto" descargable de Superfinanciera es en realidad un
+     `.docx` — decodificarlo directo como texto (asumiendo que el nombre del
+     enlace no mentía) infló 225 documentos a 6.7GB antes de descubrirse.
+  2. Segunda vuelta del mismo enlace: algunos son en realidad **audios
+     .mp3** de audiencias — mismo problema, más grave (MemoryError al
+     serializar el checkpoint). Corregido con una heurística de detección
+     de binario (proporción de bytes de control) en vez de confiar en la
+     extensión o en que la decodificación "no falle" (latin1 nunca falla).
+- Auditoría de datos corrida sobre el corpus completo (`DATA_AUDIT.md`):
+  sin duplicados, sin colisiones de ID entre las 8 fuentes, esquema completo
+  en el 100% de los documentos. Único hallazgo no bloqueante: 72% de los
+  conceptos de Superfinanciera sin fecha (identificador es un título largo
+  sin fecha embebida para el subtipo "jurisdiccional").
+- 4 scripts de crawl (`scripts/crawl_*.py`) con checkpoint incremental y
+  reanudación (`documentos_previos`) añadida a los 4 ingesters nuevos.
+- 10 tests nuevos (48 → 58).
+
+### Pendiente
+
+1. Terminar el lote de Superfinanciera (corriendo en background al cierre).
+2. Reintentar Corte Suprema cuando el backend esté estable — o considerar
+   escalarlo en sesiones cortas y frecuentes en vez de una corrida larga.
+3. Reconstruir el índice (embeddings + Chroma) con el corpus ampliado —
+   aún no se tocó `index/build_index.py` en esta sesión.
+4. DIAN: correr de nuevo con `max_documentos` más alto para agotar las 3
+   materias completas (hoy se cortó a mitad de camino por el tope).
+
 ## 2026-08-29 — 3 ingesters nuevos + respaldo GitHub + preparación de deploy
 
 Segunda sesión: se atacaron los 4 pendientes dejados el 28-ago.
