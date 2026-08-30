@@ -1,7 +1,14 @@
 # Desplegar el servidor MCP en Render
 
-Todo lo de este documento queda preparado pero **no ejecutado** — crear el
-servicio en Render es una acción sobre tu cuenta, la confirmas tú.
+**Decisión (30-ago-2026): NO se despliega.** El uso real es solo desde la
+máquina local, y el costo mensual recurrente de Render (necesita el plan
+`standard`, no el free — ver "Por qué hace falta un disco persistente" más
+abajo) no se justifica frente a seguir usando el servidor en modo `stdio`
+local, que es gratis. Todo lo de este documento queda preparado por si la
+necesidad cambia (uso remoto, compartir con alguien más), pero no es un
+pendiente activo del proyecto.
+
+## Qué ya está listo
 
 ## Qué ya está listo
 
