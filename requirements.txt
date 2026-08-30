@@ -7,3 +7,4 @@ rank-bm25
 chromadb
 mcp
 pypdf
+pyyaml

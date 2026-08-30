@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: aliado-libre-mcp
+    runtime: docker
+    plan: standard # necesita >= 4GB RAM para sentence-transformers + Chroma en memoria
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /mcp
+    envVars:
+      - key: PORT
+        value: 8000
+    disk:
+      name: indice-chroma
+      mountPath: /app/index/chroma_db
+      sizeGB: 5 # el índice actual pesa ~2.4GB; margen para crecer con nuevas fuentes

@@ -4,6 +4,7 @@ al conector de aliado.pro."""
 
 from __future__ import annotations
 
+import os
 import sys
 from pathlib import Path
 
@@ -45,4 +46,11 @@ def buscar_normativa(consulta: str, max_resultados: int = 5) -> str:
 
 
 if __name__ == "__main__":
-    mcp.run()
+    # Local (uso normal, cliente MCP en el mismo equipo): stdio, sin variables
+    # de entorno. Desplegado (Render u otro host web): streamable-http sobre
+    # el puerto que asigne la plataforma — Render expone $PORT.
+    puerto = os.environ.get("PORT")
+    if puerto:
+        mcp.run(transport="streamable-http", host="0.0.0.0", port=int(puerto))
+    else:
+        mcp.run()

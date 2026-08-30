@@ -1,0 +1,586 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+	<meta name=viewport content="width=device-width, initial-scale=1">
+	<meta name="keywords" content="" />
+	<meta name="description" content="" />
+	<meta http-equiv="content-type" content="text/html; ISO-8859-1" />
+	<title>Superintendencia Financiera de Colombia</title>
+    <link rel="shortcut icon" href="https://www.superfinanciera.gov.co/info/superfinancierav8/web/portal/img/favicon.png" type="image/x-icon">
+	<link href="../style.css?1788052484" rel="stylesheet" type="text/css" media="screen" />
+	<!--script src=https://www.superfinanciera.gov.co/ABCD/superfinanciera//js/tabs.js?1788052484></script-->
+	<script src=https://www.superfinanciera.gov.co/ABCD/superfinanciera//js/script_b.js?1788052484></script>
+	<script src=https://www.superfinanciera.gov.co/ABCD/superfinanciera//js/highlight.js?1788052484></script>
+	<script src=https://www.superfinanciera.gov.co/ABCD/superfinanciera//js/lr_trim.js></script>
+	<script src=https://www.superfinanciera.gov.co/ABCD/superfinanciera//js/selectbox.js></script>
+	<link href="https://www.superfinanciera.gov.co/media/plugins/fontawesome/4.6.3/css/font-awesome.min.css" rel="stylesheet" type="text/css" />
+
+	<script>
+		function ActivarBase(base){			document.activar.base.value=base
+			document.activar.submit()		}
+	</script>
+</head>
+<body  >
+<a name=inicio>
+<div id=centrado>
+<div id="header-wrapper">
+	<div id="header">
+		<div id="logo">
+			<a href="https://www.superfinanciera.gov.co"><img src=../images/logos-gobierno.png  width=938px></a>
+		</div>
+	</div>
+</div>
+
+<div id="menu-wrapper">
+	<div id="menu">
+		<ul>
+			<!--li><a href="https://www.superfinanciera.gov.co">Home</a></li-->
+			<li><a href="index.php">Inicio</a></li>
+<li><a href="javascript:ActivarBase('biblo')">Catálogo especializado</a>
+<li><a href="javascript:ActivarBase('juris')">Catálogo jurídico</a>
+<li><a href="javascript:ActivarBase('cuentos')"><font color=#450000>Catálogo Literatura Infantil y Juvenil</font></a>
+<li><a href="javascript:ActivarBase('motivo')">Catálogo exposición de motivos</a>
+<li><a href="javascript:ActivarBase('memins')">Catálogo memoria institucional</a>
+
+		</ul>
+
+
+	</div>
+	<!-- end #menu -->
+</div>
+<form name=activar method=post action=inicio_base.php>
+<input type=hidden name=base>
+</form>
+ <!-- end #header -->
+ <div id="sidebar">
+<h2><ab>Catálogos</ab></h2>
+<ul>
+<li><a href='javascript:BuscarIntegrada("biblo","","libre","$","","","","","","")'><ab><strong>Catálogo especializado</ab></strong></a></li>
+<ul>
+<li><a href='javascript:BuscarIntegrada("biblo","","libre","","am|Libros|TM_","","","","","")'>Libros</a></li>
+<li><a href='javascript:BuscarIntegrada("biblo","","libre","","mb|Documentos digitales|TM_","","","","","")'>Documentos digitales</a></li>
+</ul>
+<li><a href='javascript:BuscarIntegrada("juris","","libre","$","","","","","","")'><ab><strong>Catálogo jurídico</ab></strong></a></li>
+<ul>
+<li><a href='javascript:BuscarIntegrada("juris","","libre","","ac|Doctrina y conceptos|TM_","","","","","")'>Doctrina y conceptos</a></li>
+<li><a href='javascript:BuscarIntegrada("juris","","libre","","af|Fallos jurisdiccionales|TM_","","","","","")'>Fallos jurisdiccionales</a></li>
+<li><a href='javascript:BuscarIntegrada("juris","","libre","","aj|Jurisprudencia financiera|TM_","","","","","")'>Jurisprudencia financiera</a></li>
+</ul>
+<li><a href='javascript:BuscarIntegrada("cuentos","","libre","$","","","","","","")'><ab><strong><font color=#450000>Catálogo Literatura Infantil y Juvenil</font></ab></strong></a></li>
+<li><a href='javascript:BuscarIntegrada("motivo","","libre","$","","","","","","")'><ab><strong>Catálogo exposición de motivos</ab></strong></a></li>
+<li><a href='javascript:BuscarIntegrada("memins","","libre","$","","","","","","")'><ab><strong>Catálogo memoria institucional</ab></strong></a></li>
+<hr style=border-color:#990000;><h2>Recursos electrónicos</h2><ul>
+<li><a href=http://www.multilegis.com/colombia/superfinanciera/ target=_blank>Multilegis</a></li>
+</ul>
+<hr style=border-color:#990000;></ul>
+          
+	        <form name=estado_de_cuenta action=opac_statment_call.php method=post onsubmit="ValidarUsuario();return false">
+	        <ul><h3>Usuarios</h3>
+			<ul><li>Estado de cuenta y renovación en línea</li></ul>
+			&nbsp;<input type="text" name="usuario" id="search-user" value="" placeholder=" Documento de Identidad" />
+		    <input type="submit" id="search-user-submit" value="" border=0 />
+				<!--div class="tooltip"><input type=submit id=tooltip-button value="" onclic=ValidarUsuario()>
+				  <span class="tooltiptext">Estado de cuenta de préstamos<br>Introduzca su código de usuario sin espacios o signos de puntuación</span>
+				</div-->
+			</form>
+<hr style=border-color:#990000;><h2>NOVEDADES</h2><ul>
+<li><a href=https://www.superfinanciera.gov.co/ABCD/culturales/novedadesbiblioteca.pdf target=_blank>Documentos recomendados</a></li>
+</ul>
+</ul>
+<hr style=border-color:#990000;></ul>
+<h2>Enlaces de interés</h2><ul>
+<li><a href="https://www.superfinanciera.gov.co/ABCD/culturales/cultural.html?submenu=N" target="new">Actividades culturales</a></li>
+<li><a href="https://www.superfinanciera.gov.co/ABCD/culturales/interbiblio.htm?submenu=N" target="new">Convenios préstamo interbibliotecario</a></li>
+<li><a href="http://investiga.banrep.gov.co/es/caie?submenu=N" target="new">Centro de Apoyo a la Investigación Económica (CAIE)</a></li>
+<li><a href="https://www.ellibrototal.com/ltotal/?submenu=N" target="new">El libro Total. Biblioteca digital</a></li>
+<li><a href="https://www.superfinanciera.gov.co/jsp/index.jsf?submenu=N" target="new">Página principal</a></li>
+</ul>
+</ul>
+</div>
+<form name=bi action=buscar_integrada.php method=post>
+<input type=hidden name=base>
+<input type=hidden name=cipar>
+<input type=hidden name=Opcion>
+<input type=hidden name=coleccion>
+<input type=hidden name=Expresion>
+<input type=hidden name=titulo_c>
+<input type=hidden name=resaltar>
+<input type=hidden name=submenu>
+<input type=hidden name=Pft>
+<input type=hidden name=mostrar_exp>
+</form>
+<script>
+function BuscarIntegrada(base,cipar,Opcion,Expresion,Coleccion,titulo_c,resaltar,submenu,Pft,mostrar_exp){
+	document.bi.base.value=base
+	document.bi.cipar.value=cipar
+	document.bi.Opcion.value=Opcion
+	if (Opcion=="libre"){		document.bi.coleccion.value=Coleccion
+		document.bi.Expresion.value=Expresion	}
+	if (Opcion=="directa"){		document.bi.Expresion.value=Expresion
+		document.bi.titulo_c.value=titulo_c
+		document.bi.resaltar.value=resaltar
+		document.bi.submenu.value=submenu
+		document.bi.Pft.value=Pft
+		document.bi.mostrar_exp.value=mostrar_exp	}
+	document.bi.submit()}
+</script>
+
+	<div id="page">
+		<div id="content" >
+
+<span class=tituloBase>Catálogo jurídico</span>
+		<div id="search" >
+			<form method="post" action="buscar_integrada.php" name=libre><input type=hidden name=base value=juris>
+		<xdiv id='searchWrapper'>
+			<input type="text" name="Sub_Expresion" id="search-text" value="" placeholder="Buscar ..."/>
+			<input type="submit" id="search-libre" value="" />
+		</xdiv>
+		<div id="more">
+			<img src="" border=0 id=iAlcance>
+			<input type=button   onClick="showhide('mAlcance','')" value="Alcance ..."  >
+			<div id="mAlcance" style="display:none;margin-bottom:0px;margin-top:0px;padding:0px;float:right;">
+	        	<font class=titulo2>Incluir en los resultados las referencias que contengan<br>
+	        	<input type=radio value=and name=alcance id=and checked>Todos los términos de búsqueda (and)<br>
+	        	<input type=radio value=or name=alcance id=or>Alguno(s) de los términos de búsqueda (or)</font>
+	        	<br>
+	        	<input type="button"  style="margin-top:10px" value="Consultar diccionario" onclick="javascript:DiccionarioLibre(0)"/>
+        	</div>
+   		</div>
+    	<br>
+		<div id=search-avanzada>
+			<input type="button" value="Búsqueda avanzada"  onclick="javascript:document.libre.action='avanzada.php';document.libre.submit();"/>
+    		&nbsp; &nbsp; <input type=button value="Índices alfabéticos" onclick="showhide('sub_menu','')">    	</div>
+    	<input type=hidden name=Opcion value=libre>
+   		<input type=hidden name=prefijo value=TW_>
+  		<input type=hidden name=indice_base value=0>
+   		<input type=hidden name=resaltar value="S">
+   		   	</form>
+</div>
+
+<xbr>
+    <div id="sub_menu" style="display: none;" name=sub_menu id=sub_menu>
+		<ul>
+<li><a href='Javascript:ActivarIndice("Ponentes",2,"inicio",90,1,"AU_","AU_","juris")'>Ponentes</a></li>
+<li><a href='Javascript:ActivarIndice("Títulos",1,"inicio",90,1,"TI_","TI_","juris")'>Títulos</a></li>
+<li><a href='Javascript:ActivarIndice("Materias",1,"inicio",90,1,"MA_","MA_","juris")'>Materias</a></li>
+<li><a href='Javascript:ActivarIndice("Año de la norma",2,"inicio",90,1,"AE_","AE_","juris")'>Año de la norma</a></li>
+<li><a href='Javascript:ActivarIndice("No. Norma/Sentencia",2,"inicio",90,1,"NN_","NN_","juris")'>No. Norma/Sentencia</a></li>
+<li><a href='Javascript:ActivarIndice("No. Expediente/Rad.",2,"inicio",90,1,"NE_","NE_","juris")'>No. Expediente/Rad.</a></li>
+
+		</ul>
+	</div>
+<div style='margin-top:30px;display: block;width:100%;font-size:12px;'></div><div style="border:1px solid #EEE7DF; border-radius:15px;margin-bottom:0px ;margin-top:0px; padding:0px 10px 10px 10px";float:right><input type=button  id="search-submit" onClick="showhide('mRefine','')" value="Filtros de búsqueda"  xclass="button-submit">
+
+&nbsp; &nbsp;<input type=button id="search-submit" value="Mostrar registros marcados" onclick=javascript:showCookie('ORBITA')>
+&nbsp; &nbsp;<input type=button id="search-submit" value="Eliminar marcas" onclick=javascript:delCookie('')>
+
+<span id="mRefine" style="display:none;">
+<br><br>
+  <script>
+function addRowTable(tableID,subC,accion,valdef) {
+		va_def=new Array()
+            tag=tableID
+            tableID="id_"+tag
+            var table = document.getElementById(tableID);
+
+            var rowCount = table.rows.length;
+            var row = table.insertRow(rowCount);
+            initRow=0
+            nfilas=rowCount
+            var colCount = table.rows[initRow].cells.length;
+            for(var i=0; i<colCount; i++) {
+
+                var newcell = row.insertCell(i);
+                newcell.vAlign = 'top';
+                newcell.setAttribute("bgColor","#FFFFFF");
+                if (i==1) {
+                	newcell.innerHTML ="<input type=\"button\" onclick=\"Diccionario("+nfilas+");\" class=\"button-diccionario\">"
+                }else{
+               	 	newcell.innerHTML = table.rows[initRow].cells[i].innerHTML;
+                }
+
+        	}
+
+        	subC="abc"
+        	names=Array()
+        	names[0]="camp"
+        	names[1]="Sub_Expresiones"
+        	names[2]="oper"
+            if (subC.length>0){
+	            for (i=0;i<subC.length;i++){
+	            	sc=""
+	                if (subC!="")
+	                	sc="_"+subC.substr(i,1)
+	                	lsc=subC.substr(i,1)
+	            	newName="tag"+tag+"_"+nfilas+sc
+	            	Ctrl=eval("document.forma1."+names[i])
+	            	Ctrl=Ctrl[nfilas]
+                    if (accion=="add"){
+		            	switch (Ctrl.type){
+		            		case "text":
+		            			if (lsc in va_def)
+		            				Ctrl.value=va_def[lsc]
+		          				else
+		            				Ctrl.value=""
+		            			break;
+		            		case "textarea":
+		            			if (lsc in va_def)
+		            				Ctrl.value=va_def[lsc]
+		          				else
+		            				Ctrl.value=""
+		            			mlt=tag+"_0"+sc
+		            			text_counter=eval("document.forma1.rem"+tag+"_"+nfilas+sc)
+		            			if (text_counter){
+	                               text_counter.value=max_l[mlt]
+		            			}
+		            			break;
+		            		case "checkbox":
+		              			Ctrl.checked = false;
+		                 		break;
+		                 	 case "select-one":
+		                   		Ctrl.selectedIndex = 0;
+		                     	break;
+		                     case "radio":
+		                        Ctrl.checked = false;
+		                 		break;
+
+		            	}
+		       		}else{
+		       			prev_val=nfilas-1
+		       			oldName="tag"+tag+"_"+prev_val+sc
+	            		Ctrl_new=eval("document.forma1."+newName)
+	            		Ctrl_old=eval("document.forma1."+oldName)
+	            		switch (Ctrl.type){
+		            		case "text":
+		            			Ctrl_new.value=""
+		            			break;
+		            		case "textarea":
+		            			Ctrl_new.value=""
+		            			//mlt=tag+"_0"+sc
+		            			//text_counter=eval("document.forma1.rem"+tag+"_"+nfilas+sc)
+		            			//if (text_counter){
+	                            //   text_counter.value=max_l[mlt]
+		            			//}
+		            			break;
+		            		case "checkbox":
+		              			Ctrl_new.checked = ""
+		                 		break;
+		                 	 case "select-one":
+		                   		Ctrl_new.selectedIndex =1
+		                     	break;
+		                     case "radio":
+		                        Ctrl_new.checked = ""
+		                 		break;
+		            	}
+
+
+		       		}
+	            }
+			}else{
+
+			}
+
+
+        }
+
+        function deleteRowTable(row){
+            var parent = row.parentNode;
+  			var tagName = "table";
+
+  			while (parent) { //Loop through until you find the desired parent tag name
+				if (parent.tagName && parent .tagName.toLowerCase() == tagName) {
+      				tableID=(parent .id);
+      				break;
+    			}else{
+          			parent = parent .parentNode;
+      			}
+			}
+
+            var table = document.getElementById(tableID);
+            var rowCount = table.rows.length;
+	if (rowCount>1){
+    	var i=row.parentNode.parentNode.rowIndex;
+    	document.getElementById(tableID).deleteRow(i);
+    }else{
+    	Ctrl=eval("document.forma1.Sub_Expresiones")
+    	Ctrl.value=""
+    }
+}
+
+function IniciarBusqueda(){
+	PrepararExpresion('buscar')
+}
+
+
+</script>
+
+
+<script>
+var dt= new Array()
+dt[0]="Busqueda por Palabras||TW_|"
+dt[1]="Ponentes|100,700|AU_|"
+dt[2]="Autor corporativo|110,710|AI_|"
+dt[3]="Título de la norma|245|TI_|"
+dt[4]="Temas/Materias|650,651|MA_|"
+dt[5]="No. Norma/Sentencia|12|NN_|"
+dt[6]="No. Expediente|11|NE_|"
+dt[7]="Año Norma|13|AE_|"
+</script>
+<form method=post name=forma1 action=buscar_integrada.php onSubmit="Javascript:return false">
+<input type=hidden name=base value=juris>
+<input type=hidden name=Opcion value=avanzada>
+<input type=hidden name=resaltar value=S>
+<input type=hidden name=Campos value="">
+<input type=hidden name=Operadores value="">
+<input type=hidden name=Expresion value="">
+<div  style='float: left;  width: 440px; overflow: hidden; margin-top:5px;'>
+<table border=0 valign=center cellpadding=0 cellspacing=3 id=id_900 ><tr>
+				<td  valign=center width=160>		<SELECT name=camp  id=tag900_0_o class=select-criterio><OPTION value=TW_ selected>Busqueda por Palabras
+<OPTION value=AU_>Ponentes
+<OPTION value=AI_>Autor corporativo
+<OPTION value=TI_>Título de la norma
+<OPTION value=MA_>Temas/Materias
+<OPTION value=NN_>No. Norma/Sentencia
+<OPTION value=NE_>No. Expediente
+<OPTION value=AE_>Año Norma
+		</SELECT></td>
+<td width=20><input type="button" onclick="Diccionario(0);" class="button-diccionario">	</td>	<td width=50><input type=text style='font-size:10px' size=30 name=Sub_Expresiones id=tag900_0_n value=""></td>
+<td><select name=oper size=1 style='font-size:10px' i=tag900_0_p><option value=and  selected>y<option value=or >o</select></td><td><input type="button" onclick="deleteRowTable(this);" class="button-del"></td>
+</tr>
+		</table>
+<input type=button value="Agregar" onclick=addRowTable('900','onp','add','') style="width:80px; font-size:10px">&nbsp; &nbsp;
+<input type=button value="Buscar" onclick=IniciarBusqueda() style="width:80px; font-size:10px"><br></div><div style='overflow: hidden;text-align:left;' id='mensajes'> 
+<font size=1>Click sobre <input type=button value="Agregar" onclick=addRowTable('900','onp','add','') style="width:70px; font-size:10px">&nbsp; para sumar un nuevo criterio de búsqueda. Seleccione un campo y de clic sobre <img src=../images/diccionario.gif height=10> para consultar el índice. Puede indicar el operador que combinará los diferentes criterios (y/o).</font></div></form><form name=diccio method=post action=../php/diccionario_integrado.php><input type=hidden name=base value=juris><input type=hidden name=Sub_Expresion><input type=hidden name=Campos><input type=hidden name=Operadores><input type=hidden name=Opcion value=avanzada><input type=hidden name=prefijo value=""><input type=hidden name=campo value=""><input type=hidden name=id value=""><input type=hidden name=Diccio value=""><input type=hidden name=llamado_desde value='buscar_integrada.php'>
+<input type=hidden name=criterios value=S>
+</form></span>
+</div><form name=continuar action=buscar_integrada.php method=post>
+<input type=hidden name=existencias>
+
+<div align=right style='margin-top:0px'>
+&nbsp; &nbsp; <span class=tituloBase>Catálogo jurídico</span><br> Mostrando del 1 al 2 de 18569 registros </strong<p>
+</div>
+
+<div id=results>
+<div id="registro">
+<table width=100%><td valign=top width=30><script>
+cookie=getCookie("ORBITA")+"|"
+
+if (cookie.indexOf("c_juris_1|")!=-1)
+document.writeln("<input type=checkbox name=c_juris_1 id=c_juris_1  checked onclick=javascript:Seleccionar(this)>")
+else
+document.writeln("<input type=checkbox name=c_juris_1 id=c_juris_1 onclick=javascript:Seleccionar(this)>")
+</script>
+<br><br><a href=javascript:PrintRecord("c_juris_1")><img src=../images/print.png width=20>
+
+</a>
+</td><td><p><b>  DOCTRINA Y CONCEPTOS</b>
+<table width=100% align=left border=0 class=registro>
+<tr><td class=td1>Concepto: </td><td class=td2>2020311455 - 001 del 5 de febrero de 2021</td>
+</tr>
+<tr><td class=td1>Autor Corporativo:</td><td class=td2>Colombia. Superintendencia Financiera de Colombia<br></td>
+</tr>
+<tr><td class=td1>Título de la norma:</td><td class=td2><font color=#741b09><b>Administradoras de fondos de pensiones - AFP. Régimen de inversiones en fondos de inversión colectiva-FICs / Concepto 2020311455-001 del 5 de febrero de 2021</b></font></td>
+</tr>
+<tr><td class=td1>Documento fuente:</td><td class=td2>Superintendencia Financiera de Colombia. Conceptos 2021</td>
+</tr>
+<tr><td class=td1>Resumen:</td><td class=td2>El límite general para la inversión en títulos o valores participativos establecido para los fondos de inversión colectiva cerrados es del 5%, límite que considera tanto aquellos FIC que invierten en títulos de deuda, como los que invierten en títulos participativos para los fondos obligatorios que admiten esta inversión: Moderado, Mayor Riesgo y el Portafolio de Largo Plazo del fondo de Cesantía. Esta clase de inversión es inadmisible para los Fondos Conservador, Retiro Programado y el Portafolio de Corto Plazo del fondo de Cesantía.</td>
+</tr><tr><td class=td1>Otras formas físicas:</td><td class=td2>No se encuentra disponible en forma impresa.</td>
+</tr><tr><td class=td1>Temas/Materias:</td><td class=td2><font style="font-size:11px;"><a href='javascript:CRUZARD("MA_","PROTECCIÓN AL CONSUMIDOR FINANCIERO","juris");'><font color=#0F2F68><b><u>PROTECCIÓN AL CONSUMIDOR FINANCIERO</u></b></font></a><br><a href='javascript:CRUZARD("MA_","SERVICIOS FINANCIEROS","juris");'><font color=#0F2F68><b><u>SERVICIOS FINANCIEROS</u></b></font></a><br><a href='javascript:CRUZARD("MA_","FONDOS DE INVERSIÓN COLECTIVA","juris");'><font color=#0F2F68><b><u>FONDOS DE INVERSIÓN COLECTIVA</u></b></font></a><br><a href='javascript:CRUZARD("MA_","SOCIEDADES ADMINISTRADORAS DE FONDOS DE PENSIONES Y DE CESANTÍAS","juris");'><font color=#0F2F68><b><u>SOCIEDADES ADMINISTRADORAS DE FONDOS DE PENSIONES Y DE CESANTÍAS</u></b></font></a><br><a href='javascript:CRUZARD("MA_","SOCIEDADES ADMINISTRADORAS DE FONDOS DE PENSIONES Y DE CESANTÍAS","juris");'><font color=#0F2F68><b><u>SOCIEDADES ADMINISTRADORAS DE FONDOS DE PENSIONES Y DE CESANTÍAS-POLÍTICAS DE INVERSIÓN</u></b></font></a><br>
+</font></td>
+</tr>
+<tr><td class=td1 width=140>Acceso web (URL): </td><td class=td2><font face=arial size=-1><a href="https://www.superfinanciera.gov.co/loader.php?lServicio=Tools2&lTipo=descargas&lFuncion=descargar&idFile=1051137" target=_blank><b><u>Archivo de texto</b></a><br>
+</td>
+</table>
+</td></table>
+<BR><BR><HR><BR>
+</div>
+<div id="registro">
+<table width=100%><td valign=top width=30><script>
+cookie=getCookie("ORBITA")+"|"
+
+if (cookie.indexOf("c_juris_2|")!=-1)
+document.writeln("<input type=checkbox name=c_juris_2 id=c_juris_2  checked onclick=javascript:Seleccionar(this)>")
+else
+document.writeln("<input type=checkbox name=c_juris_2 id=c_juris_2 onclick=javascript:Seleccionar(this)>")
+</script>
+<br><br><a href=javascript:PrintRecord("c_juris_2")><img src=../images/print.png width=20>
+
+</a>
+</td><td><p><b>  DOCTRINA Y CONCEPTOS</b>
+<table width=100% align=left border=0 class=registro>
+<tr><td class=td1>Concepto: </td><td class=td2>2020236941 - 010 del 18 de enero de 2021</td>
+</tr>
+<tr><td class=td1>Autor Corporativo:</td><td class=td2>Colombia. Superintendencia Financiera de Colombia<br></td>
+</tr>
+<tr><td class=td1>Título de la norma:</td><td class=td2><font color=#741b09><b>Bienes recibidos en dación de pago-BRDP. Titularización de activos / Concepto 2020236941-010 del 18 de enero de 2021</b></font></td>
+</tr>
+<tr><td class=td1>Documento fuente:</td><td class=td2>Superintendencia Financiera de Colombia. Conceptos 2021</td>
+</tr>
+<tr><td class=td1>Resumen:</td><td class=td2>La titularización no sería una figura idónea para satisfacer la obligación que tienen las entidades vigiladas de vender dentro del plazo legal los BRDP, pues se trata de una operación de financiación cuyo propósito específico es la transformación de unos activos en valores, más no, en estricto sentido, su realización a cambio de un precio</td>
+</tr><tr><td class=td1>Otras formas físicas:</td><td class=td2>No se encuentra disponible en forma impresa.</td>
+</tr><tr><td class=td1>Temas/Materias:</td><td class=td2><font style="font-size:11px;"><a href='javascript:CRUZARD("MA_","PROTECCIÓN AL CONSUMIDOR FINANCIERO","juris");'><font color=#0F2F68><b><u>PROTECCIÓN AL CONSUMIDOR FINANCIERO</u></b></font></a><br><a href='javascript:CRUZARD("MA_","SERVICIOS FINANCIEROS","juris");'><font color=#0F2F68><b><u>SERVICIOS FINANCIEROS</u></b></font></a><br><a href='javascript:CRUZARD("MA_","DACIÓN EN PAGO","juris");'><font color=#0F2F68><b><u>DACIÓN EN PAGO</u></b></font></a><br><a href='javascript:CRUZARD("MA_","OBLIGACIONES","juris");'><font color=#0F2F68><b><u>OBLIGACIONES</u></b></font></a><br><a href='javascript:CRUZARD("MA_","DERECHO COMERCIAL","juris");'><font color=#0F2F68><b><u>DERECHO COMERCIAL</u></b></font></a><br>
+</font></td>
+</tr>
+<tr><td class=td1 width=140>Acceso web (URL): </td><td class=td2><font face=arial size=-1><a href="https://www.superfinanciera.gov.co/loader.php?lServicio=Tools2&lTipo=descargas&lFuncion=descargar&idFile=1051094" target=_blank><b><u>Archivo de texto</b></a><br>
+</td>
+</table>
+</td></table>
+<BR><BR><HR><BR>
+</div>
+</div>
+<table width=100%><td width=100% align=center><input type=hidden name=Expresion value="%24">
+<input type=hidden name=pagina value=1>
+
+<div style='width:100%;margin:0 auto;text-align:center; font-size:12px;'>
+Catálogo con la información de Jurisprudencia y conceptos juridiscionales<br>Pagina 1 de 9285 <br>Presentar resultados con: <select name=cambio_Pft onchange=CambiarFormato(this)><option value=opac.pft >Formato completo
+</option>
+<option value=novedades.pft >Ficha novedades
+</option>
+<option value=
+ ></option>
+</select><br><ul class=pagination>
+<li><a href=javascript:ProximaPagina(1,1)><img src=../images/first.gif valign=middle alt='Primera página' title='Primera página'></a></li>
+<li><a href=javascript:ProximaPagina(1,1)><img src=../images/left.gif valign=middle alt='Anterior' title='Anterior'></a></li>
+<li><a  class=active href=javascript:ProximaPagina(1,1)>1</li><li><a  href=javascript:ProximaPagina(2,26)>2</li><li><a  href=javascript:ProximaPagina(3,51)>3</li><li><a  href=javascript:ProximaPagina(4,76)>4</li><li><a  href=javascript:ProximaPagina(5,101)>5</li><li><a  href=javascript:ProximaPagina(6,126)>6</li><li><a  href=javascript:ProximaPagina(7,151)>7</li><li><a  href=javascript:ProximaPagina(8,176)>8</li><li><a  href=javascript:ProximaPagina(9,201)>9</li><li><a  href=javascript:ProximaPagina(10,226)>10</li><li><a  href=javascript:ProximaPagina(11,251)>11</li><li><a  href=javascript:ProximaPagina(12,276)>12</li><li><a  href=javascript:ProximaPagina(13,301)>13</li><li><a  href=javascript:ProximaPagina(14,326)>14</li><li><a  href=javascript:ProximaPagina(15,351)>15</li><li><a  href=javascript:ProximaPagina(16,376)>16</li><li><a  href=javascript:ProximaPagina(17,401)>17</li><li><a  href=javascript:ProximaPagina(18,426)>18</li><li><a  href=javascript:ProximaPagina(19,451)>19</li><li><a  href=javascript:ProximaPagina(20,476)>20</li><li><a href=javascript:ProximaPagina(2,26)><img src=../images/right.gif valign=middle alt='Próxima' title='Próxima'></a></li>
+<li><a href=javascript:ProximaPagina(9285,18568)><img src=../images/last.gif valign=middle alt='Última página' title='Última página'></a></li>
+</ul><input type=hidden name=desde size=4 value=3 id=desde>&nbsp; &nbsp; <input type=hidden name=count value=2 size=4><input type=hidden name=base value="juris">
+<input type=hidden name=Opcion value="libre">
+<input type=hidden name=prefijo value="">
+<input type=hidden name=indice_base value="0">
+<input type=hidden name=Formato value="opac.pft">
+<input type=hidden name=alcance value="or">
+<input type=hidden name=Diccio value="0">
+
+</div>
+</td></table><input type=hidden name=Sub_Expresion value="">
+</form>
+<P id='back-top'><a href=#inicio><span></span></a></p></div>
+				</div>
+				<!-- end #content -->
+<script>
+window.onload=function(){
+   var elem = document.getElementById('content');
+    //elem.style.width = "900px";
+    //elemen.style.float ="left"
+
+}
+
+ </script>
+				<div style="clear: both;">&nbsp;</div>
+	</div>
+<a name=final>
+</div>
+<div id="footer">
+
+		</a><style>
+contenido6{
+	background: #ffffff;
+}
+</style>
+
+<!--Pie de página::-->
+	<footer class="pie-pagina">
+		<div class="grupo-1">
+			<div class="box">
+				<h2>Síguenos</h2>
+				<div class="red-social">
+					<a href="https://twitter.com/SFCsupervisor" class="fa fa-twitter" target="_blank" title="Enlace a"></a>
+					<a href="https://www.instagram.com/superfinanciera" class="fa fa-instagram" target="_blank" title="Enlace a"></a>
+					<a href="https://es-la.facebook.com/superintendencia.financiera/" class="fa fa-facebook" target="_blank" title="Enlace a"></a>
+					<a href="https://www.youtube.com/user/superfinancieracol" class="fa fa-youtube" target="_blank" title="Enlace a"></a>
+					<a href="https://co.linkedin.com/company/superfinanciera" class="fa fa-linkedin" target="_blank" title="Enlace a"></a>
+					<a href="https://open.spotify.com/show/1bDPMtanEKBOI09j3DQKGM" class="fa fa-spotify"></a>
+				</div>
+			</div>
+			<div class="box">
+				<p>Superintendencia Financiera de Colombia</p>
+				<p>Dirección: <span style="color:#bbb">Calle 7 No. 4 - 49 Bogot&aacute;, D.C.</span></p>
+				<p>Código postal: <span style="color:#bbb">111711</span></p>
+			</div>
+			<div class="box">
+				<p>Conmutador:&nbsp;<span style="color:#bbb">+57 601 594 0200 - +57 601 594 0201 - +57 601 350 8166</span><br />
+				   L&iacute;nea gratuita nacional: <span style="color:#bbb">018000 120 100</span><br />
+				   Fax: <span style="color:#bbb">+57 601 350 7999 - +57 601 350 5707</span><br />
+				   Centro de contacto:&nbsp;<span style="color:#bbb">+57 601 307 8042</span>
+				</p>
+					<ul style="list-style:inside">
+						<li><span style="color:#bbb">Lunes a viernes (días hábiles) de 7:30 a.m. a 9:00 p.m. jornada contínua</span></li>
+						<li><span style="color:#bbb">Sábados de 8:00 a.m. a 4:00 p.m. jornada contínua</span></li>
+					</ul>
+				<p>Numeral abreviado:&nbsp; <span style="color:#bbb">#903</span></p>
+				<p>Línea anticorrupción:&nbsp; <span style="color:#bbb">+57 601 594 0200 extensiones 2334 y 2335</span></p>
+			</div>
+			<div class="box">
+				<p>Correo institucional: <br><a href="mailto:super@superfinanciera.gov.co"><span style="color:#bbb">super@superfinanciera.gov.co</span></a></p>
+				<p>Correo electrónico para notificaciones: <br><a href="mailto:notificaciones_ingreso@superfinanciera.gov.co"><span style="color:#bbb">notificaciones_ingreso@superfinanciera.gov.co</span></a></p>
+
+			</div>
+			<div class="box">
+				<p>Horario de atención del <a href="https://www.superfinanciera.gov.co/10083733"><font color=#ffffff><u>Punto Ciudadano</u></a>:</font></p>
+					<ul style="list-style:inside">
+						<li><span style="color:#bbb">Lunes a viernes (días hábiles) de 8:15 a.m. a 4:15 p.m. jornada contínua</span></li>
+					</ul>
+			</div>
+		</div>
+		<div class="grupo-2">
+			<a href="https://www.superfinanciera.gov.co/publicaciones/10106783/nuestra-entidadacerca-de-la-sfcpoliticas-de-la-entidadpoliticas-web-10106783/"><small>Políticas</small></a>
+			<a href="https://www.superfinanciera.gov.co/loader.php?lServicio=SiteMap&amp;lTipo=user&amp;lFuncion=main"><small>Mapa del sitio</small></a>
+		</div>
+		<div class="grupo-3">
+			<img src="https://www.superfinanciera.gov.co/info/superfinancierav8/media/bloque21.png" width="180px" height="40px"/>
+		</div>
+	</footer>	
+	</div>
+	<!-- end #page -->
+</div>
+
+
+<!-- end #footer -->
+</body>
+</html>
+
+<form name="buscar" action="buscar_integrada.php" method="post">
+<input type=hidden name=cookie>
+<input type=hidden name=alcance value=or><input type=hidden name=base value="juris">
+<input type=hidden name=LastKey>
+<input type=hidden name=resaltar>
+<input type=hidden name=indice_base value="0">
+<input type=hidden name=Opcion value="libre">
+<input type=hidden name=Expresion value="%24">
+<input type=hidden name=desde value="">
+<input type=hidden name=count value="2">
+<input type=hidden name=Diccio value=0>
+<input type=hidden name=prefijo value=>
+<input type=hidden name=Sub_Expresion value="">
+<input type=hidden name=alcance>
+<input type=hidden name=pagina>
+
+</form>
+<form name=activarindice method=post action=alfabetico.php>
+<input type="hidden" name="titulo">
+<input type="hidden" name="columnas">
+<input type="hidden" name="Opcion">
+<input type="hidden" name="count">
+<input type="hidden" name="posting">
+<input type="hidden" name="prefijo">
+<input type="hidden" name="prefijoindice">
+<input type="hidden" name="base">
+<input type=hidden name=cipar value=>
+</form>
+
+<form name=diccio_libre action=diccionario_integrado.php method=post>
+<input type=hidden name=lista_bases value="">
+<input type=hidden name=prefijo value=TW_>
+<input type=hidden name=Opcion value=libre>
+<input type=hidden name=alcance>
+<input type=hidden name=cipar value=>
+<input type=hidden name=base value=juris>
+<input type=hidden name=modo value="">
+</form>
+
+<SCRIPT LANGUAGE="JavaScript">
+	highlightSearchTerms("$");
+
+	</SCRIPT>

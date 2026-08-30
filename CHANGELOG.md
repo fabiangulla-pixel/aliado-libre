@@ -1,5 +1,53 @@
 # Changelog
 
+## 2026-08-29 — 3 ingesters nuevos + respaldo GitHub + preparación de deploy
+
+Segunda sesión: se atacaron los 4 pendientes dejados el 28-ago.
+
+### Resuelto
+
+- **3 fuentes nuevas con ingester funcionando** (`ingest/fuentes/{dian,superfinanciera,corte_suprema}.py`),
+  las 3 verificadas con datos reales, no solo con fixtures:
+  - **DIAN**: no era SPA — cada materia (tributario/aduanero/cambiario) tiene páginas
+    estáticas con fragmentos HTML (`*_parte_NN.html`) que enlazan documentos en `docs/*.htm`
+    con el texto completo embebido. Cero necesidad de Playwright.
+  - **Superfinanciera**: el buscador "Conceptos y Jurisprudencia" resultó ser un catálogo
+    bibliográfico clásico ABCD/ISIS con 18.569 registros, paginación GET simple
+    (`desde`/`count`, 1-indexado — `desde=0` rompe la búsqueda) y archivo de texto
+    descargable por registro.
+  - **Corte Suprema**: hallazgo mayor — el frontend Vue (documentado antes como "shell
+    vacío, API no capturada") en realidad habla con un backend GraphQL propio sin
+    autenticación (`consultaprovidenciasbk.cortesuprema.gov.co/api`, dominio no visto en
+    la investigación previa). El comodín `query: "*"` enumera el corpus completo de cada
+    Sala (Civil ~109k, Laboral ~302k, Penal ~218k, Tutelas ~394k) y `getContentSearch`
+    trae el texto ya extraído del PDF/DOCX. Backend inestable (502 intermitente incluso
+    con los headers correctos) — el ingester reintenta con backoff.
+- **Consejo de Estado reintentado a fondo, sigue bloqueado**: encontrado un tercer buscador
+  público no documentado antes (`SAMAI/TitulacionRelatoria/BuscadorProvidenciasTituladas.aspx`,
+  "Mi Relatoría"), pero el primer postback devuelve 403 de un Azure Application Gateway —
+  confirma que el bloqueo es de infraestructura compartida (WAF), no de una URL específica.
+  Cerrado; no vale la pena seguir probando URLs nuevas en el mismo dominio.
+- **Respaldo `legalize-co` clonado e integrado** (no solo clonado): `data/respaldo_legalize_co/`
+  (clon superficial, 71.903 archivos Markdown con YAML front matter) + un cuarto ingester
+  nuevo, `ingest/fuentes/legalize_co_github.py`, que lee el respaldo local sin red. De paso
+  resuelve el pendiente de escalar Gestor Normativo: el respaldo trae **61.429 decretos**
+  completos sin depender del grafo de "Vigencias" que topó techo en 2.381.
+- **Deploy a Render preparado, no ejecutado** (confirmado con el usuario: crear el servicio
+  real queda pendiente de su aprobación explícita): `Dockerfile`, `render.yaml` (plan
+  `standard` + disco persistente de 5GB para el índice de 2.4GB) y `docs/DEPLOY.md` con los
+  pasos y el riesgo de costo. `mcp_server/server.py` ahora sirve `streamable-http` sobre
+  `$PORT` si la variable existe, sin romper el modo `stdio` local.
+- 17 tests nuevos (31 → 48), todos con fixtures/mocks — ninguno depende de red.
+  Lint limpio (ruff).
+
+### Pendiente
+
+- Ingestar a escala real las 3 fuentes nuevas (hoy solo verificadas con lotes pequeños) y
+  el respaldo legalize-co completo (61.429 decretos + ~10.000 leyes/actos legislativos),
+  con checkpoint como Gestor Normativo — la Corte Suprema en particular implica cientos de
+  miles de llamadas a `getContentSearch`, hace falta ir por lotes y con pausas generosas.
+- Decidir si de verdad se justifica el costo de Render antes de crear el servicio.
+
 ## 2026-08-28 — Proyecto creado, 4 fuentes funcionando, índice validado
 
 Primera sesión de trabajo. Proyecto construido desde cero.
