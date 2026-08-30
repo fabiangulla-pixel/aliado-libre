@@ -43,40 +43,39 @@ def construir(dir_raw: Path) -> None:
     fragmentos = []
     for doc in documentos:
         fragmentos.extend(fragmentar(doc))
-    print(f"{len(documentos)} documentos -> {len(fragmentos)} fragmentos")
+    print(f"{len(documentos)} documentos -> {len(fragmentos)} fragmentos", flush=True)
 
     modelo = SentenceTransformer(MODELO_EMBEDDINGS)
-    textos = [f.texto for f in fragmentos]
-    embeddings = modelo.encode(textos, show_progress_bar=True, batch_size=32).tolist()
-
     cliente = chromadb.PersistentClient(path=str(DIR_INDICE))
     coleccion = cliente.get_or_create_collection(COLECCION)
 
-    metadatas = [
-        {
-            "documento_id": f.documento_id,
-            "fuente": f.fuente,
-            "identificador_documento": f.identificador_documento,
-            "titulo_documento": f.titulo_documento,
-            "url_original": f.url_original,
-            "orden": f.orden,
-        }
-        for f in fragmentos
-    ]
-    ids = [f.id for f in fragmentos]
-
-    # Chroma limita el tamaño de cada upsert (ver max_batch_size del cliente);
-    # se sube en lotes para no reventar con corpus grandes.
-    tamanio_lote = 5000
-    for inicio in range(0, len(ids), tamanio_lote):
-        fin = inicio + tamanio_lote
-        coleccion.upsert(
-            ids=ids[inicio:fin],
-            embeddings=embeddings[inicio:fin],
-            documents=textos[inicio:fin],
-            metadatas=metadatas[inicio:fin],
-        )
-        print(f"  lote {inicio}-{min(fin, len(ids))}/{len(ids)} subido", flush=True)
+    # Embeddings + upsert por lote (no un solo encode() de todo el corpus
+    # seguido de upsert al final): con corpus grandes (cientos de miles de
+    # fragmentos) el cómputo puede tomar horas, y un proceso así de largo en
+    # background puede morir sin traza (presión de memoria del sistema,
+    # sobre todo si compite con otro proceso pesado en la misma máquina —
+    # pasó de verdad en esta sesión). Con upsert incremental, matar el
+    # proceso a mitad de camino pierde solo el lote en curso, no todo.
+    tamanio_lote = 2000
+    total = len(fragmentos)
+    for inicio in range(0, total, tamanio_lote):
+        lote = fragmentos[inicio : inicio + tamanio_lote]
+        textos = [f.texto for f in lote]
+        embeddings = modelo.encode(textos, batch_size=32).tolist()
+        ids = [f.id for f in lote]
+        metadatas = [
+            {
+                "documento_id": f.documento_id,
+                "fuente": f.fuente,
+                "identificador_documento": f.identificador_documento,
+                "titulo_documento": f.titulo_documento,
+                "url_original": f.url_original,
+                "orden": f.orden,
+            }
+            for f in lote
+        ]
+        coleccion.upsert(ids=ids, embeddings=embeddings, documents=textos, metadatas=metadatas)
+        print(f"  lote {inicio}-{min(inicio + tamanio_lote, total)}/{total} subido", flush=True)
 
     print(f"Índice actualizado en {DIR_INDICE} ({coleccion.count()} fragmentos totales)")
 
