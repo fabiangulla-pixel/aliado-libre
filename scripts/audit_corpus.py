@@ -8,7 +8,16 @@ from collections import Counter
 from pathlib import Path
 
 RAIZ = Path(__file__).resolve().parent.parent
-ARCHIVOS = ["gestor_normativo.json", "supersociedades.json", "corte_constitucional.json", "sic.json"]
+ARCHIVOS = [
+    "gestor_normativo.json",
+    "supersociedades.json",
+    "corte_constitucional.json",
+    "sic.json",
+    "dian.json",
+    "superfinanciera.json",
+    "corte_suprema.json",
+    "legalize_co_github.json",
+]
 CAMPOS_REQUERIDOS = {
     "id",
     "fuente",
