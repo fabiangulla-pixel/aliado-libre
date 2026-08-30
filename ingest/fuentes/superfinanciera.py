@@ -51,13 +51,28 @@ def _texto_campo(bloque_html: str, etiqueta: str) -> str | None:
     return texto or None
 
 
+def _parece_texto(contenido: bytes) -> bool:
+    """Heurística para no decodificar binarios como si fueran texto plano.
+    Bug real (segunda vuelta): además de .docx, el catálogo sirve audios
+    (.mp3, grabaciones de audiencias/fallos) bajo el mismo enlace "Archivo
+    de texto" — decodificarlos con latin1 (que nunca falla, mapea cualquier
+    byte) producía "texto" de decenas de MB de basura por documento, y un
+    MemoryError al serializar el checkpoint. Un archivo de texto real casi
+    no tiene bytes de control fuera de \\t\\n\\r; un binario sí."""
+    muestra = contenido[:8192]
+    if not muestra:
+        return False
+    bytes_de_control = sum(1 for b in muestra if b < 9 or (13 < b < 32))
+    return (bytes_de_control / len(muestra)) < 0.01
+
+
 def _extraer_texto_binario(contenido: bytes) -> str | None:
-    """El "Archivo de texto" del catálogo casi siempre es en realidad un
-    .docx (confirmado por Content-Disposition: filename="...docx") — a pesar
-    del nombre del enlace, NO es texto plano. Decodificarlo directo como
-    texto (bug real de una corrida anterior) produce basura binaria escapada
-    en JSON, ~30x más pesada que el texto real. Se detecta el formato por
-    firma de bytes en vez de confiar en la extensión."""
+    """El "Archivo de texto" del catálogo puede ser, a pesar del nombre del
+    enlace: un .docx (Word Open XML), un .pdf, un audio (.mp3) u
+    ocasionalmente texto plano real. Se detecta el formato por firma de
+    bytes — nunca por la extensión del enlace, que no es confiable — y los
+    formatos no soportados (audio, video, etc.) se descartan explícitamente
+    en vez de decodificarlos a ciegas."""
     if contenido[:2] == b"PK":  # .docx (zip) — Word Open XML
         try:
             documento = DocumentoWord(BytesIO(contenido))
@@ -70,6 +85,8 @@ def _extraer_texto_binario(contenido: bytes) -> str | None:
             return "\n".join(p.extract_text() or "" for p in lector.pages).strip()
         except Exception:
             return None
+    if not _parece_texto(contenido):
+        return None  # binario no soportado (audio, video, imagen, ...)
     for codec in ("utf-8", "iso-8859-1"):
         try:
             return contenido.decode(codec)

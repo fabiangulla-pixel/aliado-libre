@@ -58,6 +58,22 @@ def test_extraer_texto_binario_none_si_docx_corrupto():
     assert sf._extraer_texto_binario(b"PK\x03\x04basura_no_es_un_zip_valido") is None
 
 
+def test_extraer_texto_binario_none_si_es_audio_mp3():
+    # bug real: algunos "archivos de texto" del catálogo son en realidad
+    # grabaciones .mp3 de audiencias/fallos — decodificarlas como latin1
+    # (que nunca falla) producía decenas de MB de basura por documento
+    encabezado_mp3 = b"ID3\x03\x00\x00\x00\x00\x1fvGEOB\x00\x00\x00x\x00\x00" + bytes(range(256)) * 50
+    assert sf._extraer_texto_binario(encabezado_mp3) is None
+
+
+def test_parece_texto_true_para_texto_real():
+    assert sf._parece_texto("Concepto jurídico con tildes y ñ, todo normal.".encode())
+
+
+def test_parece_texto_false_para_binario():
+    assert not sf._parece_texto(bytes(range(256)) * 10)
+
+
 def test_a_documento_none_si_bloque_vacio():
     doc = sf._a_documento(MagicMock(), "<div>nada relevante aquí</div>", 1)
     assert doc is None
