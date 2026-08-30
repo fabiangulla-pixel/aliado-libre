@@ -1,0 +1,274 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Aliado Libre</title>
+<style>
+  :root {
+    --bg: #f6f5f1;
+    --panel: #ffffff;
+    --texto: #1c1f26;
+    --texto-suave: #5b6270;
+    --borde: #e3e1da;
+    --acento: #8a1f2b;
+    --acento-suave: #f3e2e2;
+    --dorado: #b8862c;
+    --sombra: 0 1px 3px rgba(20, 20, 20, 0.06), 0 8px 24px rgba(20, 20, 20, 0.05);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #14161b;
+      --panel: #1d2028;
+      --texto: #eef0f4;
+      --texto-suave: #9aa1af;
+      --borde: #2b2f3a;
+      --acento: #d1616e;
+      --acento-suave: #33222a;
+      --dorado: #d4a24c;
+      --sombra: 0 1px 3px rgba(0, 0, 0, 0.4), 0 8px 24px rgba(0, 0, 0, 0.35);
+    }
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--texto);
+    font-family: "Georgia", "Iowan Old Style", ui-serif, serif;
+    min-height: 100vh;
+  }
+
+  header {
+    padding: 3rem 1.5rem 2rem;
+    text-align: center;
+  }
+  header h1 {
+    margin: 0;
+    font-size: 2.2rem;
+    letter-spacing: 0.01em;
+  }
+  header h1 .acento { color: var(--acento); }
+  header p {
+    margin: 0.5rem 0 0;
+    color: var(--texto-suave);
+    font-family: ui-sans-serif, system-ui, sans-serif;
+    font-size: 0.95rem;
+  }
+
+  .buscador {
+    max-width: 720px;
+    margin: 0 auto 2.5rem;
+    padding: 0 1.5rem;
+    display: flex;
+    gap: 0.6rem;
+  }
+  .buscador input {
+    flex: 1;
+    padding: 0.9rem 1.1rem;
+    font-size: 1.05rem;
+    border-radius: 10px;
+    border: 1px solid var(--borde);
+    background: var(--panel);
+    color: var(--texto);
+    font-family: ui-sans-serif, system-ui, sans-serif;
+    box-shadow: var(--sombra);
+  }
+  .buscador input:focus {
+    outline: none;
+    border-color: var(--acento);
+  }
+  .buscador button {
+    padding: 0.9rem 1.6rem;
+    font-size: 1rem;
+    font-weight: 600;
+    border-radius: 10px;
+    border: none;
+    background: var(--acento);
+    color: #fff;
+    cursor: pointer;
+    font-family: ui-sans-serif, system-ui, sans-serif;
+    transition: filter 0.15s ease;
+  }
+  .buscador button:hover { filter: brightness(1.08); }
+  .buscador button:disabled { opacity: 0.6; cursor: default; }
+
+  main {
+    max-width: 780px;
+    margin: 0 auto;
+    padding: 0 1.5rem 4rem;
+  }
+
+  .estado {
+    text-align: center;
+    color: var(--texto-suave);
+    font-family: ui-sans-serif, system-ui, sans-serif;
+    font-size: 0.95rem;
+    padding: 2rem 0;
+  }
+
+  .resultado {
+    background: var(--panel);
+    border: 1px solid var(--borde);
+    border-radius: 14px;
+    padding: 1.4rem 1.6rem;
+    margin-bottom: 1rem;
+    box-shadow: var(--sombra);
+  }
+  .resultado-cabecera {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 1rem;
+    margin-bottom: 0.5rem;
+  }
+  .resultado h2 {
+    margin: 0;
+    font-size: 1.15rem;
+    line-height: 1.35;
+  }
+  .resultado h2 a {
+    color: var(--texto);
+    text-decoration: none;
+  }
+  .resultado h2 a:hover { text-decoration: underline; }
+
+  .fuente {
+    flex-shrink: 0;
+    font-family: ui-sans-serif, system-ui, sans-serif;
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 0.25rem 0.6rem;
+    border-radius: 999px;
+    background: var(--acento-suave);
+    color: var(--acento);
+    white-space: nowrap;
+  }
+
+  .meta {
+    font-family: ui-sans-serif, system-ui, sans-serif;
+    font-size: 0.82rem;
+    color: var(--texto-suave);
+    margin-bottom: 0.7rem;
+  }
+  .meta .puntaje { color: var(--dorado); font-weight: 600; }
+
+  .fragmento {
+    font-size: 0.98rem;
+    line-height: 1.6;
+    color: var(--texto);
+  }
+  .fragmento mark {
+    background: var(--acento-suave);
+    color: inherit;
+    padding: 0 0.1em;
+    border-radius: 3px;
+  }
+
+  .vacio, .error {
+    text-align: center;
+    font-family: ui-sans-serif, system-ui, sans-serif;
+    color: var(--texto-suave);
+    padding: 3rem 1rem;
+  }
+  .error { color: var(--acento); }
+
+  footer {
+    text-align: center;
+    font-family: ui-sans-serif, system-ui, sans-serif;
+    font-size: 0.8rem;
+    color: var(--texto-suave);
+    padding: 1rem 0 3rem;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Aliado <span class="acento">Libre</span></h1>
+  <p>Legislación y jurisprudencia colombiana, con citas verificables — 100% local y gratuito</p>
+</header>
+
+<div class="buscador">
+  <input id="consulta" type="text" placeholder="Ej. requisitos para constituir una fiducia mercantil" autofocus>
+  <button id="botonBuscar">Buscar</button>
+</div>
+
+<main id="resultados">
+  <div class="estado">Escribe una consulta y presiona Buscar.</div>
+</main>
+
+<footer>Aliado Libre — alternativa abierta y gratuita a ALI Cerebro Legal</footer>
+
+<script>
+const input = document.getElementById('consulta');
+const boton = document.getElementById('botonBuscar');
+const contenedor = document.getElementById('resultados');
+
+function escaparHtml(s) {
+  return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function resaltar(texto, consulta) {
+  const palabras = consulta.trim().split(/\s+/).filter(p => p.length > 2).map(p =>
+    p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  );
+  let html = escaparHtml(texto);
+  if (palabras.length) {
+    const patron = new RegExp('(' + palabras.join('|') + ')', 'gi');
+    html = html.replace(patron, '<mark>$1</mark>');
+  }
+  return html;
+}
+
+async function buscar() {
+  const consulta = input.value.trim();
+  if (!consulta) return;
+
+  boton.disabled = true;
+  boton.textContent = 'Buscando…';
+  contenedor.innerHTML = '<div class="estado">Buscando (la primera consulta carga el índice, puede tardar un momento)…</div>';
+
+  try {
+    const resp = await fetch('/api/buscar?q=' + encodeURIComponent(consulta) + '&k=8');
+    const datos = await resp.json();
+
+    if (datos.error) {
+      contenedor.innerHTML = `<div class="error">${escaparHtml(datos.error)}</div>`;
+      return;
+    }
+
+    if (!datos.resultados || datos.resultados.length === 0) {
+      contenedor.innerHTML = '<div class="vacio">Sin resultados relevantes en el índice actual para esta consulta.</div>';
+      return;
+    }
+
+    contenedor.innerHTML = datos.resultados.map(r => `
+      <article class="resultado">
+        <div class="resultado-cabecera">
+          <h2><a href="${escaparHtml(r.url_original || '#')}" target="_blank" rel="noopener">${escaparHtml(r.titulo_documento || r.identificador_documento || 'Sin título')}</a></h2>
+          <span class="fuente">${escaparHtml((r.fuente || '').replace(/_/g, ' '))}</span>
+        </div>
+        <div class="meta">
+          ${escaparHtml(r.identificador_documento || '')}
+          <span class="puntaje"> · relevancia ${r.puntaje}</span>
+        </div>
+        <div class="fragmento">${resaltar((r.texto || '').slice(0, 500), consulta)}${(r.texto || '').length > 500 ? '…' : ''}</div>
+      </article>
+    `).join('');
+  } catch (e) {
+    contenedor.innerHTML = `<div class="error">No se pudo conectar con el servidor: ${escaparHtml(String(e))}</div>`;
+  } finally {
+    boton.disabled = false;
+    boton.textContent = 'Buscar';
+  }
+}
+
+boton.addEventListener('click', buscar);
+input.addEventListener('keydown', e => { if (e.key === 'Enter') buscar(); });
+</script>
+
+</body>
+</html>
