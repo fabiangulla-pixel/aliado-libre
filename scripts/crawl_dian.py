@@ -21,11 +21,15 @@ def main() -> None:
 
     SALIDA.parent.mkdir(parents=True, exist_ok=True)
 
-    documentos_previos: list[Documento] = []
-    if SALIDA.exists():
+    def cargar_previos() -> list[Documento]:
+        if not SALIDA.exists():
+            return []
         datos = json.loads(SALIDA.read_text(encoding="utf-8"))
-        documentos_previos = [Documento(**d) for d in datos]
-        print(f"{len(documentos_previos)} documentos previos cargados, no se vuelven a descargar")
+        return [Documento(**d) for d in datos]
+
+    previos_iniciales = cargar_previos()
+    if previos_iniciales:
+        print(f"{len(previos_iniciales)} documentos previos cargados, no se vuelven a descargar")
 
     print(f"Crawl objetivo: {max_documentos} documentos totales, pausa {pausa}s entre requests nuevos")
 
@@ -39,7 +43,7 @@ def main() -> None:
     documentos = crawl_con_reintentos(
         crawl,
         checkpoint,
-        documentos_previos,
+        cargar_previos,
         max_documentos=max_documentos,
         pausa_segundos=pausa,
     )

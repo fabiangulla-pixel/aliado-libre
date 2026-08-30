@@ -43,10 +43,14 @@ def main() -> None:
 
     SALIDA.parent.mkdir(parents=True, exist_ok=True)
 
-    documentos: list[Documento] = []
-    if SALIDA.exists():
+    def cargar_previos() -> list[Documento]:
+        if not SALIDA.exists():
+            return []
         datos = json.loads(SALIDA.read_text(encoding="utf-8"))
-        documentos = [Documento(**d) for d in datos]
+        return [Documento(**d) for d in datos]
+
+    documentos = cargar_previos()
+    if documentos:
         print(f"{len(documentos)} documentos previos cargados, no se vuelven a descargar", flush=True)
 
     def checkpoint(docs):
@@ -80,7 +84,7 @@ def main() -> None:
                 documentos_previos=documentos,
             )
         except Exception as e:
-            checkpoint(documentos)
+            documentos = cargar_previos()  # la verdad vive en el archivo, no en esta variable
             print(
                 f"[ráfaga {rafaga}/{rafagas_maximas}] falló ({e}), "
                 f"esperando {PAUSA_ENTRE_RAFAGAS}s antes de reintentar...",
