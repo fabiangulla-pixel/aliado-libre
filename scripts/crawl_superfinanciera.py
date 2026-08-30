@@ -11,6 +11,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from ingest.fuentes.superfinanciera import crawl
 from ingest.schema import Documento
+from scripts._crawl_retry import crawl_con_reintentos
 
 SALIDA = Path(__file__).resolve().parent.parent / "data" / "raw" / "superfinanciera.json"
 
@@ -36,11 +37,12 @@ def main() -> None:
         )
         print(f"[checkpoint] {len(documentos)} documentos guardados en {SALIDA}", flush=True)
 
-    documentos = crawl(
+    documentos = crawl_con_reintentos(
+        crawl,
+        checkpoint,
+        documentos_previos,
         max_documentos=max_documentos,
         pausa_segundos=pausa,
-        al_guardar=checkpoint,
-        documentos_previos=documentos_previos,
     )
     checkpoint(documentos)
     print(f"Terminado: {len(documentos)} documentos en {SALIDA}")
