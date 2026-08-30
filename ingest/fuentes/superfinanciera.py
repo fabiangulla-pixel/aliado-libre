@@ -51,19 +51,41 @@ def _texto_campo(bloque_html: str, etiqueta: str) -> str | None:
     return texto or None
 
 
+FIRMAS_BINARIAS_CONOCIDAS = (
+    b"ID3",  # MP3 con tag ID3v2 — el tag en sí puede traer XML/texto legible
+    # (metadata XMP), lo que engañaba una heurística que solo miraba el inicio
+    b"\xff\xfb",
+    b"\xff\xf3",
+    b"\xff\xf2",  # MP3 sin tag (frame sync MPEG directo)
+    b"RIFF",  # WAV/AVI
+    b"\x00\x00\x00",  # inicio típico de contenedores MP4/MOV (ftyp box)
+)
+
+
 def _parece_texto(contenido: bytes) -> bool:
     """Heurística para no decodificar binarios como si fueran texto plano.
-    Bug real (segunda vuelta): además de .docx, el catálogo sirve audios
-    (.mp3, grabaciones de audiencias/fallos) bajo el mismo enlace "Archivo
-    de texto" — decodificarlos con latin1 (que nunca falla, mapea cualquier
-    byte) producía "texto" de decenas de MB de basura por documento, y un
-    MemoryError al serializar el checkpoint. Un archivo de texto real casi
-    no tiene bytes de control fuera de \\t\\n\\r; un binario sí."""
-    muestra = contenido[:8192]
-    if not muestra:
+    Bug real (segunda y tercera vuelta): además de .docx, el catálogo sirve
+    audios (.mp3, grabaciones de audiencias/fallos) bajo el mismo enlace
+    "Archivo de texto" — decodificarlos con latin1 (que nunca falla, mapea
+    cualquier byte) producía "texto" de decenas de MB de basura por
+    documento. La primera versión de esta heurística solo miraba los
+    primeros 8KB, que en un MP3 con tag ID3v2 pueden ser casi todo texto
+    legible (metadata XMP embebida) — un documento de 114 millones de
+    caracteres se coló así. Ahora se muestrea inicio, medio y final."""
+    if contenido[:4] in FIRMAS_BINARIAS_CONOCIDAS or contenido[:3] == b"ID3":
         return False
-    bytes_de_control = sum(1 for b in muestra if b < 9 or (13 < b < 32))
-    return (bytes_de_control / len(muestra)) < 0.01
+    if not contenido:
+        return False
+    n = len(contenido)
+    puntos_muestra = [0, n // 2, max(0, n - 8192)]
+    for inicio in puntos_muestra:
+        muestra = contenido[inicio : inicio + 8192]
+        if not muestra:
+            continue
+        bytes_de_control = sum(1 for b in muestra if b < 9 or (13 < b < 32))
+        if (bytes_de_control / len(muestra)) >= 0.01:
+            return False
+    return True
 
 
 def _extraer_texto_binario(contenido: bytes) -> str | None:
@@ -72,24 +94,33 @@ def _extraer_texto_binario(contenido: bytes) -> str | None:
     ocasionalmente texto plano real. Se detecta el formato por firma de
     bytes — nunca por la extensión del enlace, que no es confiable — y los
     formatos no soportados (audio, video, etc.) se descartan explícitamente
-    en vez de decodificarlos a ciegas."""
+    en vez de decodificarlos a ciegas. Además de la detección por formato,
+    hay un tope duro de tamaño de salida — red de seguridad ante un cuarto
+    formato binario no previsto que engañe la heurística (ya van dos)."""
+    TOPE_CARACTERES = 2_000_000  # ningún concepto/sentencia real es tan largo
+
+    def _con_tope(texto: str | None) -> str | None:
+        if texto is not None and len(texto) > TOPE_CARACTERES:
+            return None
+        return texto
+
     if contenido[:2] == b"PK":  # .docx (zip) — Word Open XML
         try:
             documento = DocumentoWord(BytesIO(contenido))
-            return "\n".join(p.text for p in documento.paragraphs if p.text.strip())
+            return _con_tope("\n".join(p.text for p in documento.paragraphs if p.text.strip()))
         except Exception:
             return None
     if contenido[:4] == b"%PDF":
         try:
             lector = PdfReader(BytesIO(contenido))
-            return "\n".join(p.extract_text() or "" for p in lector.pages).strip()
+            return _con_tope("\n".join(p.extract_text() or "" for p in lector.pages).strip())
         except Exception:
             return None
     if not _parece_texto(contenido):
         return None  # binario no soportado (audio, video, imagen, ...)
     for codec in ("utf-8", "iso-8859-1"):
         try:
-            return contenido.decode(codec)
+            return _con_tope(contenido.decode(codec))
         except UnicodeDecodeError:
             continue
     return None

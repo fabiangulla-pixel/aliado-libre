@@ -74,6 +74,25 @@ def test_parece_texto_false_para_binario():
     assert not sf._parece_texto(bytes(range(256)) * 10)
 
 
+def test_extraer_texto_binario_none_si_mp3_con_metadata_xmp_al_inicio():
+    # bug real (tercera vuelta): un MP3 con tag ID3v2 puede traer metadata
+    # XMP (texto XML legible) en sus primeros ~8KB, seguido de audio binario
+    # puro el resto del archivo — una heurística que solo mira el inicio lo
+    # confunde con texto real. Este caso produjo un documento de 114
+    # millones de caracteres antes de corregirse.
+    xmp_legible = b'<?xpacket begin="?"?><x:xmpmeta xmlns:x="adobe:ns:meta/">' * 100
+    audio_binario = bytes(range(256)) * 100000  # el resto del mp3, puro binario
+    contenido = b"ID3" + xmp_legible + audio_binario
+    assert sf._extraer_texto_binario(contenido) is None
+
+
+def test_extraer_texto_binario_none_si_supera_el_tope_de_tamano():
+    # red de seguridad ante un formato binario no previsto: ningún concepto/
+    # sentencia real supera los 2 millones de caracteres
+    texto_enorme = "a" * 2_000_001
+    assert sf._extraer_texto_binario(texto_enorme.encode()) is None
+
+
 def test_a_documento_none_si_bloque_vacio():
     doc = sf._a_documento(MagicMock(), "<div>nada relevante aquí</div>", 1)
     assert doc is None
