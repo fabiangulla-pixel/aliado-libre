@@ -64,12 +64,31 @@ class Handler(BaseHTTPRequestHandler):
         except ValueError:
             k = 8
 
+        quiere_respuesta = (params.get("conversacional") or ["0"])[0] == "1"
+
         try:
             indice = _obtener_indice()
             resultados = indice.buscar(consulta, k=k)
-            self._responder_json({"resultados": resultados})
         except Exception as e:
             self._responder_json({"error": str(e)}, status=500)
+            return
+
+        salida = {"resultados": resultados}
+        if quiere_respuesta:
+            from index.responder import responder
+
+            # menos fragmentos que los mostrados: el prompt crece con cada
+            # uno y en CPU la respuesta se vuelve notablemente más lenta
+            MAX_FRAGMENTOS_CONVERSACIONAL = 4
+            try:
+                salida["respuesta"] = responder(consulta, resultados[:MAX_FRAGMENTOS_CONVERSACIONAL])
+            except RuntimeError as e:
+                # Ollama no disponible u otro fallo de la capa conversacional:
+                # degradar a buscador puro, no tirar toda la respuesta
+                salida["respuesta"] = None
+                salida["aviso_respuesta"] = str(e)
+
+        self._responder_json(salida)
 
     def _servir_estatico(self, ruta_pedida: str) -> None:
         nombre = "index.html" if ruta_pedida in ("/", "") else ruta_pedida.lstrip("/")

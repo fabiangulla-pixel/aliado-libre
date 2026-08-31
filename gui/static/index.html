@@ -175,6 +175,47 @@
   }
   .error { color: var(--acento); }
 
+  .opcion-conversacional {
+    max-width: 720px;
+    margin: -1.7rem auto 2rem;
+    padding: 0 1.5rem;
+    font-family: ui-sans-serif, system-ui, sans-serif;
+    font-size: 0.85rem;
+    color: var(--texto-suave);
+  }
+  .opcion-conversacional label { cursor: pointer; }
+  .opcion-conversacional input { vertical-align: middle; margin-right: 0.4rem; }
+
+  .respuesta-ia {
+    background: var(--panel);
+    border: 1px solid var(--dorado);
+    border-radius: 14px;
+    padding: 1.4rem 1.6rem;
+    margin-bottom: 1.6rem;
+    box-shadow: var(--sombra);
+  }
+  .respuesta-ia .etiqueta {
+    font-family: ui-sans-serif, system-ui, sans-serif;
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--dorado);
+    margin-bottom: 0.6rem;
+  }
+  .respuesta-ia p {
+    margin: 0;
+    font-size: 1.02rem;
+    line-height: 1.65;
+    white-space: pre-wrap;
+  }
+  .respuesta-ia .aviso {
+    font-family: ui-sans-serif, system-ui, sans-serif;
+    font-size: 0.82rem;
+    color: var(--texto-suave);
+    margin-top: 0.6rem;
+  }
+
   footer {
     text-align: center;
     font-family: ui-sans-serif, system-ui, sans-serif;
@@ -195,6 +236,12 @@
   <input id="consulta" type="text" placeholder="Ej. requisitos para constituir una fiducia mercantil" autofocus>
   <button id="botonBuscar">Buscar</button>
 </div>
+<div class="opcion-conversacional">
+  <label>
+    <input type="checkbox" id="conversacional">
+    Redactar respuesta con IA local (Ollama) — más lento, puede fallar si no está corriendo
+  </label>
+</div>
 
 <main id="resultados">
   <div class="estado">Escribe una consulta y presiona Buscar.</div>
@@ -206,6 +253,7 @@
 const input = document.getElementById('consulta');
 const boton = document.getElementById('botonBuscar');
 const contenedor = document.getElementById('resultados');
+const casillaConversacional = document.getElementById('conversacional');
 
 function escaparHtml(s) {
   return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -227,12 +275,18 @@ async function buscar() {
   const consulta = input.value.trim();
   if (!consulta) return;
 
+  const quiereRespuesta = casillaConversacional.checked;
+
   boton.disabled = true;
   boton.textContent = 'Buscando…';
-  contenedor.innerHTML = '<div class="estado">Buscando (la primera consulta carga el índice, puede tardar un momento)…</div>';
+  const mensajeEspera = quiereRespuesta
+    ? 'Buscando y redactando respuesta con IA local (puede tardar más de un minuto)…'
+    : 'Buscando (la primera consulta carga el índice, puede tardar un momento)…';
+  contenedor.innerHTML = `<div class="estado">${mensajeEspera}</div>`;
 
   try {
-    const resp = await fetch('/api/buscar?q=' + encodeURIComponent(consulta) + '&k=8');
+    const url = '/api/buscar?q=' + encodeURIComponent(consulta) + '&k=8' + (quiereRespuesta ? '&conversacional=1' : '');
+    const resp = await fetch(url);
     const datos = await resp.json();
 
     if (datos.error) {
@@ -245,7 +299,25 @@ async function buscar() {
       return;
     }
 
-    contenedor.innerHTML = datos.resultados.map(r => `
+    let bloqueRespuesta = '';
+    if (quiereRespuesta) {
+      if (datos.respuesta) {
+        bloqueRespuesta = `
+          <div class="respuesta-ia">
+            <div class="etiqueta">Respuesta redactada por IA local</div>
+            <p>${escaparHtml(datos.respuesta)}</p>
+          </div>`;
+      } else {
+        bloqueRespuesta = `
+          <div class="respuesta-ia">
+            <div class="etiqueta">Respuesta redactada por IA local</div>
+            <p>No se pudo generar la respuesta — mostrando solo los fragmentos encontrados.</p>
+            <div class="aviso">${escaparHtml(datos.aviso_respuesta || '')}</div>
+          </div>`;
+      }
+    }
+
+    contenedor.innerHTML = bloqueRespuesta + datos.resultados.map(r => `
       <article class="resultado">
         <div class="resultado-cabecera">
           <h2><a href="${escaparHtml(r.url_original || '#')}" target="_blank" rel="noopener">${escaparHtml(r.titulo_documento || r.identificador_documento || 'Sin título')}</a></h2>

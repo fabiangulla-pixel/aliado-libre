@@ -5,9 +5,11 @@ import time
 import urllib.error
 import urllib.request
 from http.server import ThreadingHTTPServer
+from unittest.mock import patch
 
 import pytest
 
+import gui.server as servidor_modulo
 from gui.server import Handler
 
 
@@ -50,6 +52,44 @@ def test_no_permite_escapar_del_directorio_estatico(servidor):
     with pytest.raises(urllib.error.HTTPError) as exc_info:
         urllib.request.urlopen(servidor + "/../server.py")
     assert exc_info.value.code == 404
+
+
+def test_buscar_sin_conversacional_no_incluye_respuesta(servidor):
+    with patch.object(servidor_modulo, "_obtener_indice", return_value=_indice_falso()):
+        r = urllib.request.urlopen(servidor + "/api/buscar?q=algo")
+        datos = json.loads(r.read())
+    assert "respuesta" not in datos
+    assert datos["resultados"] == [{"texto": "x"}]
+
+
+def test_buscar_con_conversacional_incluye_respuesta(servidor):
+    with (
+        patch.object(servidor_modulo, "_obtener_indice", return_value=_indice_falso()),
+        patch("index.responder.responder", return_value="Respuesta redactada."),
+    ):
+        r = urllib.request.urlopen(servidor + "/api/buscar?q=algo&conversacional=1")
+        datos = json.loads(r.read())
+    assert datos["respuesta"] == "Respuesta redactada."
+
+
+def test_buscar_con_conversacional_degrada_si_ollama_falla(servidor):
+    with (
+        patch.object(servidor_modulo, "_obtener_indice", return_value=_indice_falso()),
+        patch("index.responder.responder", side_effect=RuntimeError("Ollama caído")),
+    ):
+        r = urllib.request.urlopen(servidor + "/api/buscar?q=algo&conversacional=1")
+        datos = json.loads(r.read())
+    assert datos["respuesta"] is None
+    assert "Ollama caído" in datos["aviso_respuesta"]
+    assert datos["resultados"] == [{"texto": "x"}]  # los resultados crudos igual llegan
+
+
+def _indice_falso():
+    class IndiceFalso:
+        def buscar(self, consulta, k):
+            return [{"texto": "x"}]
+
+    return IndiceFalso()
 
 
 def test_no_permite_escapar_con_ruta_urlencodeada(servidor):
