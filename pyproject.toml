@@ -14,3 +14,4 @@ ignore = [
 "scripts/*" = ["E402"]
 "index/*.py" = ["E402"]
 "mcp_server/*.py" = ["E402"]
+"finetune/generar_dataset.py" = ["E501"]  # literales de texto largo (preguntas/respuestas de entrenamiento)

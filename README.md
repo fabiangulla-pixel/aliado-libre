@@ -65,12 +65,20 @@ PyTorch/sentence-transformers hacen segfault en Python 3.14 (muy reciente, sin s
 ./venv/Scripts/python.exe index/build_index.py     # construir/actualizar índice
 ./venv/Scripts/python.exe index/buscar.py "consulta"  # probar búsqueda por CLI
 ./venv/Scripts/python.exe mcp_server/server.py      # levantar servidor MCP
+./venv/Scripts/python.exe gui/server.py             # GUI web local (abre navegador solo)
 ```
+
+La GUI (`gui/server.py`) es la forma recomendada de uso diario: búsqueda
+híbrida con citas, y opcionalmente una respuesta redactada en español por un
+modelo local vía Ollama (checkbox "Redactar respuesta con IA local"), ambas
+100% locales sin llamadas externas.
 
 ## Próximos pasos
 
-1. Terminar de escalar los crawls de DIAN, Superfinanciera y Corte Suprema.
+1. Confirmar si el fine-tuning LoRA (`finetune/entrenar.py`) terminó bien
+   (ver estado en la memoria del proyecto) y escribir `finetune/exportar_gguf.py`.
 2. Publicar el índice construido en Hugging Face Hub (`scripts/publicar_indice_hf.py`)
    para que otros lo usen sin tener que reconstruirlo.
+3. Reintentar Corte Suprema cuando su backend esté disponible (sigue en 0 documentos).
 3. Consejo de Estado sigue bloqueado por WAF — no hay plan de reintento hasta que aparezca
    una vía de acceso pública real.

@@ -1,5 +1,51 @@
 # Changelog
 
+## 2026-08-30 — GUI web local, capa conversacional Ollama, reindex resiliente, fine-tuning LoRA
+
+### Resuelto
+
+- **Reindex completo**: `index/build_index.py` reescrito para subir a Chroma
+  en lotes de 2000 en vez de un solo `encode()`+`upsert()` final — un job de
+  7.5h había muerto en silencio al 9% sin nada guardado (probable OOM por
+  contención con otra sesión concurrente en la misma máquina). Relanzado con
+  el fix: **718.388 fragmentos de 119.708 documentos**, 7 fuentes.
+- **Bug crítico en `scripts/_crawl_retry.py`**: el wrapper de reintentos
+  reutilizaba una lista en memoria tras una excepción en vez de releer el
+  checkpoint en disco, causando una pérdida real de 1.475 documentos de
+  Superfinanciera. Corregido: recibe `cargar_previos` (callable) y lo llama
+  al inicio y tras cada excepción.
+- **Superfinanciera, 2º bug de decodificación binaria**: el heurístico
+  "¿parece texto?" solo miraba los primeros 8KB; un .mp3 con tag ID3v2 con
+  metadata XMP legible ahí lo engañó, generando un documento de 114 millones
+  de caracteres que mató el reindex de 7.5h. Corregido con rechazo de firmas
+  binarias conocidas + muestreo en 3 puntos + tope de 2M caracteres.
+- **GUI web local** (`gui/server.py`, `gui/static/index.html`): stdlib puro,
+  sin frameworks, autoabre navegador. 9 tests nuevos.
+- **Capa conversacional con Ollama** (`index/responder.py`): respuesta en
+  español anclada estrictamente en los fragmentos recuperados, con citas
+  entre paréntesis y negativa explícita si no hay información suficiente.
+  Degrada a solo-citas si Ollama no responde. 5 tests nuevos.
+- **GitHub**: repo público (`github.com/fabiangulla-pixel/aliado-libre`).
+- **Render**: evaluado y descartado por costo — uso queda 100% local.
+- **DIAN/Superfinanciera/legalize-co**: escalados a producción (ver detalle
+  en `docs/fuentes.md` y memoria del proyecto).
+- **Corte Suprema sigue en 0 documentos**: backend GraphQL propio de la
+  Corte extremadamente inestable (100+ ráfagas de reintento en 4 corridas),
+  confirmado como problema de servidor, no de cliente.
+- 77 tests (era 58).
+
+### En curso al cierre
+
+- **Fine-tuning LoRA propio en CPU** (`finetune/`): dataset de 50 ejemplos
+  hand-authored y anclados en fragmentos reales (`finetune/generar_dataset.py`),
+  entrenando un adaptador sobre `Qwen/Qwen2.5-3B-Instruct` (`finetune/entrenar.py`).
+  Bug real corregido: `SFTConfig` necesita `use_cpu=True` explícito en
+  trl 1.12.0 o falla con `ValueError` de bf16/gpu incluso sin GPU. El
+  entrenamiento arrancó bien tras el fix pero **no se confirmó que terminara
+  las 3 épocas** antes del cierre de sesión — revisar el log al retomar.
+  Falta además `finetune/exportar_gguf.py` (no escrito) para cargar el
+  resultado en Ollama.
+
 ## 2026-08-29 (tarde) — Escalado real: corpus 44.733 → 120.133+ documentos
 
 Continuación de la sesión de la mañana: se le dio soporte de reanudación a
