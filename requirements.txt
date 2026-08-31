@@ -9,3 +9,7 @@ mcp
 pypdf
 pyyaml
 python-docx
+peft
+trl
+accelerate
+datasets

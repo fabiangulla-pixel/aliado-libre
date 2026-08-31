@@ -8,3 +8,4 @@ data/raw/*.json
 data/respaldo_legalize_co/
 finetune/checkpoints/
 finetune/modelo_lora/
+*.log
