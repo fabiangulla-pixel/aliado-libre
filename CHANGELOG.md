@@ -1,5 +1,77 @@
 # Changelog
 
+## 2026-09-01 — DIAN completado, diagnóstico real de la lentitud del fine-tuning en CPU
+
+### Resuelto
+
+- **DIAN escalado a las 3 materias**: relanzado con tope elevado (50.000);
+  pasó de 20.000 (solo tributario + 15 de aduanero) a **25.927 documentos**
+  (tributario 19.985, aduanero 5.567, cambiario 375). Ya no hay materias sin
+  cubrir.
+- **`finetune/entrenar.py` parametrizado**: acepta `[modelo_base] [nombre_salida]`
+  por línea de comandos en vez de tener el modelo hardcodeado, con
+  checkpoints separados por experimento (`checkpoints_<nombre_salida>/`) —
+  necesario para poder comparar 0.5B vs 1.5B sin pisar resultados.
+- **Causa real de la lentitud en CPU encontrada**: los checkpoints de Qwen
+  cargan en `bfloat16` por defecto (`torch_dtype="auto"`), pero la CPU de
+  esta máquina (AMD Ryzen 5 5500U) no tiene soporte de hardware para bf16
+  (sin AVX512-BF16) — PyTorch lo emulaba por software, mucho más lento que
+  usar `float32` nativo. Corregido: `dtype="float32"` explícito en la carga
+  del modelo. El fix ayudó pero no fue suficiente por sí solo: incluso así,
+  el primer step tardó ~40+ min en esta CPU — se concluyó que el hardware en
+  sí (chip móvil de bajo consumo, sin GPU) no es viable para entrenar ni
+  siquiera un modelo de 500M de parámetros en tiempo razonable.
+- **`.gitignore`**: patrones `finetune/checkpoints*/` y `finetune/modelo_lora*/`
+  (antes solo cubrían los nombres exactos sin sufijo) + `*.log` para los
+  logs de scripts en background.
+- **`requirements.txt`**: agregadas `peft`, `trl`, `accelerate`, `datasets`
+  (ya estaban instaladas en el venv para el fine-tuning pero no declaradas).
+
+### Decisión de arquitectura
+
+- El adaptador LoRA NO reduce el tamaño del modelo a usar en producción —
+  sigue necesitando el modelo base completo cargado. Como el criterio de
+  éxito final es el tamaño del `.exe` distribuible (con el modelo
+  **empaquetado dentro**, no vía Ollama externo), se decidió abandonar
+  `Qwen2.5-3B` y probar en paralelo `Qwen2.5-0.5B-Instruct` y
+  `Qwen2.5-1.5B-Instruct` como base — modelos mucho más chicos, mejor
+  candidatos para terminar en un `.gguf` cuantizado embebido vía
+  `llama-cpp-python` (no `transformers`+`torch`, que son inviables de
+  empaquetar — ver `feedback_pyinstaller_excluir_pila_ml`).
+- **`finetune/colab_entrenar.ipynb`** (nuevo): notebook autocontenido para
+  correr el mismo entrenamiento en la GPU gratuita de Google Colab (T4),
+  donde bf16 sí tiene soporte de hardware real y debería tardar minutos en
+  vez de días. Pide subir `finetune/data/entrenamiento.jsonl` y descarga un
+  `.zip` con el adaptador resultante al terminar.
+- **Intento de automatizar Colab por CDP con Chrome clonado**: se clonó
+  `Profile 3` y se abrió una ventana de Chrome separada con el puerto de
+  debug remoto — la sesión de Google no viajó (probablemente por DBSC,
+  cookies de sesión atadas al dispositivo/instalación original). El perfil
+  clonado se cerró y se borró correctamente. Conclusión: el fine-tuning en
+  Colab se corre manualmente por ahora.
+
+### Pendiente / próxima sesión
+
+1. **Correr `finetune/colab_entrenar.ipynb` en Colab manualmente** (Fabián):
+   subir el notebook, GPU T4, subir `entrenamiento.jsonl`, correr dos veces
+   (una por cada `MODELO_BASE`/`NOMBRE_SALIDA`), descargar los dos `.zip` y
+   descomprimirlos en `finetune/modelo_lora_05b/` y `finetune/modelo_lora_15b/`.
+2. Con ambos adaptadores entrenados, comparar calidad de respuesta entre
+   0.5B y 1.5B sobre preguntas reales del índice, y decidir cuál usar.
+3. Escribir `finetune/exportar_gguf.py` (aún no existe) para convertir el
+   adaptador ganador a GGUF cuantizado.
+4. Cambiar el runtime de inferencia en producción de Ollama a
+   `llama-cpp-python` (más liviano, sin dependencia de PyTorch) para poder
+   empaquetar el modelo dentro del `.exe`.
+5. Escribir el `.spec` de PyInstaller para Aliado Libre (hoy no existe
+   ningún empaquetado a `.exe`, corre directo con `venv/Scripts/python.exe`)
+   y medir el tamaño final real con cada modelo para decidir 0.5B vs 1.5B.
+6. Corte Suprema sigue en 0 documentos (backend inestable, no se reintentó
+   esta sesión).
+7. Publicar el índice en Hugging Face Hub — sigue pendiente, decidido
+   posponer (ya se tiene un `HF_TOKEN` de lectura funcional de esta sesión,
+   pero habría que generar uno con permiso Write para publicar).
+
 ## 2026-08-30 — GUI web local, capa conversacional Ollama, reindex resiliente, fine-tuning LoRA
 
 ### Resuelto

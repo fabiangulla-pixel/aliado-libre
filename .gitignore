@@ -6,6 +6,6 @@ index/chroma_db/
 data/raw/_*
 data/raw/*.json
 data/respaldo_legalize_co/
-finetune/checkpoints/
-finetune/modelo_lora/
+finetune/checkpoints*/
+finetune/modelo_lora*/
 *.log
