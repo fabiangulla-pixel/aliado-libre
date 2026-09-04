@@ -1,14 +1,45 @@
+# Despliegue del servidor del índice de Aliado Libre.
+# Arquitectura: modelo local (Ollama en el equipo del usuario) + índice en la nube.
+# Antes de aplicar esto lee docs/DESPLIEGUE_INDICE.md: el índice pesa ~11GB,
+# no está en git y hay que subirlo al disco persistente a mano una sola vez.
 services:
   - type: web
-    name: aliado-libre-mcp
+    name: aliado-libre-indice
     runtime: docker
-    plan: standard # necesita >= 4GB RAM para sentence-transformers + Chroma en memoria
+    # La búsqueda mide ~2.3GB de RSS en caliente (Chroma y FTS5 son
+    # disco-residentes; lo que ocupa RAM es el modelo de embeddings + el
+    # índice HNSW de Chroma). Standard (2GB) se queda corto: hace falta Pro.
+    plan: pro
+    region: oregon
     dockerfilePath: ./Dockerfile
-    healthCheckPath: /mcp
+    healthCheckPath: /salud
     envVars:
       - key: PORT
-        value: 8000
+        value: 8800
+      # Secreto compartido con el cliente (index/cliente_remoto.py).
+      # sync:false = se define a mano en el panel de Render, nunca en git.
+      - key: ALIADO_INDICE_TOKEN
+        sync: false
     disk:
-      name: indice-chroma
-      mountPath: /app/index/chroma_db
-      sizeGB: 5 # el índice actual pesa ~2.4GB; margen para crecer con nuevas fuentes
+      name: indice-legal
+      # Montado en /datos, no en /app/index: el Dockerfile deja symlinks para
+      # que index/buscar.py encuentre chroma_db/ y fts_index.db sin cambios.
+      mountPath: /datos
+      # Chroma ~9.2GB + FTS5 ~1.66GB = ~10.9GB, más margen para reindexar.
+      sizeGB: 15
+
+# Servicio MCP anterior (opcional). Ahora que existe el servidor del índice,
+# el MCP puede correr en el equipo del usuario contra el índice remoto en vez
+# de desplegarse con su propia copia de 11GB. Se deja documentado por si se
+# quiere volver a publicar:
+#
+#  - type: web
+#    name: aliado-libre-mcp
+#    runtime: docker
+#    plan: pro
+#    dockerfilePath: ./Dockerfile
+#    dockerCommand: python mcp_server/server.py
+#    healthCheckPath: /mcp
+#    envVars:
+#      - key: PORT
+#        value: 8000

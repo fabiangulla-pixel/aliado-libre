@@ -16,22 +16,56 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+ESTA_CONGELADO = bool(getattr(sys, "frozen", False))
 
-RAIZ_ESTATICA = Path(__file__).resolve().parent / "static"
+
+def _raiz_recursos() -> Path:
+    """Raíz desde la que colgar recursos (gui/static/...).
+
+    En el .exe de PyInstaller el código vive dentro del archivo comprimido y
+    ``__file__`` no apunta a una carpeta real: los datos se extraen a
+    ``sys._MEIPASS``. En desarrollo la raíz es la del repositorio."""
+    base = getattr(sys, "_MEIPASS", None)
+    if base is not None:
+        return Path(base)
+    return Path(__file__).resolve().parent.parent
+
+
+RAIZ = _raiz_recursos()
+if not ESTA_CONGELADO:
+    sys.path.insert(0, str(RAIZ))
+
+RAIZ_ESTATICA = RAIZ / "gui" / "static"
 PUERTO = 8765
 
 _indice = None
 _indice_lock = threading.Lock()
 
 
+def _crear_indice():
+    """El .exe distribuible NO lleva el corpus, ni Chroma, ni el modelo de
+    embeddings: consulta el índice por HTTP contra el servidor remoto
+    (``index.cliente_remoto``). Si ese cliente todavía no está disponible se
+    usa el índice local, que solo existe en el repositorio de desarrollo."""
+    try:
+        from index.cliente_remoto import IndiceRemoto
+    except ImportError:
+        if ESTA_CONGELADO:
+            raise RuntimeError(
+                "Esta versión empaquetada necesita el cliente de índice remoto "
+                "(index/cliente_remoto.py) y se compiló sin él."
+            ) from None
+        from index.buscar import IndiceBusqueda
+
+        return IndiceBusqueda()
+    return IndiceRemoto()
+
+
 def _obtener_indice():
     global _indice
     with _indice_lock:
         if _indice is None:
-            from index.buscar import IndiceBusqueda
-
-            _indice = IndiceBusqueda()
+            _indice = _crear_indice()
     return _indice
 
 
@@ -83,8 +117,9 @@ class Handler(BaseHTTPRequestHandler):
             try:
                 salida["respuesta"] = responder(consulta, resultados[:MAX_FRAGMENTOS_CONVERSACIONAL])
             except RuntimeError as e:
-                # Ollama no disponible u otro fallo de la capa conversacional:
-                # degradar a buscador puro, no tirar toda la respuesta
+                # modelo GGUF ausente, no cargable o fallo de inferencia:
+                # degradar a buscador puro, no tirar toda la respuesta.
+                # El mensaje de `responder` ya explica en español qué falta.
                 salida["respuesta"] = None
                 salida["aviso_respuesta"] = str(e)
 

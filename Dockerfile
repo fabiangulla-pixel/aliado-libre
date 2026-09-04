@@ -13,11 +13,29 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-ENV HF_HUB_OFFLINE=0
-# El índice (index/chroma_db/) vive en un disco persistente montado en Render,
-# no en la imagen — ver docs/DEPLOY.md. Si no existe al arrancar, buscar_normativo()
-# fallará con un error claro en vez de silenciosamente devolver vacío.
+# El modelo de embeddings se descarga en build y queda dentro de la imagen: así
+# el arranque no depende de la red de Hugging Face ni paga esa latencia. En
+# runtime index/buscar.py fuerza HF_HUB_OFFLINE=1.
+ENV HF_HOME=/opt/hf
+RUN python -c "from sentence_transformers import SentenceTransformer; \
+    SentenceTransformer('paraphrase-multilingual-MiniLM-L12-v2')"
 
-EXPOSE 8000
+ENV PYTHONUNBUFFERED=1
 
-CMD ["python", "mcp_server/server.py"]
+# El índice (index/chroma_db/ ~9.2GB y index/fts_index.db ~1.66GB) NO está en
+# git ni en la imagen: vive en un disco persistente montado en /datos.
+#
+# No se monta el disco directamente sobre /app/index porque eso taparía los
+# módulos de Python que viven ahí (buscar.py, cliente_remoto.py...). En su
+# lugar se dejan symlinks: index/buscar.py sigue leyendo sus rutas de siempre
+# y no hay que tocarlo. Ver docs/DESPLIEGUE_INDICE.md.
+RUN rm -rf /app/index/chroma_db /app/index/fts_index.db \
+    && ln -s /datos/chroma_db /app/index/chroma_db \
+    && ln -s /datos/fts_index.db /app/index/fts_index.db
+
+EXPOSE 8800
+
+# Servidor del índice (arquitectura "modelo local + índice en la nube").
+# Para desplegar en cambio el servidor MCP, sobrescribe el comando:
+#   dockerCommand: python mcp_server/server.py
+CMD ["python", "servidor_indice/server.py"]
