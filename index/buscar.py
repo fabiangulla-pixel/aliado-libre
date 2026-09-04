@@ -17,6 +17,7 @@ import os
 import re
 import sqlite3
 import threading
+import unicodedata
 from pathlib import Path
 
 # El modelo ya queda cacheado localmente tras la primera descarga; sin esto,
@@ -45,8 +46,55 @@ PESO_BM25 = 2.0
 PESO_VECTORIAL = 1.0
 
 
+# Palabras sin valor discriminante en español, más las fórmulas de cortesía y
+# de encuadre con las que la gente envuelve una consulta ("buenas", "una
+# pregunta", "gracias").
+#
+# No es cosmético: cada token se convierte en un término OR de FTS5, y los
+# términos más frecuentes son los que tienen las listas de ocurrencias más
+# largas, así que son justo los más caros. Medido sobre el banco coloquial, una
+# consulta de 73 palabras tardaba 15 s solo en la parte léxica; filtrando y
+# topando, 0,37 s. Media del banco: 7,82 s -> 0,39 s, veinte veces más rápido.
+# Y a quien más castigaba era a quien escribe con más rodeos, es decir al
+# usuario menos experto.
+PALABRAS_VACIAS = frozenset(
+    """a al algo alguna algunas alguno algunos ante antes aqui asi aun aunque bien buenas buenos
+cada como con contra cual cuales cuando da dar de del desde dias dice decir donde dos el ella ellas
+ellos en entre era eran es esa esas ese eso esos esta estan estas este esto estos estoy favor fue
+fueron gracias ha hace hacer hacia han hasta hay hola la las le les lo los mas me mi mia mio mis
+mucho muy nada ni no noches nos nosotros o os otra otras otro otros para pero poco por porque pregunta
+puede pueden podria que quien quienes se senor senora ser seria si sin sobre solo son soy su sus
+tambien tanto tardes te tener tengo tiene tienen todo todos tu tus un una uno unos usted ustedes ya
+yo consulta""".split()
+)
+
+# Tope de términos por consulta. Con OR, cada término extra suma coste y
+# ruido; los primeros son los que llevan la intención.
+MAX_TOKENS_FTS = 12
+
+
+def _sin_tildes(texto: str) -> str:
+    texto = unicodedata.normalize("NFKD", texto.lower())
+    return "".join(c for c in texto if not unicodedata.combining(c))
+
+
 def _tokenizar(texto: str) -> list[str]:
-    return re.findall(r"\w+", texto.lower())
+    """Términos útiles de la consulta: sin palabras vacías, sin repetir y topados.
+
+    Si al filtrar no queda nada (una consulta hecha solo de palabras vacías),
+    se devuelven los tokens crudos: es preferible una búsqueda mala a ninguna.
+    """
+    crudos = re.findall(r"\w+", _sin_tildes(texto))
+    utiles: list[str] = []
+    vistos: set[str] = set()
+    for token in crudos:
+        if len(token) <= 2 or token in PALABRAS_VACIAS or token in vistos:
+            continue
+        vistos.add(token)
+        utiles.append(token)
+        if len(utiles) >= MAX_TOKENS_FTS:
+            break
+    return utiles or crudos[:MAX_TOKENS_FTS]
 
 
 def _consulta_fts(tokens: list[str]) -> str:

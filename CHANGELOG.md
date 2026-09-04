@@ -1,5 +1,78 @@
 # Changelog
 
+## 2026-09-04 — Q4 cuantizado, índice en la nube, .exe autónomo y medición honesta
+
+Sesión larga. Se cerraron los cinco pendientes abiertos, se decidió la dirección del
+producto (que estaba a la deriva respecto al README) y se descubrió que el banco de
+pruebas existente era ciego al fallo real del producto.
+
+### Producto: decisión explícita
+
+El README decía "solo hace búsqueda, no genera texto" y "100% local por diseño", pero tres
+sesiones de fine-tuning habían llevado el proyecto a otro sitio. Decidido y documentado:
+es un **asistente que responde en prosa**, para **abogado y ciudadano por igual**, con
+**tres modos** (todo local / modelo local + índice en la nube / servidor MCP) que elige
+el usuario según su equipo. Consecuencia: la precisión pasa a ser la métrica que manda.
+
+### Resuelto
+
+- **Q4_K_M del modelo ganador**: 940 MB (32% del f16). Pero **cuesta precisión**: 31% vs
+  38% del q8_0. Contraste pareado sobre las mismas preguntas: pierde 18 y gana 6,
+  McNemar exacto p=0,023 — la caída es real, no ruido. El daño está en las positivas
+  (elegir el fragmento correcto); las abstenciones no empeoran. Recomendación:
+  distribuir el q8_0.
+- **Índice en la nube listo, sin desplegar**: `servidor_indice/` (stdlib) e
+  `index/cliente_remoto.py`, que no importa torch ni chromadb — ese es el punto de mover
+  el índice. Costo real documentado en `docs/DESPLIEGUE_INDICE.md`.
+- **`.exe` de 28,6 MB, ya autónomo**: `index/responder.py` migrado de Ollama a
+  `llama_cpp.Llama`. Verificado abriendo el PYZ (buscar cadenas da falso negativo) y
+  arrancando el binario contra un índice remoto.
+- **Índice publicado**: 10,67 GB verificados en HF (`Gullax/indice-legal-colombia`),
+  Chroma + FTS5. Publicar solo el vectorial dejaba el dataset inservible.
+- **Corte Suprema**: sigue 502. `/filters` responde 200; el POST real no. No es del cliente.
+
+### Bugs reales encontrados
+
+- **sqlite entre hilos**: `IndiceBusqueda` guardaba una conexión FTS5 en `__init__` y el
+  servidor es `ThreadingHTTPServer`. La primera búsqueda funcionaba y la segunda moría.
+  Ninguna prueba lo vio porque todas hacían UNA consulta. Lo encontró el usuario usando
+  la app.
+- **Selección de índice rota en desarrollo**: se decidía por si fallaba el import de
+  `cliente_remoto`, que en el repo nunca falla.
+- **El .exe onefile sobrevivía a `terminate()`**: el bootloader deja un hijo vivo que
+  ocupaba el puerto, y una sonda posterior le hablaba a ese huérfano.
+- **Fragmento falso con esquema inventado** en una prueba: validaba un contrato inexistente.
+
+### Medición: el banco anterior era ciego
+
+`banco_prueba.json` lo generó un LLM a partir de los fragmentos, así que heredó su
+vocabulario jurídico. El 72% de recall@5 describía a un abogado, no a un ciudadano.
+
+- **`finetune/eval/banco_coloquial.json`**: 1.583 consultas sobre 198 fragmentos reales,
+  8 perfiles de usuario equilibrados (baja alfabetización, adulto mayor, ciudadano medio,
+  comerciante, semi-técnico impreciso, telegráfico, con ruido, y abogado como control),
+  estratificadas por las 7 fuentes. Verdad de referencia por construcción: sin juez,
+  sin coste.
+- **`finetune/medir_recuperacion.py`** y **`finetune/calibrar_abstencion.py`**:
+  recall@k por perfil y por fuente, y la curva precisión/cobertura para elegir cuándo
+  callarse. Acercarse al 100% exige abstenerse, no acertar más.
+- **`index/verificar_anclaje.py`**: comprobación determinista de que cada dato duro de la
+  respuesta esté en los fragmentos. Sobre 150 respuestas reales marca 21, las 21 malas,
+  cero falsos positivos. Conectado a la GUI.
+- **Diagnóstico que redirige la estrategia**: de 104 respuestas incorrectas, 68 (65%) no
+  inventan nada — citan el artículo 38 cuando la respuesta estaba en el 39 del mismo
+  decreto. Es un fallo de *relevancia*, no de anclaje: ninguna comprobación de cadenas
+  puede verlo. El camino no pasa por controlar alucinaciones sino por elegir mejor el
+  pasaje (reranker, modelo mayor).
+
+### Rendimiento: la búsqueda penalizaba al usuario menos experto
+
+Cada palabra de la consulta se volvía un término `OR` de FTS5 sobre 718.388 fragmentos,
+así que el coste escalaba con la longitud: 15 s para el perfil "adulto mayor" (72
+palabras) frente a 0,5 s para el telegráfico. Filtrando palabras vacías y topando a 12
+términos: media del banco de **7,82 s a 0,39 s, veinte veces más rápido**.
+
+
 ## 2026-09-03 — Fine-tuning en Colab (4 modelos comparados), búsqueda optimizada de RAM
 
 Sesión larga (~8h): se resolvió el fine-tuning local inviable moviéndolo a Colab (GPU

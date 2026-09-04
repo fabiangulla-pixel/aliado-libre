@@ -1,14 +1,40 @@
 # Aliado Libre
 
 RAG legal colombiano libre y gratuito — alternativa abierta a ALI Cerebro Legal (aliado.pro).
-Conecta asistentes de IA (vía MCP) a legislación y jurisprudencia colombiana con citas verificables.
+Legislación y jurisprudencia colombiana con **citas verificables**, para cualquiera: abogado,
+estudiante o persona sin formación jurídica.
 
-Es la primera herramienta de [Suite Legal Libre](../suite-legal-libre) — 100% local por
-diseño (solo hace búsqueda, no genera texto, no necesita el módulo `llm_dual` de la suite).
+Es la primera herramienta de [Suite Legal Libre](../suite-legal-libre).
+
+## Qué es y qué no es (4-sep-2026)
+
+Asistente que **responde en prosa** y cita sus fuentes, con un modelo propio fine-tuneado
+que corre en el equipo del usuario. Se usa de tres maneras, y la elige el usuario según
+la máquina que tenga:
+
+| Modo | Qué necesita | Para quién |
+|---|---|---|
+| Todo local | ~11 GB de disco, ~2,3 GB de RAM | quien quiera independencia total |
+| Modelo local + índice en la nube | conexión; el .exe pesa 29 MB + modelo | equipos modestos |
+| Servidor MCP | un asistente de IA propio (Claude, Cursor…) | perfil técnico |
+
+**Precisión, dicha sin adornos.** Medido sobre 150 preguntas con juez independiente, el
+modelo acierta el **38%** (Qwen2.5-1.5B fine-tuneado; la versión cuantizada a 4 bits baja
+al 31%, diferencia estadísticamente real, McNemar p=0,023). De las respuestas incorrectas,
+el 65% no inventa nada: cita el documento o el artículo equivocado de entre los que
+recibió. **Hoy esto no sustituye a un abogado ni debe usarse sin verificar la cita.**
+Subir esa cifra es el trabajo en curso; el número se publica aquí porque un asistente
+legal que oculta su tasa de error es más peligroso que uno malo.
+
+**Salvaguardas que ya existen**: un verificador determinista comprueba que cada número de
+norma, artículo, plazo y cifra de la respuesta esté en los fragmentos recuperados, y marca
+lo que no. Medido sobre esas mismas 150 respuestas: marca 21 y las 21 son incorrectas,
+sin un solo falso positivo.
 
 **Cobertura honesta**: este proyecto NO pretende cubrir "toda" la data jurídica de Colombia.
 Cubre lo que tiene fuente abierta confirmada y documentada (ver `docs/fuentes.md`).
-Cuando el índice no tiene algo, el servidor MCP debe decirlo explícitamente — nunca inventar.
+Cuando el índice no tiene algo, la app debe decirlo explícitamente — nunca inventar — y
+distinguir "no está en el índice" de "no sé": los huecos de cobertura son información útil.
 
 ## Estado (30-ago-2026)
 

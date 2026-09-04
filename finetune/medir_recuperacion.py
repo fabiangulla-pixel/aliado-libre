@@ -104,7 +104,17 @@ def main() -> None:
                     print(f"  aviso: la reescritura falló ({type(e).__name__}), se usa la consulta cruda")
 
         resultados = indice.buscar(consulta_usada, k=max(TOPES))
-        fila = {"pregunta": consulta, "reescrita": consulta_usada, "perfil": caso["perfil"]}
+        # Los puntajes se guardan para poder calibrar DESPUÉS un umbral de
+        # abstención sin repetir la corrida entera (que son horas). Acercarse
+        # al 100% de precisión solo es posible dejando de responder cuando no
+        # hay respaldo, y ese umbral hay que elegirlo con datos.
+        fila = {
+            "pregunta": consulta,
+            "reescrita": consulta_usada,
+            "perfil": caso["perfil"],
+            "fuente": caso["fuente"],
+            "puntajes": [r.get("puntaje") for r in resultados[: max(TOPES)]],
+        }
         for k in TOPES:
             ok = _acierto(resultados, caso, k)
             fila[f"acierto@{k}"] = ok
