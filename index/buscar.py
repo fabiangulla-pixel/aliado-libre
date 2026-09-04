@@ -16,6 +16,7 @@ from __future__ import annotations
 import os
 import re
 import sqlite3
+import threading
 from pathlib import Path
 
 # El modelo ya queda cacheado localmente tras la primera descarga; sin esto,
@@ -63,10 +64,25 @@ class IndiceBusqueda:
         self._coleccion = self._cliente.get_or_create_collection(COLECCION)
         self._total = self._coleccion.count()
 
-        self._fts: sqlite3.Connection | None = None
-        if DB_FTS.exists():
+        # Una conexión sqlite3 NO se puede compartir entre hilos, y el servidor
+        # de la GUI (ThreadingHTTPServer) atiende cada petición en uno distinto:
+        # guardar la conexión en el objeto hacía que la primera búsqueda
+        # funcionara y la segunda muriera con "SQLite objects created in a
+        # thread can only be used in that same thread". Se abre una conexión por
+        # hilo, en modo solo lectura, y cada una se reusa mientras el hilo viva.
+        self._local = threading.local()
+
+    @property
+    def _fts(self) -> sqlite3.Connection | None:
+        """Conexión FTS5 propia del hilo que llama (None si no hay índice)."""
+        if not DB_FTS.exists():
+            return None
+        conexion = getattr(self._local, "fts", None)
+        if conexion is None:
             # solo lectura: el índice FTS5 se construye aparte con index/build_fts.py
-            self._fts = sqlite3.connect(f"file:{DB_FTS}?mode=ro", uri=True)
+            conexion = sqlite3.connect(f"file:{DB_FTS}?mode=ro", uri=True)
+            self._local.fts = conexion
+        return conexion
 
     def buscar(self, consulta: str, k: int = 8) -> list[dict]:
         if self._total == 0:

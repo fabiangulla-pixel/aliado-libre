@@ -121,6 +121,22 @@ def main() -> int:
             ident = r.get("identificador_documento") or r.get("titulo_documento") or "(sin id)"
             print(f"  - {ident}  [{r.get('fuente', '?')}]")
 
+        # SEGUNDA consulta: ThreadingHTTPServer la atiende en otro hilo, y ahi
+        # es donde reventaba la conexion sqlite compartida. Una sola consulta
+        # no prueba nada.
+        print("\nSegunda consulta (otro hilo del servidor, aquí es donde fallaba)...")
+        otra = "término de un contrato de prestación de servicios"
+        url2 = BASE + "/api/buscar?" + urllib.parse.urlencode({"q": otra})
+        try:
+            d2 = json.loads(urllib.request.urlopen(url2, timeout=600).read().decode("utf-8"))
+        except urllib.error.HTTPError as e:
+            print("FALLO la segunda consulta:", e.read().decode("utf-8", "replace")[:400])
+            return 1
+        if d2.get("error"):
+            print("FALLO la segunda consulta:", d2["error"])
+            return 1
+        print(f"Segunda consulta OK: {len(d2.get('resultados', []))} fragmentos\n")
+
         if datos.get("respuesta"):
             print("\n--- RESPUESTA REDACTADA ---")
             print(datos["respuesta"])
