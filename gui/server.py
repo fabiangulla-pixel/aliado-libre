@@ -9,6 +9,7 @@ página no compite por CPU/memoria hasta que alguien busca de verdad."""
 from __future__ import annotations
 
 import json
+import os
 import sys
 import threading
 import webbrowser
@@ -43,22 +44,34 @@ _indice_lock = threading.Lock()
 
 
 def _crear_indice():
-    """El .exe distribuible NO lleva el corpus, ni Chroma, ni el modelo de
-    embeddings: consulta el índice por HTTP contra el servidor remoto
-    (``index.cliente_remoto``). Si ese cliente todavía no está disponible se
-    usa el índice local, que solo existe en el repositorio de desarrollo."""
-    try:
-        from index.cliente_remoto import IndiceRemoto
-    except ImportError:
-        if ESTA_CONGELADO:
+    """Elige índice remoto o local.
+
+    El .exe distribuible NO lleva el corpus, ni Chroma, ni el modelo de
+    embeddings: consulta el índice por HTTP (``index.cliente_remoto``), así
+    que congelado siempre va por ahí.
+
+    En desarrollo manda ``ALIADO_INDICE_URL``: si está definida se usa el
+    servidor remoto, y si no, el índice local del repositorio. Decidirlo por
+    la URL y no por si el import funciona es lo único correcto: en el repo el
+    import SIEMPRE funciona, así que ese criterio dejaba el índice local
+    inalcanzable y rompía el arranque de toda la vida (`python gui/server.py`)
+    contra un servidor que puede no estar desplegado.
+    """
+    hay_url = bool(os.environ.get("ALIADO_INDICE_URL", "").strip())
+
+    if ESTA_CONGELADO or hay_url:
+        try:
+            from index.cliente_remoto import IndiceRemoto
+        except ImportError:
             raise RuntimeError(
                 "Esta versión empaquetada necesita el cliente de índice remoto "
                 "(index/cliente_remoto.py) y se compiló sin él."
             ) from None
-        from index.buscar import IndiceBusqueda
+        return IndiceRemoto()
 
-        return IndiceBusqueda()
-    return IndiceRemoto()
+    from index.buscar import IndiceBusqueda
+
+    return IndiceBusqueda()
 
 
 def _obtener_indice():

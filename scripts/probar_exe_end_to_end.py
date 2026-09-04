@@ -40,10 +40,16 @@ FRAGMENTOS = [
             "tendrán derecho a ser encargados de tales empleos. El encargo no podrá "
             "ser superior a seis (6) meses."
         ),
-        "identificador": "Ley 909 de 2004",
-        "titulo": "Ley 909 de 2004, artículo 24",
+        # claves EXACTAS de IndiceBusqueda.buscar(): con otras, esta prueba
+        # validaría un contrato inventado y pasaría igual estando roto
+        "id": "ley_909_2004::12",
+        "documento_id": "ley_909_2004",
+        "identificador_documento": "Ley 909 de 2004",
+        "titulo_documento": "Ley 909 de 2004, artículo 24",
         "fuente": "gestor_normativo",
-        "url": "https://www.funcionpublica.gov.co/eva/gestornormativo/norma.php?i=14861",
+        "url_original": "https://www.funcionpublica.gov.co/eva/gestornormativo/norma.php?i=14861",
+        "orden": 12,
+        "puntaje": 0.97,
     },
 ]
 
@@ -69,6 +75,39 @@ class ManejadorFalso(BaseHTTPRequestHandler):
         self.wfile.write(cuerpo)
 
 
+def _puerto_ocupado(puerto: int) -> bool:
+    """Un proceso ajeno escuchando en el puerto haría que la sonda le hablara a
+    él y no al programa que se quiere probar: un falso resultado, positivo o
+    negativo. Mejor abortar."""
+    import socket
+
+    with socket.socket() as s:
+        return s.connect_ex(("127.0.0.1", puerto)) == 0
+
+
+def _matar_arbol(proceso) -> str:
+    """`terminate()` no basta con un .exe onefile de PyInstaller: el bootloader
+    lanza un proceso HIJO que es el que realmente corre la aplicación y sobrevive
+    a que se mate al padre, dejando el puerto ocupado. Hay que matar el árbol.
+    """
+    import subprocess as _sp
+
+    salida = ""
+    try:
+        if sys.platform == "win32":
+            _sp.run(
+                ["taskkill", "/PID", str(proceso.pid), "/T", "/F"],
+                capture_output=True,
+                check=False,
+            )
+        else:
+            proceso.terminate()
+        salida = proceso.communicate(timeout=20)[0] or ""
+    except Exception:
+        proceso.kill()
+    return salida
+
+
 def main() -> int:
     if not EXE.exists():
         print(f"No existe {EXE} — compilar primero con scripts/build_exe.py")
@@ -77,6 +116,14 @@ def main() -> int:
     if not any(gguf.glob("*.gguf")):
         print(f"No hay ningún .gguf en {gguf} — copiar el modelo al lado del .exe")
         return 1
+
+    for puerto, quien in ((PUERTO_GUI, "la GUI"), (PUERTO_INDICE, "el índice falso")):
+        if _puerto_ocupado(puerto):
+            print(
+                f"El puerto {puerto} ({quien}) ya está ocupado por otro proceso. "
+                "Ciérralo antes de correr esta prueba o el resultado no significa nada."
+            )
+            return 1
 
     servidor = ThreadingHTTPServer(("127.0.0.1", PUERTO_INDICE), ManejadorFalso)
     threading.Thread(target=servidor.serve_forever, daemon=True).start()
@@ -128,12 +175,7 @@ def main() -> int:
             print("aviso:", datos.get("aviso_respuesta"))
             print("error:", datos.get("error"))
     finally:
-        proceso.terminate()
-        try:
-            salida = proceso.communicate(timeout=15)[0]
-        except subprocess.TimeoutExpired:
-            proceso.kill()
-            salida = ""
+        salida = _matar_arbol(proceso)
         servidor.shutdown()
         if salida:
             print("\n--- salida del .exe ---")
