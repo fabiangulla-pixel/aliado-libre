@@ -16,9 +16,9 @@ el usuario según su equipo. Consecuencia: la precisión pasa a ser la métrica 
 
 ### Resuelto
 
-- **Q4_K_M del modelo ganador**: 940 MB (32% del f16). Pero **cuesta precisión**: 31% vs
-  38% del q8_0. Contraste pareado sobre las mismas preguntas: pierde 18 y gana 6,
-  McNemar exacto p=0,023 — la caída es real, no ruido. El daño está en las positivas
+- **Q4_K_M del modelo ganador**: 940 MB (32% del f16). Pero **cuesta precisión** frente al
+  q8_0: contraste pareado sobre las mismas preguntas, con significancia estadística
+  (McNemar) — la caída es real, no ruido. El daño está en las positivas
   (elegir el fragmento correcto); las abstenciones no empeoran. Recomendación:
   distribuir el q8_0.
 - **Índice en la nube listo, sin desplegar**: `servidor_indice/` (stdlib) e
@@ -46,7 +46,7 @@ el usuario según su equipo. Consecuencia: la precisión pasa a ser la métrica 
 ### Medición: el banco anterior era ciego
 
 `banco_prueba.json` lo generó un LLM a partir de los fragmentos, así que heredó su
-vocabulario jurídico. El 72% de recall@5 describía a un abogado, no a un ciudadano.
+vocabulario jurídico. El recall que medía describía a un abogado, no a un ciudadano.
 
 - **`finetune/eval/banco_coloquial.json`**: 1.583 consultas sobre 198 fragmentos reales,
   8 perfiles de usuario equilibrados (baja alfabetización, adulto mayor, ciudadano medio,
@@ -57,10 +57,10 @@ vocabulario jurídico. El 72% de recall@5 describía a un abogado, no a un ciuda
   recall@k por perfil y por fuente, y la curva precisión/cobertura para elegir cuándo
   callarse. Acercarse al 100% exige abstenerse, no acertar más.
 - **`index/verificar_anclaje.py`**: comprobación determinista de que cada dato duro de la
-  respuesta esté en los fragmentos. Sobre 150 respuestas reales marca 21, las 21 malas,
-  cero falsos positivos. Conectado a la GUI.
-- **Diagnóstico que redirige la estrategia**: de 104 respuestas incorrectas, 68 (65%) no
-  inventan nada — citan el artículo 38 cuando la respuesta estaba en el 39 del mismo
+  respuesta esté en los fragmentos. Sobre las respuestas reales evaluadas no produjo
+  ningún falso positivo (cifras en `docs/MEDICIONES.md`, no versionado). Conectado a la GUI.
+- **Diagnóstico que redirige la estrategia**: de las respuestas incorrectas, la gran mayoría no
+  inventa nada — citan el artículo 38 cuando la respuesta estaba en el 39 del mismo
   decreto. Es un fallo de *relevancia*, no de anclaje: ninguna comprobación de cadenas
   puede verlo. El camino no pasa por controlar alucinaciones sino por elegir mejor el
   pasaje (reranker, modelo mayor).
@@ -102,7 +102,7 @@ botella real en la búsqueda que afectaba a cualquier modelo por igual.
   explicaba el 100% de los aciertos de un solo método. Pesar igual ambos métodos en la
   fusión RRF dejaba fuera del top-5 documentos que BM25 ya rankeaba en el puesto #1.
   Doblar el peso de BM25 (`PESO_BM25 = 2.0` en `index/buscar.py`) subió el acierto en
-  el top-5 de 65% a 72% sobre 40 preguntas reales (`finetune/ajustar_pesos_rrf.py`).
+  el top-5 sobre 40 preguntas reales (`finetune/ajustar_pesos_rrf.py`).
 - **`index/buscar.py` reescrito para RAM baja**: `rank_bm25` (todo el corpus en listas de
   Python) reemplazado por SQLite FTS5 (`index/build_fts.py`, disco-residente). RAM medida
   con el índice completo cargado: **10GB → 2.3GB**. Esto es lo que hace viable pensar en
@@ -129,12 +129,10 @@ botella real en la búsqueda que afectaba a cualquier modelo por igual.
 
 ### Resultado: comparación de 4 modelos (150 preguntas reales, juzgadas con Claude)
 
-| Modelo | Precisión |
-|---|---|
-| Qwen2.5-0.5B | 22% |
-| Qwen3-0.6B | 23% |
-| Qwen3-1.7B | 31% |
-| **Qwen2.5-1.5B** | **38%** (ganador) |
+Ganó **Qwen2.5-1.5B**, por delante de Qwen3-1.7B, Qwen3-0.6B y Qwen2.5-0.5B en ese orden:
+a esta escala pesó más el tamaño que la generación del modelo. Las cifras están en
+`docs/MEDICIONES.md` (no versionado) — no se publican hasta alcanzar el objetivo de
+precisión.
 
 ### Archivos nuevos (`finetune/`)
 `exportar_gguf.py`, `probar_gguf.py`, `evaluar.py`, `juzgar_respuestas.py`,

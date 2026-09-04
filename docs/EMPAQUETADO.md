@@ -88,7 +88,7 @@ Queda pendiente:
    aún no está desplegado — ver `docs/DESPLIEGUE_INDICE.md`. Sin eso, el .exe
    funciona pero hay que pasarle la URL a mano.
 2. **Reevaluar la calidad del Q4.** La cuantización a 4 bits pierde precisión y
-   el 38% medido corresponde al modelo sin cuantizar. La medición sobre el Q4
+   la precisión medida corresponde al modelo sin cuantizar. La medición sobre el Q4
    está en curso con `finetune/generar_respuestas_local.py`.
 3. Firma de código e icono propio (hoy usa el icono por defecto de PyInstaller).
 

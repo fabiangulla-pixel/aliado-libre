@@ -5,8 +5,8 @@ generó un LLM *a partir de los fragmentos*, así que heredó su vocabulario
 jurídico. Mide bien la redacción de respuestas, pero es ciego al fallo real del
 producto: un cliente no escribe "recolección y transporte de residuos
 originados por la poda de árboles", escribe "quien recoge las ramas que corté".
-Con el banco viejo, la recuperación mide 72% en top-5; ese número describe a un
-abogado consultando, no a un ciudadano.
+Con el banco viejo, la recuperación medida describe a un abogado consultando, no a un
+ciudadano.
 
 Cómo se ancla la verdad de referencia: cada consulta se genera A PARTIR DE un
 fragmento concreto, así que ese fragmento es, por construcción, una respuesta

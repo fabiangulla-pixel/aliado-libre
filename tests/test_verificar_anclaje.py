@@ -1,10 +1,10 @@
 """Tests del verificador determinista de anclaje.
 
-Las cifras que se citan aquí salen de medirlo contra las 150 respuestas reales
-ya juzgadas (finetune/eval/resultados.json): marca 21 respuestas, todas
-efectivamente malas — precisión 100%, ningún falso positivo. Ese es el
-requisito que estos tests protegen: NUNCA marcar una respuesta buena, aunque
-eso cueste dejar pasar malas.
+Medido contra las 150 respuestas reales ya juzgadas
+(finetune/eval/resultados.json), no marca ni una sola respuesta buena: cero
+falsos positivos. Ese es el requisito que estos tests protegen — NUNCA marcar
+una respuesta buena, aunque cueste dejar pasar malas. Las cifras completas
+están en docs/MEDICIONES.md, que no se versiona.
 """
 
 from __future__ import annotations

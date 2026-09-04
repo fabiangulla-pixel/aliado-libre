@@ -18,18 +18,18 @@ la máquina que tenga:
 | Modelo local + índice en la nube | conexión; el .exe pesa 29 MB + modelo | equipos modestos |
 | Servidor MCP | un asistente de IA propio (Claude, Cursor…) | perfil técnico |
 
-**Precisión, dicha sin adornos.** Medido sobre 150 preguntas con juez independiente, el
-modelo acierta el **38%** (Qwen2.5-1.5B fine-tuneado; la versión cuantizada a 4 bits baja
-al 31%, diferencia estadísticamente real, McNemar p=0,023). De las respuestas incorrectas,
-el 65% no inventa nada: cita el documento o el artículo equivocado de entre los que
-recibió. **Hoy esto no sustituye a un abogado ni debe usarse sin verificar la cita.**
-Subir esa cifra es el trabajo en curso; el número se publica aquí porque un asistente
-legal que oculta su tasa de error es más peligroso que uno malo.
+**Estado: en desarrollo, no apto para uso profesional todavía.** La capa que redacta
+respuestas está en calibración y su tasa de acierto aún no alcanza el umbral que nos hemos
+puesto para darla por utilizable. Mientras tanto: **verifica siempre la cita** — cada
+respuesta trae los fragmentos oficiales de los que salió, y esos sí son texto literal
+comprobable. No sustituye asesoría jurídica profesional.
 
-**Salvaguardas que ya existen**: un verificador determinista comprueba que cada número de
+Las mediciones de calidad se llevan internamente y se publicarán cuando la precisión
+alcance el objetivo fijado.
+
+**Salvaguarda que ya existe**: un verificador determinista comprueba que cada número de
 norma, artículo, plazo y cifra de la respuesta esté en los fragmentos recuperados, y marca
-lo que no. Medido sobre esas mismas 150 respuestas: marca 21 y las 21 son incorrectas,
-sin un solo falso positivo.
+lo que no encuentre.
 
 **Cobertura honesta**: este proyecto NO pretende cubrir "toda" la data jurídica de Colombia.
 Cubre lo que tiene fuente abierta confirmada y documentada (ver `docs/fuentes.md`).
@@ -107,11 +107,14 @@ modelo local vía Ollama (checkbox "Redactar respuesta con IA local"), ambas
 `finetune/` tiene el pipeline completo para entrenar un modelo chico (LoRA en Colab, GPU
 gratuita) que responda citando fuentes en el formato de `index/responder.py`, exportarlo a
 GGUF (`finetune/exportar_gguf.py`) y evaluarlo (`finetune/evaluar.py`, banco de preguntas
-real generado y juzgado con Claude). Comparación medida sobre 150 preguntas reales
-(ver `CHANGELOG.md` 2026-09-03): **Qwen2.5-1.5B (38%) es el mejor de 4 candidatos**
-(Qwen2.5-0.5B 22%, Qwen3-0.6B 23%, Qwen3-1.7B 31%) — le gana incluso a la generación más
-nueva (Qwen3) a este tamaño de parámetros. Qwen3.5 se descartó: bug real del conversor de
-llama.cpp para su arquitectura híbrida (no carga, sin importar el tamaño del modelo).
+real generado y juzgado con Claude). Se compararon 4 candidatos sobre 150 preguntas reales
+y ganó **Qwen2.5-1.5B**, que le gana incluso a la generación más nueva (Qwen3) a este
+tamaño de parámetros: a esta escala pesó más el tamaño que la generación. Qwen3.5 se
+descartó por un bug real del conversor de llama.cpp para su arquitectura híbrida (no
+carga, sin importar el tamaño del modelo).
+
+Las cifras de acierto de cada candidato están en las mediciones internas
+(`docs/MEDICIONES.md`, no versionado), no aquí.
 
 ## Próximos pasos
 

@@ -19,3 +19,6 @@ index/fts_index.db
 build/
 dist/
 *.spec.bak
+
+# Cifras de calidad: no se publican hasta alcanzar el objetivo de precision
+docs/MEDICIONES.md

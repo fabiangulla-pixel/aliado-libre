@@ -198,12 +198,11 @@ def verificar_atribucion(respuesta: str, fragmentos: list[dict]) -> Informe:
     modelo?". Esto pregunta lo que de verdad importa para una cita: "¿está en el
     documento que la respuesta dice que lo dice?".
 
-    NO usar como filtro de salida: medido sobre las mismas 150 respuestas, marca
-    6 y se equivoca en 2 (precisión 67%), mientras que `verificar` marca 21 sin
-    un solo falso positivo. Se conserva como diagnóstico.
+    NO usar como filtro de salida: medido sobre las mismas 150 respuestas introduce
+    falsos positivos, mientras que `verificar` no produce ninguno. Se conserva como diagnóstico.
 
     Por qué rinde menos de lo que promete, que es el hallazgo interesante: de
-    104 respuestas incorrectas reales, 68 —el 65%— fallan por atribuir mal, pero
+    las respuestas incorrectas reales, la mayoría falla por atribuir mal, pero
     esa mala atribución casi nunca consiste en un dato ausente del documento
     citado. Consiste en citar el artículo 38 cuando la respuesta estaba en el 39
     del MISMO decreto. Eso es un error de relevancia, no de anclaje, y ninguna

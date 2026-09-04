@@ -33,7 +33,7 @@ from pathlib import Path
 # --- parámetros de inferencia -------------------------------------------
 # Son EXACTAMENTE los que se usaron para medir la calidad del modelo
 # (finetune/generar_respuestas_local.py y finetune/colab_evaluar_gpu.ipynb).
-# El 38% de acierto que ganó la comparación de 4 modelos se midió con estos
+# La precisión con la que ganó la comparación de 4 modelos se midió con estos
 # valores: si producción usa otros, ese número deja de decir nada sobre lo
 # que el usuario recibe. No cambiar sin volver a correr la evaluación.
 N_CTX = 8192
