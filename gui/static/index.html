@@ -302,10 +302,17 @@ async function buscar() {
     let bloqueRespuesta = '';
     if (quiereRespuesta) {
       if (datos.respuesta) {
+        // Un dato que la comprobación no encontró en las fuentes se muestra
+        // señalado, nunca borrado en silencio: ver la marca enseña a
+        // desconfiar de la prosa y a ir a la cita, que es lo verificable.
+        const avisoAnclaje = datos.anclada === false
+          ? `<div class="aviso">⚠ ${escaparHtml(datos.aviso_anclaje || '')} — verifica en las fuentes de abajo.</div>`
+          : '';
         bloqueRespuesta = `
           <div class="respuesta-ia">
             <div class="etiqueta">Respuesta redactada por IA local</div>
             <p>${escaparHtml(datos.respuesta)}</p>
+            ${avisoAnclaje}
           </div>`;
       } else {
         bloqueRespuesta = `

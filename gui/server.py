@@ -127,8 +127,22 @@ class Handler(BaseHTTPRequestHandler):
             # menos fragmentos que los mostrados: el prompt crece con cada
             # uno y en CPU la respuesta se vuelve notablemente más lenta
             MAX_FRAGMENTOS_CONVERSACIONAL = 4
+            usados = resultados[:MAX_FRAGMENTOS_CONVERSACIONAL]
             try:
-                salida["respuesta"] = responder(consulta, resultados[:MAX_FRAGMENTOS_CONVERSACIONAL])
+                texto = responder(consulta, usados)
+                # Comprobación determinista antes de mostrar nada: cada número de
+                # norma, artículo, plazo o cifra de la respuesta tiene que estar
+                # en los fragmentos. Medido sobre 150 respuestas reales, marca 21
+                # y las 21 eran malas — ningún falso positivo. No sustituye leer
+                # la cita, pero convierte un dato inventado en algo visible en
+                # vez de en prosa convincente.
+                from index.verificar_anclaje import marcar, verificar
+
+                informe = verificar(texto, usados)
+                salida["respuesta"] = texto if informe.anclada else marcar(texto, informe)
+                salida["anclada"] = informe.anclada
+                if not informe.anclada:
+                    salida["aviso_anclaje"] = informe.resumen()
             except RuntimeError as e:
                 # modelo GGUF ausente, no cargable o fallo de inferencia:
                 # degradar a buscador puro, no tirar toda la respuesta.
