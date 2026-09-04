@@ -13,3 +13,6 @@ peft
 trl
 accelerate
 datasets
+sentencepiece
+gguf
+llama-cpp-python

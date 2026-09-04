@@ -1,5 +1,79 @@
 # Changelog
 
+## 2026-09-03 — Fine-tuning en Colab (4 modelos comparados), búsqueda optimizada de RAM
+
+Sesión larga (~8h): se resolvió el fine-tuning local inviable moviéndolo a Colab (GPU
+gratuita), se compararon 4 modelos con datos reales, y se encontró y arregló un cuello de
+botella real en la búsqueda que afectaba a cualquier modelo por igual.
+
+### Resuelto
+
+- **Fine-tuning movido a Colab**: 4 notebooks nuevos, uno por modelo (`finetune/colab_entrenar_qwen35_08b.ipynb`,
+  `_qwen35_2b`, `_qwen3_06b`, `_qwen3_17b`) — cada uno fijo a un solo `MODELO_BASE`, sin
+  selector editable, para eliminar el riesgo de mezclar experimentos en la misma sesión de
+  Colab (pasó una vez: los dos primeros `.zip` resultaron ser el mismo modelo 0.5B con
+  nombres distintos). Cada notebook verifica el `hidden_size` real contra el esperado
+  (leído del propio `config.json` del repo de HF) y **para con error** si no coincide.
+- **Bug real de sobreajuste encontrado en el dataset de entrenamiento original** (50
+  ejemplos, `finetune/generar_dataset.py`): 3 de 10 ejemplos negativos usaban "fiducia
+  mercantil" como tema y cero positivos — el modelo aprendió una correlación espuria
+  (ese tema → "no sé") en vez del patrón general. Corregido con
+  `finetune/generar_dataset_ampliado.py` (175 ejemplos, temas diversos, sin repetición
+  en negativos) y luego `finetune/generar_dataset_multifragmento.py` (185 ejemplos con
+  **5 fragmentos reales por ejemplo**, igual que en producción — el dataset original
+  solo mostraba 1 fragmento, un desajuste real entre entrenamiento e inferencia que
+  explicaba buena parte de las confusiones del modelo con fragmentos irrelevantes).
+- **Causa raíz encontrada para el techo de precisión de la búsqueda**: midiendo con
+  preguntas reales, el modelo de embeddings genérico (`paraphrase-multilingual-MiniLM-L12-v2`)
+  no aportaba ningún hallazgo único sobre este corpus (español jurídico/histórico) — BM25
+  explicaba el 100% de los aciertos de un solo método. Pesar igual ambos métodos en la
+  fusión RRF dejaba fuera del top-5 documentos que BM25 ya rankeaba en el puesto #1.
+  Doblar el peso de BM25 (`PESO_BM25 = 2.0` en `index/buscar.py`) subió el acierto en
+  el top-5 de 65% a 72% sobre 40 preguntas reales (`finetune/ajustar_pesos_rrf.py`).
+- **`index/buscar.py` reescrito para RAM baja**: `rank_bm25` (todo el corpus en listas de
+  Python) reemplazado por SQLite FTS5 (`index/build_fts.py`, disco-residente). RAM medida
+  con el índice completo cargado: **10GB → 2.3GB**. Esto es lo que hace viable pensar en
+  hostear el índice en un servidor barato (~$5-25/mes) en vez de necesitar ~200 USD/mes
+  solo por RAM.
+- **Bug real en `finetune/evaluar.py`**: `n_ctx=4096` insuficiente (5 fragmentos largos +
+  pregunta + `max_tokens` de respuesta superaban el límite, crash real a mitad de una
+  corrida de 150 preguntas) — subido a 8192, y agregado checkpoint incremental (escribe
+  `resultados.json` tras cada pregunta, no solo al final) para no perder progreso si algo
+  falla a mitad de una corrida larga.
+- **Evaluación local en CPU descartada por lentitud** (4 modelos × 150 preguntas ≈ 10h) a
+  favor de generar las respuestas con GPU en Colab (`finetune/colab_evaluar_gpu.ipynb`) y
+  juzgarlas aparte, local, con `finetune/juzgar_respuestas.py` (rápido, son solo llamadas a
+  la API del juez, no cómputo pesado). El notebook lee todo directo desde una carpeta de
+  Google Drive (`00_Programas y macros/aliado_libre_eval/`, fuera del proyecto en C: — el
+  proyecto en sí sigue sin vivir en Drive, por la lentitud/fallos ya documentados de leer
+  en lote desde ahí) para no depender de subir archivos a mano.
+- **Qwen3.5 descartado**: bug real del conversor `convert_hf_to_gguf.py` de llama.cpp para
+  su arquitectura híbrida (atención lineal + normal) — el modelo carga y se cuantiza sin
+  error pero el binario resultante falla al cargar (`tensor 'blk.24.attn_norm.weight' not
+  found`), confirmado en 0.8B y 2B, con el `llama-cpp-python` de pip y con un `llama-cli`
+  compilado desde cero en esta sesión. Se compiló `llama-quantize`/`llama-cli` localmente
+  (VS Build Tools 2022 + cmake) para diagnosticar esto y para poder generar Q4_K_M después.
+
+### Resultado: comparación de 4 modelos (150 preguntas reales, juzgadas con Claude)
+
+| Modelo | Precisión |
+|---|---|
+| Qwen2.5-0.5B | 22% |
+| Qwen3-0.6B | 23% |
+| Qwen3-1.7B | 31% |
+| **Qwen2.5-1.5B** | **38%** (ganador) |
+
+### Archivos nuevos (`finetune/`)
+`exportar_gguf.py`, `probar_gguf.py`, `evaluar.py`, `juzgar_respuestas.py`,
+`generar_dataset_ampliado.py`, `generar_dataset_multifragmento.py`, `diagnosticar_busqueda.py`,
+`ajustar_pesos_rrf.py`, `precalcular_prompts.py`, `cuantizar_q4.py`,
+`colab_entrenar_qwen35_08b.ipynb`, `colab_entrenar_qwen35_2b.ipynb`,
+`colab_entrenar_qwen3_06b.ipynb`, `colab_entrenar_qwen3_17b.ipynb`, `colab_evaluar_gpu.ipynb`.
+
+### Limpieza
+Liberados ~14GB de disco local (17GB → 31GB libres): modelos Qwen3.5 muertos y sin usar en
+caché de HF, `finetune/fusionados/` (resultados intermedios, reproducibles).
+
 ## 2026-09-01 — DIAN completado, diagnóstico real de la lentitud del fine-tuning en CPU
 
 ### Resuelto

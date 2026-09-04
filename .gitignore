@@ -9,3 +9,10 @@ data/respaldo_legalize_co/
 finetune/checkpoints*/
 finetune/modelo_lora*/
 *.log
+finetune/llama.cpp/
+finetune/salida/
+finetune/fusionados/
+finetune/eval/
+finetune/respuestas_gpu/
+finetune/data/*.bak_*
+index/fts_index.db

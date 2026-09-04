@@ -51,7 +51,9 @@ ingest/          scrapers por fuente -> Documento (esquema común en ingest/sche
 data/raw/         JSON crudo por fuente
 index/
   build_index.py  construye embeddings + índice Chroma a partir de data/raw/
-  buscar.py        búsqueda híbrida (vectorial + BM25, fusión RRF)
+  build_fts.py     construye el índice léxico FTS5 (SQLite, en disco) a partir de Chroma
+  buscar.py        búsqueda híbrida (vectorial + FTS5, fusión RRF ponderada — RAM ~2.3GB
+                    con los 718k fragmentos, antes ~10GB con BM25 en memoria)
 mcp_server/
   server.py        expone buscar_normativa() como herramienta MCP
 ```
@@ -62,7 +64,8 @@ mcp_server/
 PyTorch/sentence-transformers hacen segfault en Python 3.14 (muy reciente, sin soporte aún).
 
 ```
-./venv/Scripts/python.exe index/build_index.py     # construir/actualizar índice
+./venv/Scripts/python.exe index/build_index.py     # construir/actualizar índice vectorial (Chroma)
+./venv/Scripts/python.exe index/build_fts.py       # construir el índice léxico (FTS5) a partir de Chroma
 ./venv/Scripts/python.exe index/buscar.py "consulta"  # probar búsqueda por CLI
 ./venv/Scripts/python.exe mcp_server/server.py      # levantar servidor MCP
 ./venv/Scripts/python.exe gui/server.py             # GUI web local (abre navegador solo)
@@ -73,12 +76,27 @@ híbrida con citas, y opcionalmente una respuesta redactada en español por un
 modelo local vía Ollama (checkbox "Redactar respuesta con IA local"), ambas
 100% locales sin llamadas externas.
 
+## Fine-tuning y modelo local
+
+`finetune/` tiene el pipeline completo para entrenar un modelo chico (LoRA en Colab, GPU
+gratuita) que responda citando fuentes en el formato de `index/responder.py`, exportarlo a
+GGUF (`finetune/exportar_gguf.py`) y evaluarlo (`finetune/evaluar.py`, banco de preguntas
+real generado y juzgado con Claude). Comparación medida sobre 150 preguntas reales
+(ver `CHANGELOG.md` 2026-09-03): **Qwen2.5-1.5B (38%) es el mejor de 4 candidatos**
+(Qwen2.5-0.5B 22%, Qwen3-0.6B 23%, Qwen3-1.7B 31%) — le gana incluso a la generación más
+nueva (Qwen3) a este tamaño de parámetros. Qwen3.5 se descartó: bug real del conversor de
+llama.cpp para su arquitectura híbrida (no carga, sin importar el tamaño del modelo).
+
 ## Próximos pasos
 
-1. Confirmar si el fine-tuning LoRA (`finetune/entrenar.py`) terminó bien
-   (ver estado en la memoria del proyecto) y escribir `finetune/exportar_gguf.py`.
-2. Publicar el índice construido en Hugging Face Hub (`scripts/publicar_indice_hf.py`)
+1. Cuantizar el ganador (Qwen2.5-1.5B) a Q4_K_M (`finetune/cuantizar_q4.py`, ya compilado
+   `llama-quantize` local) para reducir el tamaño final antes de empaquetar.
+2. Escribir el `.spec` de PyInstaller — hoy no existe ningún `.exe`, todo corre desde
+   `venv/Scripts/python.exe`.
+3. Decidir arquitectura híbrida nube+API (modelo local + índice en la nube, ya evaluado
+   como viable en costo tras bajar la RAM del índice de ~10GB a ~2.3GB).
+4. Publicar el índice construido en Hugging Face Hub (`scripts/publicar_indice_hf.py`)
    para que otros lo usen sin tener que reconstruirlo.
-3. Reintentar Corte Suprema cuando su backend esté disponible (sigue en 0 documentos).
-3. Consejo de Estado sigue bloqueado por WAF — no hay plan de reintento hasta que aparezca
+5. Reintentar Corte Suprema cuando su backend esté disponible (sigue en 0 documentos).
+6. Consejo de Estado sigue bloqueado por WAF — no hay plan de reintento hasta que aparezca
    una vía de acceso pública real.

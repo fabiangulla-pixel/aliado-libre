@@ -1,7 +1,10 @@
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
 [tool.ruff]
 target-version = "py312"
 line-length = 110
-extend-exclude = ["venv", "data", "index/chroma_db", "*.ipynb"]
+extend-exclude = ["venv", "data", "index/chroma_db", "*.ipynb", "finetune/llama.cpp"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "C4", "UP", "W"]
@@ -14,4 +17,11 @@ ignore = [
 "scripts/*" = ["E402"]
 "index/*.py" = ["E402"]
 "mcp_server/*.py" = ["E402"]
+"finetune/*.py" = ["E402"]  # scripts que ajustan sys.path antes de importar index/*
 "finetune/generar_dataset.py" = ["E501"]  # literales de texto largo (preguntas/respuestas de entrenamiento)
+"finetune/generar_dataset_ampliado.py" = ["E501"]
+"finetune/generar_dataset_multifragmento.py" = ["E501"]
+"finetune/evaluar.py" = ["E501"]
+"finetune/diagnosticar_busqueda.py" = ["E501"]
+"finetune/ajustar_pesos_rrf.py" = ["E501"]
+"finetune/juzgar_respuestas.py" = ["E501"]
