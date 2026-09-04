@@ -29,10 +29,17 @@ os.environ.setdefault("HF_HUB_OFFLINE", "1")
 import chromadb
 from sentence_transformers import SentenceTransformer
 
-MODELO_EMBEDDINGS = "paraphrase-multilingual-MiniLM-L12-v2"
+# Modelo y colección se pueden cambiar por variable de entorno para poder
+# comparar un índice nuevo contra el actual sin tocar código ni pisar nada.
+MODELO_EMBEDDINGS = os.environ.get("ALIADO_MODELO_EMBEDDINGS", "paraphrase-multilingual-MiniLM-L12-v2")
 DIR_INDICE = Path(__file__).resolve().parent / "chroma_db"
 DB_FTS = Path(__file__).resolve().parent / "fts_index.db"
-COLECCION = "aliado_libre"
+COLECCION = os.environ.get("ALIADO_COLECCION", "aliado_libre")
+
+# Los modelos e5 se entrenaron con prefijos que distinguen la consulta del
+# pasaje, y son asimétricos a propósito: sin ellos rinden bastante peor. El
+# índice se construye con "passage: " (ver finetune/colab_reindexar_embeddings).
+PREFIJO_CONSULTA = "query: " if "e5" in MODELO_EMBEDDINGS.lower() else ""
 K_RRF = 60
 # El embedding multilingüe genérico casi no aporta hallazgos únicos sobre este
 # corpus de español jurídico/histórico (medido: de los aciertos de un solo
@@ -136,7 +143,7 @@ class IndiceBusqueda:
         if self._total == 0:
             return []
 
-        embedding_consulta = self._modelo.encode([consulta]).tolist()
+        embedding_consulta = self._modelo.encode([PREFIJO_CONSULTA + consulta]).tolist()
         resultado_vectorial = self._coleccion.query(
             query_embeddings=embedding_consulta, n_results=min(k * 3, self._total)
         )
