@@ -31,25 +31,34 @@ from sentence_transformers import SentenceTransformer
 
 # Modelo y colección se pueden cambiar por variable de entorno para poder
 # comparar un índice nuevo contra el actual sin tocar código ni pisar nada.
-MODELO_EMBEDDINGS = os.environ.get("ALIADO_MODELO_EMBEDDINGS", "paraphrase-multilingual-MiniLM-L12-v2")
+MODELO_EMBEDDINGS = os.environ.get("ALIADO_MODELO_EMBEDDINGS", "intfloat/multilingual-e5-large")
 DIR_INDICE = Path(__file__).resolve().parent / "chroma_db"
 DB_FTS = Path(__file__).resolve().parent / "fts_index.db"
-COLECCION = os.environ.get("ALIADO_COLECCION", "aliado_libre")
+COLECCION = os.environ.get("ALIADO_COLECCION", "aliado_libre_multilingual_e5_large")
 
 # Los modelos e5 se entrenaron con prefijos que distinguen la consulta del
 # pasaje, y son asimétricos a propósito: sin ellos rinden bastante peor. El
 # índice se construye con "passage: " (ver finetune/colab_reindexar_embeddings).
 PREFIJO_CONSULTA = "query: " if "e5" in MODELO_EMBEDDINGS.lower() else ""
 K_RRF = 60
-# El embedding multilingüe genérico casi no aporta hallazgos únicos sobre este
-# corpus de español jurídico/histórico (medido: de los aciertos de un solo
-# método, BM25 explicó el 100% en una muestra de 30 preguntas reales) — pesar
-# igual ambos métodos hacía que documentos mediocres en los dos superaran en
-# el ranking fusionado a uno que BM25 ya tenía en el puesto #1. Doblar el peso
-# de BM25 subió la tasa de acierto en el top-5 de 65% a 72% sobre 40 preguntas
-# reales de prueba (ver finetune/ajustar_pesos_rrf.py); pesos más altos (x3, x5)
-# no dieron más mejora.
-PESO_BM25 = 2.0
+# Pesos de la fusión RRF, recalibrados el 6-sep-2026 sobre el índice de
+# e5-large. La calibración anterior (BM25 x2) era CORRECTA para el índice viejo
+# y quedó equivocada al cambiarlo, que es la lección: un parámetro medido solo
+# vale mientras valgan los supuestos bajo los que se midió.
+#
+# Con el embedding truncado a 128 tokens, la mitad vectorial sola acertaba el
+# 10% en top-5 y había que compensarla pesando más BM25. Con el embedding nuevo,
+# la vectorial sola acierta el 35,5% —más que el mejor híbrido del índice viejo—
+# y ese peso la estaba estrangulando: 28,5% frente a 38,5% (p=0,0000 sobre 200
+# consultas del conjunto de desarrollo).
+#
+# Por qué 0,8 y no 1,0, que mide algo más alto: con dos listas de candidatos casi
+# disjuntas la fusión RRF deja de mezclar y se comporta como un SELECTOR de
+# lista, y el cambio ocurre exactamente en 1,0 (por debajo gana la vectorial, por
+# encima la léxica). Todo el rango 0,5-1,0 rinde igual dentro del ruido, así que
+# se elige un valor cómodo dentro de la meseta en vez del filo del acantilado.
+# Ver finetune/ajustar_pesos_rrf_v2.py.
+PESO_BM25 = float(os.environ.get("ALIADO_PESO_BM25", "0.8"))
 PESO_VECTORIAL = 1.0
 
 
