@@ -181,7 +181,12 @@ def test_fallo_del_indice_da_500_y_no_filtra_traza(base, indice):
     with pytest.raises(urllib.error.HTTPError) as exc:
         _post(base, "/buscar", {"consulta": "algo"})
     assert exc.value.code == 500
-    assert "chroma corrupto" in json.loads(exc.value.read())["error"]
+    # El mensaje da el TIPO de excepcion, nunca su detalle: el texto de una
+    # excepcion puede arrastrar la consulta del usuario, y este servicio promete
+    # no guardarla ni devolverla. Ver docs/PRINCIPIOS.md y tests/test_no_registro.py.
+    cuerpo = json.loads(exc.value.read())["error"]
+    assert "ValueError" in cuerpo
+    assert "chroma corrupto" not in cuerpo
 
 
 def test_buscar_sin_indice_cargado_da_503(base, monkeypatch):

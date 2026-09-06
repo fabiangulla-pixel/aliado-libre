@@ -79,7 +79,18 @@ class Handler(BaseHTTPRequestHandler):
     server_version = "AliadoLibreIndice/1.0"
 
     def log_message(self, formato, *args):
-        log.info("%s - %s", self.address_string(), formato % args)
+        """No registra nada. A propósito, y es una decisión de producto.
+
+        El log de acceso por defecto de BaseHTTPRequestHandler incluye la IP
+        del cliente y la línea de petición. Quien consulta este servicio está
+        preguntando por su despido, su tutela o su deuda: la IP más la hora es
+        un dato sensible aunque la consulta viaje en el cuerpo y no en la URL.
+        Lo que no se guarda no se puede filtrar, ni entregar bajo requerimiento,
+        ni perder en una brecha.
+
+        Ver docs/PRINCIPIOS.md. tests/test_no_registro.py protege esto.
+        """
+        return
 
     # -- utilidades ------------------------------------------------------
 
@@ -182,8 +193,11 @@ class Handler(BaseHTTPRequestHandler):
             self._error(503, str(e))
             return
         except Exception as e:  # el índice puede fallar por disco o corrupción
-            log.exception("Fallo buscando")
-            self._error(500, f"Error buscando en el índice: {e}")
+            # Sin traza completa y sin la consulta: un traceback puede arrastrar
+            # el texto que escribió el usuario hasta el log del servidor, que es
+            # justo lo que este servicio promete no guardar.
+            log.error("Fallo buscando en el índice: %s", type(e).__name__)
+            self._error(500, f"Error buscando en el índice: {type(e).__name__}")
             return
 
         self._responder_json({"consulta": consulta.strip(), "n": n, "resultados": resultados})

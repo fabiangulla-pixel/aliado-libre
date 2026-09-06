@@ -216,6 +216,84 @@
     margin-top: 0.6rem;
   }
 
+  .guardar {
+    margin-top: 0.8rem;
+    font-family: ui-sans-serif, system-ui, sans-serif;
+    font-size: 0.8rem;
+    padding: 0.35rem 0.8rem;
+    border-radius: 999px;
+    border: 1px solid var(--borde);
+    background: transparent;
+    color: var(--texto-suave);
+    cursor: pointer;
+  }
+  .guardar:hover { border-color: var(--acento); color: var(--acento); }
+  .guardar[disabled] { opacity: 0.55; cursor: default; border-style: dashed; }
+
+  #tablero {
+    position: fixed;
+    right: 1rem;
+    bottom: 1rem;
+    width: min(23rem, calc(100vw - 2rem));
+    max-height: 70vh;
+    display: flex;
+    flex-direction: column;
+    background: var(--panel);
+    border: 1px solid var(--borde);
+    border-radius: 14px;
+    box-shadow: var(--sombra);
+    font-family: ui-sans-serif, system-ui, sans-serif;
+    font-size: 0.85rem;
+    z-index: 10;
+  }
+  #tablero header {
+    padding: 0.7rem 0.9rem;
+    text-align: left;
+    border-bottom: 1px solid var(--borde);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+  }
+  #tablero h2 { margin: 0; font-size: 0.9rem; font-family: inherit; }
+  #tableroCuerpo { overflow-y: auto; padding: 0.5rem 0.9rem; }
+  #tablero.plegado #tableroCuerpo,
+  #tablero.plegado .tablero-pie,
+  #tablero.plegado .tablero-nota-privacidad { display: none; }
+  .nota { border-bottom: 1px solid var(--borde); padding: 0.55rem 0; display: flex; gap: 0.5rem; }
+  .nota:last-child { border-bottom: none; }
+  .nota-texto { flex: 1; line-height: 1.35; }
+  .nota-texto small { color: var(--texto-suave); }
+  .nota button {
+    border: none; background: none; color: var(--texto-suave);
+    cursor: pointer; font-size: 1rem; line-height: 1; padding: 0 0.2rem;
+  }
+  .nota button:hover { color: var(--acento); }
+  .tablero-pie {
+    padding: 0.6rem 0.9rem; border-top: 1px solid var(--borde);
+    display: flex; gap: 0.4rem; flex-wrap: wrap;
+  }
+  .tablero-pie button {
+    flex: 1; padding: 0.45rem 0.6rem; border-radius: 8px; border: 1px solid var(--borde);
+    background: transparent; color: var(--texto); cursor: pointer; font-size: 0.8rem;
+  }
+  .tablero-pie button.principal { background: var(--acento); color: #fff; border-color: var(--acento); }
+  .tablero-nota-privacidad {
+    padding: 0 0.9rem 0.7rem; color: var(--texto-suave); font-size: 0.75rem; line-height: 1.4;
+  }
+
+  .aporte {
+    max-width: 46rem;
+    margin: 2.5rem auto 0;
+    padding: 1rem 1.25rem;
+    border: 1px solid var(--borde, #d8cfc4);
+    border-left: 4px solid var(--acento, #7b1e28);
+    background: rgba(123, 30, 40, 0.04);
+    font-family: ui-sans-serif, system-ui, sans-serif;
+    font-size: 0.92rem;
+    line-height: 1.5;
+  }
   footer {
     text-align: center;
     font-family: ui-sans-serif, system-ui, sans-serif;
@@ -229,7 +307,7 @@
 
 <header>
   <h1>Aliado <span class="acento">Libre</span></h1>
-  <p>Legislación y jurisprudencia colombiana, con citas verificables — 100% local y gratuito</p>
+  <p>Legislación y jurisprudencia colombiana, con citas verificables — libre y gratuito</p>
 </header>
 
 <div class="buscador">
@@ -247,7 +325,32 @@
   <div class="estado">Escribe una consulta y presiona Buscar.</div>
 </main>
 
-<footer>Aliado Libre — alternativa abierta y gratuita a ALI Cerebro Legal</footer>
+<aside id="tablero" class="plegado" hidden>
+  <header id="tableroCabecera">
+    <h2>Mi tablero (<span id="tableroConteo">0</span>)</h2>
+    <span id="tableroFlecha">&#9656;</span>
+  </header>
+  <div id="tableroCuerpo"></div>
+  <div class="tablero-nota-privacidad">
+    Este tablero vive solo en tu navegador y desaparece al cerrar la pesta&ntilde;a.
+    Nada de esto se env&iacute;a ni se guarda en el servidor. Exp&oacute;rtalo antes de irte.
+  </div>
+  <div class="tablero-pie">
+    <button id="exportarMd" class="principal">Exportar (.md)</button>
+    <button id="exportarTxt">Texto</button>
+    <button id="vaciarTablero">Vaciar</button>
+  </div>
+</aside>
+
+<section class="aporte">
+  No te cobramos por hacer tus consultas, pero tu aporte voluntario garantiza que la
+  herramienta se mantendrá en el tiempo, funcional y disponible para tantos colombianos
+  como la necesiten.
+</section>
+
+<footer>
+  Software libre y gratuito. No guardamos tus consultas ni registramos quién pregunta.
+</footer>
 
 <script>
 const input = document.getElementById('consulta');
@@ -335,8 +438,28 @@ async function buscar() {
           <span class="puntaje"> · relevancia ${r.puntaje}</span>
         </div>
         <div class="fragmento">${resaltar((r.texto || '').slice(0, 500), consulta)}${(r.texto || '').length > 500 ? '…' : ''}</div>
+        <button class="guardar" data-id="${escaparHtml(r.id)}">+ Guardar en mi tablero</button>
       </article>
     `).join('');
+
+    // El boton guarda el fragmento COMPLETO, no el recorte que se muestra: lo
+    // que el usuario exporta tiene que servirle para citar.
+    contenedor.querySelectorAll('.guardar').forEach(b => {
+      b.addEventListener('click', () => {
+        const r = datos.resultados.find(x => x.id === b.dataset.id);
+        if (!r) return;
+        agregarNota({
+          id: r.id,
+          titulo: r.titulo_documento || '',
+          identificador: r.identificador_documento || '',
+          fuente: r.fuente || '',
+          url: r.url_original || '',
+          texto: r.texto || '',
+          consulta: consulta,
+        });
+      });
+    });
+    pintarTablero();
   } catch (e) {
     contenedor.innerHTML = `<div class="error">No se pudo conectar con el servidor: ${escaparHtml(String(e))}</div>`;
   } finally {
@@ -344,6 +467,133 @@ async function buscar() {
     boton.textContent = 'Buscar';
   }
 }
+
+
+/* ---------------------------------------------------------------------------
+   Tablero de notas - 100% en el navegador.
+
+   Se usa sessionStorage y no localStorage a proposito: asi el tablero muere al
+   cerrar la pestana. En un computador compartido o de un cafe internet -que es
+   donde va a estar buena parte de quien use esto- dejar las consultas
+   guardadas en el disco seria exactamente el rastro que el servicio promete no
+   dejar. El usuario exporta lo que quiera conservar y el archivo queda en su
+   equipo, bajo su control.
+
+   Ninguna funcion de este modulo hace fetch: el tablero nunca sale del navegador.
+--------------------------------------------------------------------------- */
+const CLAVE_TABLERO = 'aliado_tablero';
+const tablero = document.getElementById('tablero');
+const tableroCuerpo = document.getElementById('tableroCuerpo');
+const tableroConteo = document.getElementById('tableroConteo');
+
+function leerNotas() {
+  try {
+    return JSON.parse(sessionStorage.getItem(CLAVE_TABLERO) || '[]');
+  } catch (e) {
+    return [];   // almacenamiento bloqueado o dato corrupto: se empieza limpio
+  }
+}
+
+function guardarNotas(notas) {
+  try {
+    sessionStorage.setItem(CLAVE_TABLERO, JSON.stringify(notas));
+  } catch (e) {
+    /* modo privado o cuota llena: no se rompe nada, solo no persiste */
+  }
+  pintarTablero();
+}
+
+function agregarNota(nota) {
+  const notas = leerNotas();
+  if (notas.some(n => n.id === nota.id)) return;
+  notas.push(nota);
+  guardarNotas(notas);
+}
+
+function quitarNota(id) {
+  guardarNotas(leerNotas().filter(n => n.id !== id));
+}
+
+function pintarTablero() {
+  const notas = leerNotas();
+  tableroConteo.textContent = notas.length;
+  tablero.hidden = notas.length === 0;
+  tableroCuerpo.innerHTML = notas.map(n => `
+    <div class="nota">
+      <div class="nota-texto">
+        <strong>${escaparHtml(n.identificador || n.titulo || 'Sin titulo')}</strong><br>
+        <small>${escaparHtml((n.fuente || '').replace(/_/g, ' '))} &middot; consulta: ${escaparHtml(n.consulta)}</small>
+      </div>
+      <button title="Quitar" data-quitar="${escaparHtml(n.id)}">&times;</button>
+    </div>`).join('');
+  tableroCuerpo.querySelectorAll('[data-quitar]').forEach(b => {
+    b.addEventListener('click', () => quitarNota(b.dataset.quitar));
+  });
+  document.querySelectorAll('.guardar').forEach(b => {
+    const guardada = notas.some(n => n.id === b.dataset.id);
+    b.disabled = guardada;
+    b.textContent = guardada ? 'En el tablero' : '+ Guardar en mi tablero';
+  });
+}
+
+function componerMarkdown(notas) {
+  const fecha = new Date().toLocaleDateString('es-CO');
+  const cabecera = '# Notas de consulta juridica\n\nExportado el ' + fecha + '.\n' +
+    'Fuentes oficiales recuperadas con esta herramienta. Verifica cada cita en el enlace original.\n';
+  const cuerpo = notas.map((n, i) => {
+    const partes = ['\n## ' + (i + 1) + '. ' + (n.titulo || n.identificador || 'Sin titulo')];
+    if (n.identificador) partes.push('\n**Identificador:** ' + n.identificador);
+    partes.push('\n**Fuente:** ' + (n.fuente || '').replace(/_/g, ' '));
+    if (n.url) partes.push('\n**Enlace:** ' + n.url);
+    partes.push('\n**Consulta que lo encontro:** ' + n.consulta);
+    partes.push('\n\n> ' + (n.texto || '').replace(/\n+/g, '\n> ') + '\n');
+    return partes.join('');
+  }).join('');
+  return cabecera + cuerpo;
+}
+
+function componerTexto(notas) {
+  return componerMarkdown(notas)
+    .replace(/^#+ /gm, '')
+    .replace(/\*\*/g, '')
+    .replace(/^> /gm, '  ');
+}
+
+function descargar(nombre, contenido) {
+  const blob = new Blob([contenido], { type: 'text/plain;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = nombre;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function marcaDeTiempo() {
+  const d = new Date();
+  const p = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}`;
+}
+
+document.getElementById('tableroCabecera').addEventListener('click', () => {
+  tablero.classList.toggle('plegado');
+  document.getElementById('tableroFlecha').innerHTML = tablero.classList.contains('plegado') ? '&#9656;' : '&#9662;';
+});
+document.getElementById('exportarMd').addEventListener('click', () => {
+  descargar('notas-juridicas-' + marcaDeTiempo() + '.md', componerMarkdown(leerNotas()));
+});
+document.getElementById('exportarTxt').addEventListener('click', () => {
+  descargar('notas-juridicas-' + marcaDeTiempo() + '.txt', componerTexto(leerNotas()));
+});
+document.getElementById('vaciarTablero').addEventListener('click', () => {
+  if (leerNotas().length && confirm('Vaciar el tablero? Lo que no hayas exportado se pierde.')) {
+    guardarNotas([]);
+  }
+});
+
+pintarTablero();
 
 boton.addEventListener('click', buscar);
 input.addEventListener('keydown', e => { if (e.key === 'Enter') buscar(); });
