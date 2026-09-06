@@ -27,6 +27,18 @@ comprobable. No sustituye asesoría jurídica profesional.
 Las mediciones de calidad se llevan internamente y se publicarán cuando la precisión
 alcance el objetivo fijado.
 
+**Lo que puedes hacer hoy**
+
+- Buscar en 718.388 fragmentos de 7 entidades colombianas, con citas verificables.
+- **Acotar por entidad** (solo la SIC, solo la DIAN, o varias cruzadas) y ver qué
+  fuentes están cubiertas y **cuáles no, con el motivo**.
+- **Apartar fuentes en un tablero** y exportarlas a `.md` o `.txt` para trabajar en tu
+  equipo. El tablero vive en tu navegador y desaparece al cerrar la pestaña.
+- Pedir una respuesta redactada por el modelo propio (gratis) o, si tienes clave de
+  API de otro proveedor, por esa IA — viendo **el costo estimado antes de gastar**.
+
+**No guardamos tus consultas ni registramos quién pregunta.** Ver `docs/PRINCIPIOS.md`.
+
 **Salvaguarda que ya existe**: un verificador determinista comprueba que cada número de
 norma, artículo, plazo y cifra de la respuesta esté en los fragmentos recuperados, y marca
 lo que no encuentre.

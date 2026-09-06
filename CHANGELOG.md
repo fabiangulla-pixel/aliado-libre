@@ -1,5 +1,98 @@
 # Changelog
 
+## 2026-09-06 — El cuello de botella era la búsqueda; modelo Wikipedia; sin registro
+
+Sesión larga. Se identificó y atacó la causa raíz de la baja precisión, se fijó el
+modelo de sostenimiento del proyecto, y se construyeron las funciones que hacen
+falta para que otra persona pueda usar esto.
+
+### El hallazgo: no es el LLM, es la recuperación
+
+El banco coloquial de 1.583 consultas dio el número que de verdad describe el
+producto, y es duro. Sobre las mismas preguntas y los mismos documentos, cambiando
+solo **cómo está escrita la pregunta**, el acierto se desploma: el perfil de abogado
+encuentra su documento varias veces más a menudo que el de una persona que pregunta
+con sus propias palabras, y un perfil entero (adulto mayor, con rodeos) no acierta
+ni una sola vez en 197 consultas. El modelo casi nunca ve el documento correcto, así
+que da igual lo bueno que sea. Cifras exactas en `docs/MEDICIONES.md` (no versionado).
+
+Causa raíz, verificada: el modelo de embeddings tiene `max_seq_length = 128` tokens
+(~450 caracteres) y el **76% de los fragmentos supera los 500 caracteres**. En tres de
+cada cuatro fragmentos, el vector solo representa el encabezado — que en una norma no
+es la parte que responde. Y encima es un modelo de *paráfrasis* donde hace falta uno
+de *recuperación*: una consulta coloquial y el artículo que la responde no se parecen
+en la superficie. Esto explica lo que ya se había medido y quedó como rareza: que BM25
+explicara el 100% de los aciertos de un solo método.
+
+**En curso**: reindexado completo con `multilingual-e5-large` a 512 tokens, hecho en
+GPU (Colab) porque en CPU local no era viable. La hipótesis todavía **no está
+confirmada**: falta medir el índice nuevo contra el mismo banco.
+
+### Medido y descartado (vale tanto como lo que funciona)
+
+- **Reescritura de consultas con el modelo propio: no sirve.** Sobre 160 consultas
+  pareadas no mejora nada y cuesta 15 s por consulta. La razón de fondo: convierte
+  "cuanto se paga de tiembre" en "sueldo mensual salario fijo". Un modelo que acierta
+  poco tampoco sabe reformular.
+- **Filtro de palabras vacías: gana velocidad, no acierto.** De 7,82 s a 0,39 s por
+  consulta de media (20×), con acierto estadísticamente igual. Se queda igualmente:
+  el coste escalaba con la longitud de la pregunta, así que castigaba con 15 s de
+  espera justo a quien más rodeos da, es decir al usuario menos experto.
+
+### Producto: modelo Wikipedia
+
+Gratuito, sostenido por aportes voluntarios; nube por defecto para usuarios externos
+y todo-local como banco de pruebas. Documentado en `docs/PRINCIPIOS.md`, con el
+pendiente sin resolver anotado: **el recaudo del dinero**.
+
+### No se guardan consultas — como código, no como promesa
+
+- El servidor del índice **registraba la IP de cada petición**. Con la hora, eso
+  identifica a quien pregunta por su despido o su tutela. Eliminado.
+- Los errores registran el **tipo** de excepción, nunca su detalle: el texto de una
+  excepción puede arrastrar la consulta del usuario hasta el log.
+- `tests/test_no_registro.py` falla si alguien reintroduce cualquiera de las dos.
+
+### Funciones nuevas
+
+- **Filtro por entidad**: acotar la búsqueda a la SIC, la DIAN, la Corte
+  Constitucional… o cruzar varias. Y la lista muestra **también lo que NO está**, con
+  el motivo: quien no sabe que el Consejo de Estado no está cubierto puede creer que
+  su asunto no existe. Detalle que decide si el filtro sirve: al filtrar hay que pedir
+  más candidatos antes de fusionar, o una entidad pequeña como la SIC (0,7% del
+  corpus) nunca aparecería.
+- **Tablero de notas**: el usuario aparta las fuentes que le sirven y las exporta a
+  `.md` o `.txt` con identificador, fuente y enlace. Vive en el navegador
+  (`sessionStorage`, muere al cerrar la pestaña) y no toca el servidor.
+- **IA externa opcional con la clave del usuario**: se muestra el **costo estimado
+  antes** de llamar y el **costo real después**. La clave se usa para una llamada y se
+  descarta; nunca vuelve en una respuesta ni en un error.
+- **Verificador determinista de anclaje** conectado a la interfaz: marca todo número
+  de norma, artículo, plazo o cifra que no esté en los fragmentos recuperados. Sobre
+  150 respuestas reales no marcó ni una buena.
+
+### Diagnóstico que redirige la estrategia
+
+De 104 respuestas incorrectas del modelo propio, el 65% **no inventa nada**: cita el
+artículo 38 cuando la respuesta estaba en el 39 del mismo decreto. Es un fallo de
+*relevancia*, no de anclaje, y ninguna comprobación de cadenas puede verlo. El camino
+hacia más precisión pasa por elegir mejor el pasaje (reranker, modelo mayor), no por
+controlar alucinaciones.
+
+### Bugs reales corregidos
+
+- **sqlite entre hilos**: la conexión al índice léxico se guardaba en el objeto y el
+  servidor da un hilo por petición. La primera búsqueda funcionaba y la segunda moría.
+  Ninguna prueba lo vio porque todas hacían una sola consulta. Lo encontró el usuario.
+- La selección de índice en desarrollo decidía por si fallaba un import que en el
+  repositorio nunca falla, así que la app local intentaba hablar con un servidor
+  inexistente.
+- El `.exe` *onefile* sobrevivía a `terminate()` y dejaba un proceso huérfano ocupando
+  el puerto; una sonda posterior le hablaba a ese huérfano.
+- Un fragmento falso de prueba usaba claves inventadas: la prueba validaba un contrato
+  que no existe.
+
+
 ## 2026-09-04 — Q4 cuantizado, índice en la nube, .exe autónomo y medición honesta
 
 Sesión larga. Se cerraron los cinco pendientes abiertos, se decidió la dirección del
