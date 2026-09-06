@@ -19,6 +19,10 @@ El aviso al usuario, literal, es:
 (pasarela, cuenta, figura jurídica que lo reciba, y qué implicaciones
 tributarias tiene en Colombia). Nada de esto está definido y no debe
 improvisarse: es lo que convierte un proyecto en algo que responde ante otros.
+Las opciones investigadas están en `docs/RECAUDO.md` — con una alerta que
+conviene leer antes de recibir el primer peso: en Colombia una donación
+**incrementa el patrimonio de quien la recibe** y puede generar impuesto de
+ganancia ocasional. No es dinero libre por ser donación.
 
 ## 2. Dos despliegues, con públicos distintos
 
