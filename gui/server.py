@@ -97,6 +97,15 @@ class Handler(BaseHTTPRequestHandler):
             self._responder_json({"cargado": _indice is not None})
             return
 
+        if ruta.path == "/api/fuentes":
+            # Se sirve sin cargar el índice: sale del índice léxico, que es
+            # barato de leer. Así la lista de entidades aparece de inmediato
+            # aunque nadie haya buscado todavía.
+            from index.fuentes import resumen
+
+            self._responder_json(resumen())
+            return
+
         self._servir_estatico(ruta.path)
 
     def _responder_busqueda(self, ruta):
@@ -113,14 +122,23 @@ class Handler(BaseHTTPRequestHandler):
 
         quiere_respuesta = (params.get("conversacional") or ["0"])[0] == "1"
 
+        # "fuentes" llega repetido (fuentes=sic&fuentes=dian) o separado por
+        # comas; se aceptan las dos formas para que la URL sea legible.
+        from index.fuentes import normalizar
+
+        crudas: list[str] = []
+        for valor in params.get("fuentes") or []:
+            crudas.extend(p.strip() for p in valor.split(",") if p.strip())
+        fuentes = normalizar(crudas)
+
         try:
             indice = _obtener_indice()
-            resultados = indice.buscar(consulta, k=k)
+            resultados = indice.buscar(consulta, k=k, fuentes=fuentes)
         except Exception as e:
             self._responder_json({"error": str(e)}, status=500)
             return
 
-        salida = {"resultados": resultados}
+        salida = {"resultados": resultados, "fuentes_aplicadas": fuentes or []}
         if quiere_respuesta:
             from index.responder import responder
 

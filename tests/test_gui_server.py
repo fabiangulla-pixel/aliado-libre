@@ -86,7 +86,7 @@ def test_buscar_con_conversacional_degrada_si_ollama_falla(servidor):
 
 def _indice_falso():
     class IndiceFalso:
-        def buscar(self, consulta, k):
+        def buscar(self, consulta, k, fuentes=None):
             return [{"texto": "x"}]
 
     return IndiceFalso()

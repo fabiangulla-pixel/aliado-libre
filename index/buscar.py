@@ -139,14 +139,33 @@ class IndiceBusqueda:
             self._local.fts = conexion
         return conexion
 
-    def buscar(self, consulta: str, k: int = 8) -> list[dict]:
+    def buscar(self, consulta: str, k: int = 8, fuentes: list[str] | None = None) -> list[dict]:
+        """Busca en el índice; `fuentes` acota a esas entidades (None = todas).
+
+        Al filtrar hay que pedir MÁS candidatos a cada método antes de fusionar:
+        si se piden k*3 sin filtro y luego se descartan los de otras fuentes,
+        una entidad pequeña como la SIC (0,7% del corpus) se quedaría sin
+        candidatos casi siempre y el filtro parecería "no hay nada".
+        """
         if self._total == 0:
             return []
 
+        holgura = 1 if not fuentes else 8
+        n_candidatos = min(k * 3 * holgura, self._total)
+
         embedding_consulta = self._modelo.encode([PREFIJO_CONSULTA + consulta]).tolist()
-        resultado_vectorial = self._coleccion.query(
-            query_embeddings=embedding_consulta, n_results=min(k * 3, self._total)
-        )
+        consulta_vectorial = {
+            "query_embeddings": embedding_consulta,
+            "n_results": n_candidatos,
+        }
+        if fuentes:
+            # Chroma filtra en su propio motor, así que aquí no hace falta
+            # holgura: devuelve n_candidatos ya filtrados.
+            consulta_vectorial["where"] = (
+                {"fuente": fuentes[0]} if len(fuentes) == 1 else {"fuente": {"$in": list(fuentes)}}
+            )
+            consulta_vectorial["n_results"] = min(k * 3, self._total)
+        resultado_vectorial = self._coleccion.query(**consulta_vectorial)
         ids_vectorial = resultado_vectorial["ids"][0]
 
         ids_fts: list[str] = []
@@ -156,9 +175,14 @@ class IndiceBusqueda:
             if consulta_match:
                 cursor = self._fts.execute(
                     "SELECT id FROM fragmentos_fts WHERE fragmentos_fts MATCH ? ORDER BY rank LIMIT ?",
-                    (consulta_match, k * 3),
+                    (consulta_match, n_candidatos),
                 )
                 ids_fts = [fila[0] for fila in cursor.fetchall()]
+                if fuentes:
+                    # El id empieza por la fuente ("sic:123::frag0"). El FTS no
+                    # guarda la metadata, así que se filtra por ese prefijo.
+                    prefijos = tuple(f"{f}:" for f in fuentes)
+                    ids_fts = [i for i in ids_fts if i.startswith(prefijos)][: k * 3]
 
         rango_reciproco: dict[str, float] = {}
         for rango, doc_id in enumerate(ids_vectorial):

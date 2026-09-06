@@ -113,7 +113,15 @@ def test_interfaz_compatible_con_indice_local():
     import inspect
 
     firma = inspect.signature(IndiceRemoto.buscar)
-    assert list(firma.parameters) == ["self", "consulta", "k"]
+    assert list(firma.parameters) == ["self", "consulta", "k", "fuentes"]
+
+    # La firma tiene que coincidir con la del indice local, o cambiar de modo
+    # (local <-> nube) alteraria el comportamiento en silencio. Se compara sin
+    # importar index.buscar, que arrastraria torch a esta suite.
+    from pathlib import Path as _P
+
+    fuente = (_P(__file__).resolve().parent.parent / "index" / "buscar.py").read_text(encoding="utf-8")
+    assert "def buscar(self, consulta: str, k: int = 8, fuentes: list[str] | None = None)" in fuente
     assert firma.parameters["k"].default == 8
 
 

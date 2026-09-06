@@ -283,6 +283,55 @@
     padding: 0 0.9rem 0.7rem; color: var(--texto-suave); font-size: 0.75rem; line-height: 1.4;
   }
 
+  .fuentes {
+    max-width: 720px;
+    margin: -1rem auto 1.6rem;
+    padding: 0 1.5rem;
+    font-family: ui-sans-serif, system-ui, sans-serif;
+  }
+  .fuentes-cabecera {
+    display: flex; justify-content: space-between; align-items: baseline;
+    gap: 0.6rem; margin-bottom: 0.5rem;
+  }
+  .fuentes-cabecera h2 { margin: 0; font-size: 0.85rem; font-weight: 600; font-family: inherit; }
+  .fuentes-cabecera button {
+    border: none; background: none; color: var(--acento);
+    font-size: 0.8rem; cursor: pointer; padding: 0; font-family: inherit;
+  }
+  .chips { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+  .chip {
+    display: inline-flex; align-items: center; gap: 0.35rem;
+    padding: 0.3rem 0.7rem; border-radius: 999px;
+    border: 1px solid var(--borde); background: var(--panel);
+    color: var(--texto-suave); font-size: 0.8rem; cursor: pointer;
+  }
+  .chip .n { opacity: 0.65; font-size: 0.72rem; }
+  .chip[aria-pressed="true"] {
+    border-color: var(--acento); background: var(--acento-suave); color: var(--acento);
+    font-weight: 600;
+  }
+  .fuentes-nota { margin-top: 0.5rem; font-size: 0.78rem; color: var(--texto-suave); line-height: 1.45; }
+
+  /* Bocadillo: explica cada cosa sin sacar al usuario de la pagina. */
+  .ayuda {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 1.05rem; height: 1.05rem; margin-left: 0.3rem;
+    border-radius: 50%; border: 1px solid var(--borde);
+    font-size: 0.68rem; color: var(--texto-suave);
+    cursor: help; position: relative; vertical-align: middle;
+    font-family: ui-sans-serif, system-ui, sans-serif; font-weight: 700;
+  }
+  .ayuda .globo {
+    display: none; position: absolute; bottom: 145%; left: 50%;
+    transform: translateX(-50%);
+    width: min(20rem, 78vw); padding: 0.7rem 0.85rem;
+    background: var(--texto); color: var(--bg);
+    border-radius: 10px; font-size: 0.78rem; font-weight: 400;
+    line-height: 1.45; text-align: left; z-index: 30;
+    box-shadow: 0 6px 24px rgba(0,0,0,0.28);
+  }
+  .ayuda:hover .globo, .ayuda:focus .globo { display: block; }
+
   .aporte {
     max-width: 46rem;
     margin: 2.5rem auto 0;
@@ -314,6 +363,22 @@
   <input id="consulta" type="text" placeholder="Ej. requisitos para constituir una fiducia mercantil" autofocus>
   <button id="botonBuscar">Buscar</button>
 </div>
+<div class="fuentes">
+  <div class="fuentes-cabecera">
+    <h2>Buscar en<span class="ayuda" tabindex="0">?<span class="globo">
+      Estas son las entidades cuyos documentos logramos incorporar al indice, con
+      cuantos fragmentos aporta cada una. Sin nada marcado se busca en todas.
+      Marcar una o varias acota la busqueda: util cuando sabes que tu asunto es,
+      por ejemplo, de la SIC o de la DIAN. Tambien puedes cruzar varias.
+    </span></span></h2>
+    <button id="alternarFuentes" type="button">ver fuentes</button>
+  </div>
+  <div id="panelFuentes" hidden>
+    <div class="chips" id="chipsFuentes"></div>
+    <div class="fuentes-nota" id="notaFuentes"></div>
+  </div>
+</div>
+
 <div class="opcion-conversacional">
   <label>
     <input type="checkbox" id="conversacional">
@@ -388,7 +453,10 @@ async function buscar() {
   contenedor.innerHTML = `<div class="estado">${mensajeEspera}</div>`;
 
   try {
-    const url = '/api/buscar?q=' + encodeURIComponent(consulta) + '&k=8' + (quiereRespuesta ? '&conversacional=1' : '');
+    const filtro = fuentesSeleccionadas();
+    const url = '/api/buscar?q=' + encodeURIComponent(consulta) + '&k=8'
+      + (quiereRespuesta ? '&conversacional=1' : '')
+      + (filtro.length ? '&fuentes=' + encodeURIComponent(filtro.join(',')) : '');
     const resp = await fetch(url);
     const datos = await resp.json();
 
@@ -594,6 +662,71 @@ document.getElementById('vaciarTablero').addEventListener('click', () => {
 });
 
 pintarTablero();
+
+
+/* ---------------------------------------------------------------------------
+   Selector de fuentes.
+
+   Cumple dos funciones a la vez: deja acotar la busqueda a una o varias
+   entidades, y hace visible QUE hay en el indice y que no. Lo segundo importa
+   tanto como lo primero: un usuario que no sabe que el Consejo de Estado no
+   esta cubierto puede creer que su asunto "no existe" cuando en realidad no lo
+   buscamos.
+--------------------------------------------------------------------------- */
+const chipsFuentes = document.getElementById('chipsFuentes');
+const notaFuentes = document.getElementById('notaFuentes');
+const panelFuentes = document.getElementById('panelFuentes');
+const seleccionadas = new Set();
+
+function fuentesSeleccionadas() {
+  return Array.from(seleccionadas);
+}
+
+async function cargarFuentes() {
+  try {
+    const datos = await (await fetch('/api/fuentes')).json();
+    const total = (datos.total_fragmentos || 0).toLocaleString('es-CO');
+    chipsFuentes.innerHTML = (datos.fuentes || []).map(f => `
+      <button type="button" class="chip" aria-pressed="false" data-clave="${escaparHtml(f.clave)}"
+              title="${escaparHtml(f.entidad)} — ${escaparHtml(f.descripcion)}">
+        ${escaparHtml(f.nombre)} <span class="n">${(f.fragmentos || 0).toLocaleString('es-CO')}</span>
+      </button>`).join('');
+    chipsFuentes.querySelectorAll('.chip').forEach(chip => {
+      chip.addEventListener('click', () => {
+        const clave = chip.dataset.clave;
+        if (seleccionadas.has(clave)) { seleccionadas.delete(clave); } else { seleccionadas.add(clave); }
+        chip.setAttribute('aria-pressed', seleccionadas.has(clave) ? 'true' : 'false');
+        pintarNotaFuentes(datos, total);
+      });
+    });
+    pintarNotaFuentes(datos, total);
+  } catch (e) {
+    notaFuentes.textContent = 'No se pudo cargar la lista de fuentes.';
+  }
+}
+
+function pintarNotaFuentes(datos, total) {
+  const ausentes = (datos.ausentes || [])
+    .map(a => `<li><strong>${escaparHtml(a.nombre)}:</strong> ${escaparHtml(a.motivo)}</li>`)
+    .join('');
+  const alcance = seleccionadas.size === 0
+    ? `Sin filtro: se busca en las ${(datos.fuentes || []).length} fuentes (${total} fragmentos).`
+    : `Filtrando a ${seleccionadas.size} de ${(datos.fuentes || []).length} fuentes.`;
+  notaFuentes.innerHTML = `${alcance}
+    <details style="margin-top:0.5rem">
+      <summary style="cursor:pointer">Que NO esta en el indice</summary>
+      <ul style="margin:0.4rem 0 0; padding-left:1.1rem">${ausentes}</ul>
+      <p style="margin:0.5rem 0 0">El indice es una instantanea: no refleja normas ni
+      sentencias posteriores a su ultima actualizacion.</p>
+    </details>`;
+}
+
+document.getElementById('alternarFuentes').addEventListener('click', (ev) => {
+  panelFuentes.hidden = !panelFuentes.hidden;
+  ev.target.textContent = panelFuentes.hidden ? 'ver fuentes' : 'ocultar';
+});
+
+cargarFuentes();
 
 boton.addEventListener('click', buscar);
 input.addEventListener('keydown', e => { if (e.key === 'Enter') buscar(); });

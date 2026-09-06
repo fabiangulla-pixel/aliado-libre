@@ -36,7 +36,10 @@ def _bloque_tablero() -> str:
     haría que estas pruebas se dispararan con su propia justificación.
     """
     inicio = HTML.index("const CLAVE_TABLERO")
-    return HTML[inicio:]
+    # El selector de fuentes viene despues en el mismo <script> y SI hace fetch:
+    # acotar el bloque evita que estas pruebas juzguen codigo ajeno.
+    fin = HTML.index("Selector de fuentes", inicio)
+    return HTML[inicio:fin]
 
 
 def test_el_tablero_existe_con_sus_controles():
@@ -67,7 +70,8 @@ def test_usa_sessionstorage_y_no_localstorage():
 def test_el_servidor_no_recibe_notas():
     """Ningún endpoint del servidor acepta el contenido del tablero."""
     rutas = set(re.findall(r'ruta\.path == "([^"]+)"', SERVIDOR_GUI))
-    assert rutas <= {"/api/buscar", "/api/estado"}, f"endpoints inesperados: {rutas}"
+    permitidos = {"/api/buscar", "/api/estado", "/api/fuentes"}
+    assert rutas <= permitidos, f"endpoints inesperados: {rutas - permitidos}"
     for sospechoso in ("notas", "tablero", "favoritos"):
         assert sospechoso not in SERVIDOR_GUI.lower(), (
             f"el servidor menciona {sospechoso!r}: ¿está recibiendo el tablero?"

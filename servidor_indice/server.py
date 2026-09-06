@@ -187,8 +187,17 @@ class Handler(BaseHTTPRequestHandler):
             return
         n = min(n, N_MAXIMO)
 
+        fuentes = datos.get("fuentes")
+        if fuentes is not None:
+            if not isinstance(fuentes, list) or not all(isinstance(f, str) for f in fuentes):
+                self._error(400, "El campo 'fuentes' debe ser una lista de textos.")
+                return
+            from index.fuentes import normalizar
+
+            fuentes = normalizar(fuentes)
+
         try:
-            resultados = obtener_indice().buscar(consulta.strip(), k=n)
+            resultados = obtener_indice().buscar(consulta.strip(), k=n, fuentes=fuentes)
         except RuntimeError as e:
             self._error(503, str(e))
             return
@@ -200,7 +209,14 @@ class Handler(BaseHTTPRequestHandler):
             self._error(500, f"Error buscando en el índice: {type(e).__name__}")
             return
 
-        self._responder_json({"consulta": consulta.strip(), "n": n, "resultados": resultados})
+        self._responder_json(
+            {
+                "consulta": consulta.strip(),
+                "n": n,
+                "fuentes": fuentes or [],
+                "resultados": resultados,
+            }
+        )
 
     def _metodo_no_permitido(self, permitidos: str) -> None:
         cuerpo = json.dumps({"error": f"Método no permitido. Use {permitidos}."}).encode("utf-8")

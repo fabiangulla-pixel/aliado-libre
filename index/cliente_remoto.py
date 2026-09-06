@@ -64,13 +64,20 @@ class IndiceRemoto:
 
     # -- interfaz pública -------------------------------------------------
 
-    def buscar(self, consulta: str, k: int = 8) -> list[dict]:
+    def buscar(self, consulta: str, k: int = 8, fuentes: list[str] | None = None) -> list[dict]:
         """Mismo contrato que IndiceBusqueda.buscar(): lista de dicts con
-        'id', 'puntaje', 'texto' y los metadatos del fragmento."""
+        'id', 'puntaje', 'texto' y los metadatos del fragmento.
+
+        `fuentes` acota la busqueda a esas entidades; se manda solo cuando hay
+        filtro, para que un servidor de una version anterior siga funcionando.
+        """
         if not consulta or not consulta.strip():
             return []
 
-        datos = self._peticion("/buscar", {"consulta": consulta.strip(), "n": k})
+        cuerpo = {"consulta": consulta.strip(), "n": k}
+        if fuentes:
+            cuerpo["fuentes"] = list(fuentes)
+        datos = self._peticion("/buscar", cuerpo)
         resultados = datos.get("resultados")
         if not isinstance(resultados, list):
             raise ErrorIndiceRemoto(

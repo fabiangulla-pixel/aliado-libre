@@ -34,8 +34,8 @@ class IndiceFalso:
         self.llamadas = []
         self._total = 718388
 
-    def buscar(self, consulta, k=8):
-        self.llamadas.append((consulta, k))
+    def buscar(self, consulta, k=8, fuentes=None):
+        self.llamadas.append((consulta, k, fuentes))
         if self.excepcion is not None:
             raise self.excepcion
         return self.resultados
@@ -106,17 +106,17 @@ def test_buscar_devuelve_el_mismo_esquema_de_fragmentos(base, indice):
     assert datos["resultados"] == [FRAGMENTO]
     # el servidor no reordena ni renombra claves: reemplazo transparente
     assert set(datos["resultados"][0]) == set(FRAGMENTO)
-    assert indice.llamadas == [("carrera administrativa", 3)]
+    assert indice.llamadas == [("carrera administrativa", 3, None)]
 
 
 def test_buscar_usa_n_por_defecto_si_no_se_manda(base, indice):
     _post(base, "/buscar", {"consulta": "pensión"})
-    assert indice.llamadas == [("pensión", srv.N_DEFECTO)]
+    assert indice.llamadas == [("pensión", srv.N_DEFECTO, None)]
 
 
 def test_buscar_topa_n_en_el_maximo(base, indice):
     _post(base, "/buscar", {"consulta": "tutela", "n": 10_000})
-    assert indice.llamadas == [("tutela", srv.N_MAXIMO)]
+    assert indice.llamadas == [("tutela", srv.N_MAXIMO, None)]
 
 
 def test_buscar_acepta_acentos_y_devuelve_utf8(base, indice):
@@ -282,3 +282,34 @@ def test_token_vacio_en_la_variable_equivale_a_abierto(base, monkeypatch):
     monkeypatch.setenv("ALIADO_INDICE_TOKEN", "   ")
     assert srv.token_configurado() is None
     assert urllib.request.urlopen(base + "/salud", timeout=5).status == 200
+
+
+# --- filtro por fuente ------------------------------------------------------
+
+
+def test_el_filtro_de_fuentes_llega_al_indice(base, indice):
+    _post(base, "/buscar", {"consulta": "posición dominante", "fuentes": ["sic", "dian"]})
+    assert indice.llamadas[0][2] == ["sic", "dian"]
+
+
+def test_fuentes_desconocidas_se_ignoran_en_vez_de_vaciar_la_busqueda(base, indice):
+    """Un filtro invalido es mas probable que sea error de quien llama que
+    intencion del usuario: comportarse como 'sin filtro' es lo util."""
+    _post(base, "/buscar", {"consulta": "algo", "fuentes": ["inventada"]})
+    assert indice.llamadas[0][2] is None
+
+
+def test_fuentes_debe_ser_una_lista_de_textos(base, indice):
+    with pytest.raises(urllib.error.HTTPError) as exc:
+        _post(base, "/buscar", {"consulta": "algo", "fuentes": "sic"})
+    assert exc.value.code == 400
+
+
+def test_la_respuesta_dice_que_filtro_se_aplico(base, indice):
+    r = _post(base, "/buscar", {"consulta": "algo", "fuentes": ["sic"]})
+    assert json.loads(r.read())["fuentes"] == ["sic"]
+
+
+def test_sin_filtro_la_respuesta_lo_indica_vacio(base, indice):
+    r = _post(base, "/buscar", {"consulta": "algo"})
+    assert json.loads(r.read())["fuentes"] == []
