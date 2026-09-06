@@ -283,6 +283,46 @@
     padding: 0 0.9rem 0.7rem; color: var(--texto-suave); font-size: 0.75rem; line-height: 1.4;
   }
 
+  .config {
+    max-width: 720px; margin: 0 auto 1.6rem; padding: 0 1.5rem;
+    font-family: ui-sans-serif, system-ui, sans-serif;
+  }
+  .config-cabecera {
+    display: flex; justify-content: space-between; align-items: baseline; gap: 0.6rem;
+  }
+  .config-cabecera h2 { margin: 0; font-size: 0.85rem; font-weight: 600; font-family: inherit; }
+  .config-cabecera button {
+    border: none; background: none; color: var(--acento);
+    font-size: 0.8rem; cursor: pointer; padding: 0; font-family: inherit;
+  }
+  #panelConfig {
+    margin-top: 0.6rem; padding: 0.9rem 1rem;
+    border: 1px solid var(--borde); border-radius: 12px; background: var(--panel);
+  }
+  #panelConfig label { display: block; font-size: 0.8rem; margin-bottom: 0.15rem; color: var(--texto-suave); }
+  #panelConfig select, #panelConfig input {
+    width: 100%; padding: 0.5rem 0.6rem; margin-bottom: 0.7rem;
+    border: 1px solid var(--borde); border-radius: 8px;
+    background: var(--bg); color: var(--texto); font-family: inherit; font-size: 0.88rem;
+  }
+  .config-aviso {
+    font-size: 0.78rem; color: var(--texto-suave); line-height: 1.45;
+    border-left: 3px solid var(--dorado); padding-left: 0.7rem;
+  }
+  .costo {
+    margin-top: 0.7rem; padding: 0.6rem 0.8rem; border-radius: 8px;
+    background: var(--acento-suave); color: var(--acento);
+    font-size: 0.82rem; line-height: 1.45;
+  }
+  #bloqueIaExterna { margin-bottom: 1.2rem; }
+  #bloqueIaExterna button {
+    width: 100%; padding: 0.7rem; border-radius: 10px; border: 1px solid var(--dorado);
+    background: transparent; color: var(--texto); cursor: pointer;
+    font-family: ui-sans-serif, system-ui, sans-serif; font-size: 0.9rem;
+  }
+  #bloqueIaExterna button:hover { background: var(--acento-suave); }
+  #bloqueIaExterna button:disabled { opacity: 0.6; cursor: default; }
+
   .fuentes {
     max-width: 720px;
     margin: -1rem auto 1.6rem;
@@ -363,6 +403,47 @@
   <input id="consulta" type="text" placeholder="Ej. requisitos para constituir una fiducia mercantil" autofocus>
   <button id="botonBuscar">Buscar</button>
 </div>
+<div class="config">
+  <div class="config-cabecera">
+    <h2>IA externa (opcional)<span class="ayuda" tabindex="0">?<span class="globo">
+      Por defecto responde un modelo propio, gratuito, entrenado para este corpus.
+      Si tienes una clave de API de otro proveedor puedes usarla para las consultas
+      dificiles: la pagas tu, no nosotros, y por eso te mostramos el costo estimado
+      antes de cada llamada. Tu clave NO se guarda en ningun lado: vive en la memoria
+      de esta pestana y desaparece al recargar.
+    </span></span></h2>
+    <button id="alternarConfig" type="button">configurar</button>
+  </div>
+  <div id="panelConfig" hidden>
+    <label for="proveedor">Proveedor<span class="ayuda" tabindex="0">?<span class="globo">
+      Elige segun la clave que tengas a la mano. Ollama corre en tu propio equipo
+      y no cuesta dinero, pero tienes que tenerlo instalado.
+    </span></span></label>
+    <select id="proveedor">
+      <option value="">Ninguno (usar solo el modelo propio)</option>
+      <option value="claude">Claude (Anthropic)</option>
+      <option value="openai">OpenAI</option>
+      <option value="gemini">Google Gemini</option>
+      <option value="ollama">Ollama (en tu equipo, sin costo)</option>
+    </select>
+
+    <label for="modelo">Modelo</label>
+    <input id="modelo" type="text" placeholder="se usa el recomendado si lo dejas vacio">
+
+    <label for="claveApi">Clave de API<span class="ayuda" tabindex="0">?<span class="globo">
+      Se manda al servidor solo en el momento de redactar una respuesta, se usa para
+      esa llamada y se descarta. No se escribe en disco ni en ningun registro. Si
+      prefieres no compartirla con ningun servidor, usa la version local o Ollama.
+    </span></span></label>
+    <input id="claveApi" type="password" autocomplete="off" placeholder="pegala aqui; no se guarda">
+
+    <div class="config-aviso">
+      No guardamos tu clave ni tus consultas. Al recargar la pagina tendras que
+      pegarla de nuevo: es el precio de no almacenar nada.
+    </div>
+  </div>
+</div>
+
 <div class="fuentes">
   <div class="fuentes-cabecera">
     <h2>Buscar en<span class="ayuda" tabindex="0">?<span class="globo">
@@ -385,6 +466,8 @@
     Redactar respuesta con el modelo propio (local) — más lento; verifica siempre la cita
   </label>
 </div>
+
+<div id="bloqueIaExterna" style="max-width:780px;margin:0 auto;padding:0 1.5rem"></div>
 
 <main id="resultados">
   <div class="estado">Escribe una consulta y presiona Buscar.</div>
@@ -528,6 +611,10 @@ async function buscar() {
       });
     });
     pintarTablero();
+    // se guarda lo ultimo buscado para poder ofrecer la redaccion
+    // con IA externa sin repetir la busqueda
+    ultimaBusqueda = { consulta: consulta, resultados: datos.resultados };
+    pintarBloqueIaExterna();
   } catch (e) {
     contenedor.innerHTML = `<div class="error">No se pudo conectar con el servidor: ${escaparHtml(String(e))}</div>`;
   } finally {
@@ -725,6 +812,107 @@ document.getElementById('alternarFuentes').addEventListener('click', (ev) => {
   panelFuentes.hidden = !panelFuentes.hidden;
   ev.target.textContent = panelFuentes.hidden ? 'ver fuentes' : 'ocultar';
 });
+
+
+/* ---------------------------------------------------------------------------
+   IA externa opcional, con costo visible ANTES de gastar.
+
+   La clave vive solo en esta variable, en memoria: ni sessionStorage ni
+   localStorage. Recargar la pagina la borra. Es incomodo a proposito; guardarla
+   seria almacenar un secreto del usuario, y hoy no almacenamos nada.
+
+   El flujo es deliberado: primero se busca (gratis), luego se muestra cuanto
+   costaria redactar con el proveedor elegido, y solo si el usuario acepta se
+   hace la llamada. Nunca se gasta su dinero sin que lo haya visto antes.
+--------------------------------------------------------------------------- */
+let ultimaBusqueda = null;   // {consulta, resultados}
+
+function configIa() {
+  return {
+    proveedor: document.getElementById('proveedor').value,
+    modelo: document.getElementById('modelo').value.trim(),
+    clave: document.getElementById('claveApi').value.trim(),
+  };
+}
+
+document.getElementById('alternarConfig').addEventListener('click', (ev) => {
+  const panel = document.getElementById('panelConfig');
+  panel.hidden = !panel.hidden;
+  ev.target.textContent = panel.hidden ? 'configurar' : 'ocultar';
+});
+
+async function pintarBloqueIaExterna() {
+  const bloque = document.getElementById('bloqueIaExterna');
+  if (!bloque) return;
+  const cfg = configIa();
+  if (!cfg.proveedor || !ultimaBusqueda) { bloque.innerHTML = ''; return; }
+
+  bloque.innerHTML = '<div class="costo">Calculando costo estimado…</div>';
+  try {
+    const resp = await fetch('/api/responder', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        consulta: ultimaBusqueda.consulta,
+        fragmentos: ultimaBusqueda.resultados,
+        proveedor: cfg.proveedor,
+        modelo: cfg.modelo,
+        solo_estimar: true,
+      }),
+    });
+    const datos = await resp.json();
+    const est = datos.estimado || {};
+    const aviso = est.aviso ? `<div style="margin-top:0.4rem">${escaparHtml(est.aviso)}</div>` : '';
+    bloque.innerHTML = `
+      <div class="costo">${escaparHtml(est.texto || 'Sin estimacion disponible.')}${aviso}</div>
+      <button id="pedirIaExterna" type="button" style="margin-top:0.6rem">
+        Redactar con ${escaparHtml(cfg.proveedor)} y pagar con mi clave
+      </button>`;
+    document.getElementById('pedirIaExterna').addEventListener('click', responderConIaExterna);
+  } catch (e) {
+    bloque.innerHTML = `<div class="costo">No se pudo estimar el costo: ${escaparHtml(String(e))}</div>`;
+  }
+}
+
+async function responderConIaExterna() {
+  const cfg = configIa();
+  const bloque = document.getElementById('bloqueIaExterna');
+  const boton = document.getElementById('pedirIaExterna');
+  if (boton) { boton.disabled = true; boton.textContent = 'Redactando…'; }
+
+  try {
+    const resp = await fetch('/api/responder', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        consulta: ultimaBusqueda.consulta,
+        fragmentos: ultimaBusqueda.resultados,
+        proveedor: cfg.proveedor,
+        modelo: cfg.modelo,
+        clave: cfg.clave,
+      }),
+    });
+    const datos = await resp.json();
+    if (datos.error) {
+      bloque.innerHTML = `<div class="costo">${escaparHtml(datos.error)}</div>`;
+      return;
+    }
+    const avisoAnclaje = datos.anclada === false
+      ? `<div class="aviso">&#9888; ${escaparHtml(datos.aviso_anclaje || '')} — verifica en las fuentes.</div>`
+      : '';
+    bloque.innerHTML = `
+      <div class="respuesta-ia">
+        <div class="etiqueta">Respuesta de ${escaparHtml(datos.modelo || datos.proveedor)}</div>
+        <p>${escaparHtml(datos.respuesta || '')}</p>
+        ${avisoAnclaje}
+      </div>
+      <div class="costo">${escaparHtml((datos.costo || {}).texto || '')}</div>`;
+  } catch (e) {
+    bloque.innerHTML = `<div class="costo">Fallo la llamada: ${escaparHtml(String(e))}</div>`;
+  }
+}
+
+document.getElementById('proveedor').addEventListener('change', pintarBloqueIaExterna);
 
 cargarFuentes();
 

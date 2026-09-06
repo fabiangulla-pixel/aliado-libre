@@ -74,6 +74,19 @@ def _crear_indice():
     return IndiceBusqueda()
 
 
+def _costo_a_dict(costo) -> dict:
+    return {
+        "usd": round(costo.usd, 6),
+        "pesos": costo.pesos,
+        "tokens_entrada": costo.tokens_entrada,
+        "tokens_salida": costo.tokens_salida,
+        "modelo": costo.modelo,
+        "estimado": costo.estimado,
+        "texto": costo.texto(),
+        "aviso": costo.aviso,
+    }
+
+
 def _obtener_indice():
     global _indice
     with _indice_lock:
@@ -107,6 +120,81 @@ class Handler(BaseHTTPRequestHandler):
             return
 
         self._servir_estatico(ruta.path)
+
+    def do_POST(self):  # noqa: N802 (nombre impuesto por BaseHTTPRequestHandler)
+        ruta = urlparse(self.path)
+        if ruta.path != "/api/responder":
+            self.send_error(404)
+            return
+        self._responder_con_ia_externa()
+
+    def _leer_json(self, maximo: int = 256 * 1024) -> dict | None:
+        try:
+            largo = int(self.headers.get("Content-Length") or 0)
+        except ValueError:
+            return None
+        if largo <= 0 or largo > maximo:
+            return None
+        try:
+            datos = json.loads(self.rfile.read(largo).decode("utf-8"))
+        except (UnicodeDecodeError, json.JSONDecodeError):
+            return None
+        return datos if isinstance(datos, dict) else None
+
+    def _responder_con_ia_externa(self) -> None:
+        """Redacta con el proveedor y la clave que puso el usuario.
+
+        La clave llega en el cuerpo de esta petición, se usa para una sola
+        llamada y se descarta. No se guarda, no se registra, y `proveedores`
+        la borra de cualquier mensaje de error antes de devolverlo.
+        """
+        from index import costos
+        from index.proveedores import MODELOS_POR_DEFECTO, ErrorProveedor, generar
+        from index.responder import PROMPT_SISTEMA, _formatear_fragmentos
+
+        datos = self._leer_json()
+        if datos is None:
+            self._responder_json({"error": "Cuerpo inválido."}, status=400)
+            return
+
+        consulta = (datos.get("consulta") or "").strip()
+        fragmentos = datos.get("fragmentos")
+        proveedor = (datos.get("proveedor") or "").strip().lower()
+        if not consulta or not isinstance(fragmentos, list) or not proveedor:
+            self._responder_json({"error": "Faltan 'consulta', 'fragmentos' o 'proveedor'."}, status=400)
+            return
+
+        modelo = (datos.get("modelo") or "").strip() or MODELOS_POR_DEFECTO.get(proveedor, "")
+        # Los proveedores externos reciben el sistema por su propio parametro,
+        # asi que aqui el prompt lleva solo contexto y pregunta: usar
+        # construir_prompt() duplicaria PROMPT_SISTEMA dentro del mensaje.
+        contexto = _formatear_fragmentos(fragmentos[:8])
+        prompt = f"Fragmentos disponibles:\n\n{contexto}\n\nPregunta: {consulta}\n\nRespuesta:"
+
+        # Solo estimar: no se llama al proveedor ni se necesita la clave.
+        if datos.get("solo_estimar"):
+            self._responder_json({"estimado": _costo_a_dict(costos.estimar(prompt, modelo))})
+            return
+
+        try:
+            r = generar(prompt, PROMPT_SISTEMA, proveedor, clave=datos.get("clave"), modelo=modelo)
+        except ErrorProveedor as e:
+            self._responder_json({"error": str(e)}, status=502)
+            return
+
+        from index.verificar_anclaje import marcar, verificar
+
+        informe = verificar(r.texto, fragmentos[:8])
+        self._responder_json(
+            {
+                "respuesta": r.texto if informe.anclada else marcar(r.texto, informe),
+                "anclada": informe.anclada,
+                "aviso_anclaje": "" if informe.anclada else informe.resumen(),
+                "proveedor": r.proveedor,
+                "modelo": r.modelo,
+                "costo": _costo_a_dict(costos.liquidar(r.usage, r.modelo)),
+            }
+        )
 
     def _responder_busqueda(self, ruta):
         params = parse_qs(ruta.query)
