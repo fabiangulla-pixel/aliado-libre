@@ -96,3 +96,38 @@ def test_la_exportacion_incluye_lo_necesario_para_citar():
     bloque = _bloque_tablero()
     for campo in ("Identificador", "Fuente", "Enlace"):
         assert campo in bloque, f"la exportación no incluye {campo}"
+
+
+# --- bugs encontrados usando la app de verdad -------------------------------
+
+
+def test_el_tablero_oculto_se_oculta_de_verdad():
+    """`display: flex` gana sobre el display:none que trae [hidden].
+
+    Sin esta regla el tablero aparecía con "Mi tablero (0)" aunque no hubiera
+    nada guardado. Visto en uso real desde un celular.
+    """
+    assert "#tablero[hidden]" in HTML
+    assert "#tablero[hidden] { display: none; }" in HTML
+
+
+def test_las_respuestas_se_leen_comprobando_que_sean_json():
+    """Un proxy o un tiempo de espera agotado devuelven HTML, no JSON.
+
+    Sin comprobarlo, JSON.parse revienta y el usuario ve
+    "Unexpected token '<'". Pasó de verdad: Cloudflare cortó una búsqueda larga
+    y devolvió su página de error.
+    """
+    assert "async function leerJson" in HTML
+    # ninguna llamada de lectura debe ir directo a .json() sin pasar por ahí,
+    # salvo la del proveedor externo, que devuelve JSON incluso en su 502
+    directas = [
+        linea.strip()
+        for linea in HTML.splitlines()
+        if "await resp.json()" in linea and "proveedor" not in linea
+    ]
+    assert not directas, f"llamadas sin comprobar el formato: {directas}"
+
+
+def test_se_avisa_que_la_redaccion_puede_tardar():
+    assert "puede tardar varios minutos" in HTML

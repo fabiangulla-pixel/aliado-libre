@@ -230,6 +230,9 @@
   .guardar:hover { border-color: var(--acento); color: var(--acento); }
   .guardar[disabled] { opacity: 0.55; cursor: default; border-style: dashed; }
 
+  /* `display: flex` gana sobre el `display:none` que trae [hidden], asi que el
+     tablero se veia vacio cuando no habia nada guardado. Hay que anularlo. */
+  #tablero[hidden] { display: none; }
   #tablero {
     position: fixed;
     right: 1rem;
@@ -463,7 +466,7 @@
 <div class="opcion-conversacional">
   <label>
     <input type="checkbox" id="conversacional">
-    Redactar respuesta con el modelo propio (local) — más lento; verifica siempre la cita
+    Redactar respuesta con el modelo propio (local) — puede tardar varios minutos; verifica siempre la cita
   </label>
 </div>
 
@@ -506,6 +509,23 @@ const boton = document.getElementById('botonBuscar');
 const contenedor = document.getElementById('resultados');
 const casillaConversacional = document.getElementById('conversacional');
 
+/* Un proxy, un tiempo de espera agotado o un error del servidor devuelven HTML,
+   no JSON. Sin esta comprobacion, JSON.parse revienta y el usuario ve
+   "Unexpected token '<'", que no le dice nada. Paso de verdad: Cloudflare corto
+   una busqueda larga y mostro su pagina de error. */
+async function leerJson(resp) {
+  const tipo = resp.headers.get('content-type') || '';
+  if (!resp.ok || !tipo.includes('json')) {
+    if (resp.status === 524 || resp.status === 504 || resp.status === 408) {
+      throw new Error('La consulta tardo demasiado y la conexion se corto. '
+        + 'Vuelve a intentarlo, o desmarca la redaccion con IA para que sea mas rapido.');
+    }
+    throw new Error(`El servidor respondio ${resp.status} y no en el formato esperado. `
+      + 'Puede estar ocupado; intenta de nuevo en un momento.');
+  }
+  return resp.json();
+}
+
 function escaparHtml(s) {
   return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
@@ -541,7 +561,7 @@ async function buscar() {
       + (quiereRespuesta ? '&conversacional=1' : '')
       + (filtro.length ? '&fuentes=' + encodeURIComponent(filtro.join(',')) : '');
     const resp = await fetch(url);
-    const datos = await resp.json();
+    const datos = await leerJson(resp);
 
     if (datos.error) {
       contenedor.innerHTML = `<div class="error">${escaparHtml(datos.error)}</div>`;
@@ -771,7 +791,7 @@ function fuentesSeleccionadas() {
 
 async function cargarFuentes() {
   try {
-    const datos = await (await fetch('/api/fuentes')).json();
+    const datos = await leerJson(await fetch('/api/fuentes'));
     const total = (datos.total_fragmentos || 0).toLocaleString('es-CO');
     chipsFuentes.innerHTML = (datos.fuentes || []).map(f => `
       <button type="button" class="chip" aria-pressed="false" data-clave="${escaparHtml(f.clave)}"
@@ -860,7 +880,7 @@ async function pintarBloqueIaExterna() {
         solo_estimar: true,
       }),
     });
-    const datos = await resp.json();
+    const datos = await leerJson(resp);
     const est = datos.estimado || {};
     const aviso = est.aviso ? `<div style="margin-top:0.4rem">${escaparHtml(est.aviso)}</div>` : '';
     bloque.innerHTML = `
@@ -892,7 +912,7 @@ async function responderConIaExterna() {
         clave: cfg.clave,
       }),
     });
-    const datos = await resp.json();
+    const datos = await resp.json();   // 502 del proveedor trae JSON con 'error'
     if (datos.error) {
       bloque.innerHTML = `<div class="costo">${escaparHtml(datos.error)}</div>`;
       return;
