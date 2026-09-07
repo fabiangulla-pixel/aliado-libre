@@ -22,6 +22,14 @@ errores que el buscador comete hoy — exactamente lo que hay que enseñarle a
 distinguir. Un negativo al azar del corpus no enseña nada: ya sabe que un
 decreto de aduanas no responde una pregunta sobre pensiones.
 
+El fragmento correcto se lee **del corpus por su identificador**, no de los
+resultados de la búsqueda. La diferencia decide el experimento: la primera
+versión de este script se quedaba solo con las consultas cuyo fragmento el
+buscador ya encontraba, y eso descartaba el 74% con un sesgo brutal — sobrevivía
+el 60% del perfil de abogado junior y el 8% del de baja alfabetización. Habría
+entrenado al modelo justo con las preguntas que ya acierta, que es lo contrario
+de lo que hace falta.
+
 Uso:
     ./venv/Scripts/python.exe finetune/generar_pares_embedding.py [--negativos 4]
 
@@ -45,6 +53,18 @@ sys.path.insert(0, str(RAIZ.parent))
 MAX_CARACTERES = 2000
 
 
+def _texto_por_id(indice, fragmento_id: str) -> str:
+    """Lee un fragmento del corpus por su identificador, sin pasar por la
+    búsqueda. Devuelve cadena vacía si no está o si Chroma falla: un id
+    huérfano no puede tumbar la generación entera."""
+    try:
+        respuesta = indice._coleccion.get(ids=[fragmento_id], include=["documents"])
+    except Exception:  # noqa: BLE001 - un id perdido no vale una excepción arriba
+        return ""
+    documentos = respuesta.get("documents") or []
+    return documentos[0] if documentos and documentos[0] else ""
+
+
 def main() -> None:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--negativos", type=int, default=4, help="negativos difíciles por consulta")
@@ -66,23 +86,25 @@ def main() -> None:
     salida = Path(args.salida)
     salida.parent.mkdir(parents=True, exist_ok=True)
 
-    escritos = sin_positivo = 0
+    escritos = sin_positivo = sin_texto = 0
     t0 = time.time()
     with salida.open("w", encoding="utf-8") as f:
         for i, caso in enumerate(banco, 1):
             candidatos = indice.buscar(caso["consulta"], k=args.candidatos)
 
-            positivo = next(
+            hallado = next(
                 (r for r in candidatos if r.get("id") == caso["fragmento_id"]),
                 None,
             )
-            if positivo is None:
-                # El buscador de hoy no trae el fragmento correcto ni entre 12.
-                # No se puede fabricar el positivo desde aquí sin leerlo del
-                # corpus por id; se cuenta y se sigue. Ese número es, en sí,
-                # una medición: dice cuánto material se pierde por el mismo
-                # problema que se quiere arreglar.
+            if hallado is not None:
+                texto_positivo = hallado.get("texto") or ""
+            else:
+                # El buscador de hoy no lo trae, que es precisamente el caso que
+                # más interesa entrenar. Se lee del corpus por id.
+                texto_positivo = _texto_por_id(indice, caso["fragmento_id"])
                 sin_positivo += 1
+            if not texto_positivo:
+                sin_texto += 1
                 continue
 
             negativos = [
@@ -98,7 +120,7 @@ def main() -> None:
                     {
                         "consulta": caso["consulta"],
                         "perfil": caso["perfil"],
-                        "positivo": (positivo.get("texto") or "")[:MAX_CARACTERES],
+                        "positivo": texto_positivo[:MAX_CARACTERES],
                         "negativos": negativos,
                     },
                     ensure_ascii=False,

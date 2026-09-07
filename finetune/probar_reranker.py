@@ -26,7 +26,8 @@ RAIZ = Path(__file__).resolve().parent
 sys.path.insert(0, str(RAIZ.parent))
 
 TOPES = (1, 5, 8)
-VENTANAS = (0, 10, 20, 40)  # 0 = sin reranker
+VENTANAS: tuple[int, ...] = ()  # lo fija main() desde --ventanas
+VENTANAS_DEFECTO = (0, 10, 20, 40)  # 0 = sin reranker
 
 
 def _acierto(items: list[dict], caso: dict, k: int) -> bool:
@@ -51,7 +52,16 @@ def main() -> None:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--por-perfil", type=int, default=15)
     p.add_argument("--banco", default=str(RAIZ / "eval" / "banco_coloquial_dev.json"))
+    p.add_argument(
+        "--ventanas",
+        default=",".join(str(v) for v in VENTANAS_DEFECTO),
+        help="tamaños de ventana a probar, separados por comas (0 = sin reranker). "
+        "Para confirmar una ventana ya elegida sobre datos apartados, basta '0,40'.",
+    )
+    p.add_argument("--salida", default=str(RAIZ / "eval" / "reranker.json"))
     args = p.parse_args()
+    global VENTANAS
+    VENTANAS = tuple(int(v) for v in args.ventanas.split(","))
 
     banco = json.loads(Path(args.banco).read_text(encoding="utf-8"))
     agrupado: dict[str, list] = defaultdict(list)
@@ -134,7 +144,7 @@ def main() -> None:
         a, b = perfiles[0][perfil], perfiles[mejor][perfil]
         print(f"  {perfil:24} {a[5] / a['total'] * 100:6.0f}% {b[5] / b['total'] * 100:6.0f}%")
 
-    Path(RAIZ / "eval" / "reranker.json").write_text(
+    Path(args.salida).write_text(
         json.dumps(
             {
                 "n": n,
