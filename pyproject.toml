@@ -1,3 +1,13 @@
+# La version de Python NO es una preferencia de estilo: PyTorch y
+# sentence-transformers hacen segfault en el 3.14 del sistema, y este proyecto
+# los carga siempre que toca el indice. Queda declarado aqui para que sea
+# comprobable por herramientas y no solo una advertencia en el README.
+[project]
+name = "aliado-libre"
+version = "0.1.0"
+description = "Busqueda y respuesta sobre legislacion y jurisprudencia colombiana, libre y sin registro de consultas"
+requires-python = ">=3.12,<3.13"
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 
@@ -18,10 +28,9 @@ ignore = [
 "index/*.py" = ["E402"]
 "mcp_server/*.py" = ["E402"]
 "finetune/*.py" = ["E402"]  # scripts que ajustan sys.path antes de importar index/*
-"finetune/generar_dataset.py" = ["E501"]  # literales de texto largo (preguntas/respuestas de entrenamiento)
+"finetune/_experimentos/*.py" = ["E402", "E501"]  # experimentos cumplidos: se conservan tal como se corrieron
 "finetune/generar_dataset_ampliado.py" = ["E501"]
 "finetune/generar_dataset_multifragmento.py" = ["E501"]
 "finetune/evaluar.py" = ["E501"]
 "finetune/diagnosticar_busqueda.py" = ["E501"]
-"finetune/ajustar_pesos_rrf.py" = ["E501"]
 "finetune/juzgar_respuestas.py" = ["E501"]

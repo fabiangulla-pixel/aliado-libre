@@ -38,7 +38,7 @@ COLECCION = os.environ.get("ALIADO_COLECCION", "aliado_libre_multilingual_e5_lar
 
 # Los modelos e5 se entrenaron con prefijos que distinguen la consulta del
 # pasaje, y son asimétricos a propósito: sin ellos rinden bastante peor. El
-# índice se construye con "passage: " (ver finetune/colab_reindexar_embeddings).
+# índice se construye con "passage: " (ver finetune/colab_reindexar_embeddings_060926.ipynb).
 PREFIJO_CONSULTA = "query: " if "e5" in MODELO_EMBEDDINGS.lower() else ""
 K_RRF = 60
 # Pesos de la fusión RRF, recalibrados el 6-sep-2026 sobre el índice de

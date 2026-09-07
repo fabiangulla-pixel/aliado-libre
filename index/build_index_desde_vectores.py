@@ -1,6 +1,6 @@
 """Reconstruye la colección de Chroma a partir de vectores YA calculados.
 
-La contraparte local de `finetune/colab_reindexar_embeddings.ipynb`: Colab hace
+La contraparte local de `finetune/colab_reindexar_embeddings_060926.ipynb`: Colab hace
 lo caro (recalcular 718.388 embeddings en GPU) y publica la matriz en Hugging
 Face; esto solo la descarga y la inserta. No carga ningún modelo, así que no
 necesita torch ni GPU y tarda minutos, no horas.

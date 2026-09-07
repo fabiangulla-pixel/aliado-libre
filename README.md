@@ -98,8 +98,35 @@ mcp_server/
 
 ## Entorno
 
-**IMPORTANTE**: usar el venv del proyecto (`venv/`, Python 3.12), NO el Python 3.14 del sistema.
-PyTorch/sentence-transformers hacen segfault en Python 3.14 (muy reciente, sin soporte aún).
+**La versión de Python no es negociable: 3.12.** PyTorch y sentence-transformers hacen
+segfault en el 3.14 del sistema, y este proyecto los carga siempre que toca el índice. Está
+declarado en `pyproject.toml` (`requires-python`), no solo aquí.
+
+Instalación desde cero:
+
+```sh
+py -3.12 -m venv venv
+./venv/Scripts/python.exe -m pip install -r requirements.txt      # para usarlo
+./venv/Scripts/python.exe -m pip install -r requirements-dev.txt  # además, para desarrollar
+./venv/Scripts/python.exe scripts/install_hooks.py                # hook de pre-commit
+```
+
+Las versiones están fijadas a propósito: son las que se usaron para construir el índice y
+medir la calidad. Sin fijarlas, una instalación de dentro de tres meses trae otra cosa y las
+mediciones dejan de ser reproducibles sin que nadie se entere.
+
+Falta el índice: no está en git (pesa ~21 GB). Se descarga ya construido desde
+[Hugging Face](https://huggingface.co/datasets/Gullax/indice-legal-colombia) o se reconstruye
+con `index/build_index.py` + `index/build_fts.py`.
+
+Comprobar que todo está bien:
+
+```sh
+./venv/Scripts/python.exe -m pytest tests/ -q     # 257 tests
+check.bat                                          # lint + formato + tests
+```
+
+Comandos de uso:
 
 ```
 ./venv/Scripts/python.exe index/build_index.py     # construir/actualizar índice vectorial (Chroma)

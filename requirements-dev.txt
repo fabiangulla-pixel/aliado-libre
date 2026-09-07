@@ -1,0 +1,7 @@
+# Lo que necesita el hook de pre-commit y `make check`. Separado de
+# requirements.txt a proposito: quien solo quiere usar el programa no tiene
+# por que instalar la suite de pruebas.
+-r requirements.txt
+
+pytest==9.1.1
+ruff==0.16.5
