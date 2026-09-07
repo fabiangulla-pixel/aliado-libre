@@ -87,9 +87,13 @@ Queda pendiente:
    `index/cliente_remoto.py`). Hoy no hay valor por defecto porque el servidor
    aún no está desplegado — ver `docs/DESPLIEGUE_INDICE.md`. Sin eso, el .exe
    funciona pero hay que pasarle la URL a mano.
-2. **Reevaluar la calidad del Q4.** La cuantización a 4 bits pierde precisión y
-   la precisión medida corresponde al modelo sin cuantizar. La medición sobre el Q4
-   está en curso con `finetune/generar_respuestas_local.py`.
+2. ~~**Reevaluar la calidad del Q4.**~~ → **hecho (6-sep-2026): el Q4_K_M se
+   queda.** Medido contra el q8_0 con ambos generados en CPU, sobre las mismas
+   150 preguntas: la diferencia cabe en el ruido del muestreo (McNemar p = 0,40).
+   La comparación anterior, que sí daba una caída significativa, comparaba a la
+   vez cuantización y hardware —una en GPU y otra en CPU— y quedó retirada.
+   Detalle en `docs/MEDICIONES.md`. Con esto el paquete se queda en ~970 MB en
+   vez de ~3 GB.
 3. Firma de código e icono propio (hoy usa el icono por defecto de PyInstaller).
 
 ## Los parámetros de inferencia no son libres

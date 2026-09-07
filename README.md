@@ -130,14 +130,22 @@ Las cifras de acierto de cada candidato están en las mediciones internas
 
 ## Próximos pasos
 
-1. Cuantizar el ganador (Qwen2.5-1.5B) a Q4_K_M (`finetune/cuantizar_q4.py`, ya compilado
-   `llama-quantize` local) para reducir el tamaño final antes de empaquetar.
-2. Escribir el `.spec` de PyInstaller — hoy no existe ningún `.exe`, todo corre desde
-   `venv/Scripts/python.exe`.
-3. Decidir arquitectura híbrida nube+API (modelo local + índice en la nube, ya evaluado
-   como viable en costo tras bajar la RAM del índice de ~10GB a ~2.3GB).
+1. **Subir el acierto de la búsqueda**, que es el cuello de botella real. Dos vías
+   preparadas y no confirmadas: reordenar los candidatos con un modelo que lee pregunta y
+   pasaje juntos (`index/reordenar.py`), y afinar el embedding sobre este mismo corpus
+   (`finetune/generar_pares_embedding.py` + `finetune/colab_afinar_embedding.ipynb`).
+   Cualquiera de las dos se juzga contra la partición de prueba del banco, que no se usa
+   para ajustar nada.
+2. **Volver a medir la memoria del índice** con el embedding nuevo, antes de contratar
+   hosting: la cifra que hay en `docs/DESPLIEGUE_INDICE.md` es del modelo anterior y es
+   la que decide el escalón de precio.
+3. **Desplegar el servidor del índice** y fijar su URL por defecto en el ejecutable.
 4. Publicar el índice construido en Hugging Face Hub (`scripts/publicar_indice_hf.py`)
    para que otros lo usen sin tener que reconstruirlo.
-5. Reintentar Corte Suprema cuando su backend esté disponible (sigue en 0 documentos).
+5. Reintentar Corte Suprema cuando su backend esté disponible (sigue en 0 documentos;
+   comprobado de nuevo el 6-sep-2026, responde 502).
 6. Consejo de Estado sigue bloqueado por WAF — no hay plan de reintento hasta que aparezca
    una vía de acceso pública real.
+
+Cerrado ya: la cuantización del modelo (se distribuye Q4_K_M, ver `docs/EMPAQUETADO.md`),
+el `.spec` de PyInstaller y la decisión de arquitectura híbrida nube+API.

@@ -1,5 +1,57 @@
 # Changelog
 
+## 2026-09-06 (tarde) — Una conclusión que había que retirar, y cuatro fallos del despliegue
+
+### Se retira la recomendación sobre la cuantización
+
+Estaba escrito que la versión Q4_K_M perdía precisión de verdad frente a la q8_0, con
+una prueba estadística detrás. **Esa comparación no era válida**: las respuestas de una
+se habían generado en GPU y las de la otra en CPU, así que se comparaban dos cosas a la
+vez. Repetida con ambas en CPU, sobre las mismas 150 preguntas y el mismo juez, la
+diferencia desaparece dentro del ruido del muestreo.
+
+Consecuencia práctica: **se distribuye la Q4_K_M**, que pesa 940 MB frente a 2.950 MB
+—un tercio del ejecutable— sin una pérdida de precisión que estos datos puedan sostener.
+Dicho con honestidad: "no se detecta diferencia" con 115 preguntas pareadas no es "no hay
+diferencia"; una caída pequeña sería invisible a este tamaño de muestra.
+
+La lección se queda escrita en `docs/MEDICIONES.md`: **el hardware donde se genera es una
+variable del experimento**. Cambiar dos cosas a la vez sostuvo tres días una conclusión
+falsa que casi triplica el tamaño de lo que se iba a repartir.
+
+### Cuatro fallos que habrían roto el índice remoto el día del despliegue
+
+Ninguno se ve desde el uso local de hoy. Los cuatro se ven el día que alguien apunte a
+un servidor:
+
+- La imagen del servidor descargaba el modelo de embeddings **viejo**, mientras el
+  buscador ya pedía el nuevo. Como en el servidor se prohíbe descargar nada en caliente,
+  habría arrancado y muerto. Ahora el nombre se lee de un solo sitio y hay un test que
+  impide que vuelvan a separarse.
+- El servidor contestaba sus errores (404, 401, 413) **sin leer la petición** que el
+  cliente todavía estaba enviando. El resultado era que el usuario veía un error de red
+  en vez del mensaje en español que sí se le había escrito.
+- El cliente se rendía a la primera ante un servidor que estaba despertando, que es
+  exactamente lo que hace un servidor barato tras un rato sin visitas. Ahora reintenta lo
+  que se cura esperando, y solo eso.
+- El juez de respuestas ahora dice cuánto costó de verdad la llamada a la API, en vez de
+  dejarlo a ojo.
+
+### La factura del hosting estaba calculada con el modelo viejo
+
+El embedding nuevo pesa unas cuatro veces más que el anterior, y la memoria es justo lo
+que decide el escalón de precio. La cifra que sostenía la elección de plan quedó marcada
+como no válida en la guía de despliegue y en la configuración, con la instrucción de no
+contratar nada hasta volver a medirla.
+
+### Preparado, sin correr todavía
+
+- Material y entrenamiento para **afinar el embedding sobre este corpus**: los ejemplos
+  negativos no son al azar, son los documentos equivocados que el buscador trae hoy. Solo
+  se usa la mitad de dev del banco; la de prueba queda intacta para poder medir después.
+- `docs/NOMBRE.md`: candidatos para el nombre nuevo con la disponibilidad verificable, y
+  la advertencia de que un dominio sin uso no es un dominio libre.
+
 ## 2026-09-06 — El cuello de botella era la búsqueda; modelo Wikipedia; sin registro
 
 Sesión larga. Se identificó y atacó la causa raíz de la baja precisión, se fijó el
