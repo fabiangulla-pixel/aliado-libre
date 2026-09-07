@@ -27,6 +27,7 @@ import socket
 import time
 import urllib.error
 import urllib.request
+from pathlib import Path
 
 TIEMPO_ESPERA_DEFECTO = 30.0  # s; una búsqueda típica tarda < 2s, pero un
 # servidor recién despertado (plan barato con suspensión) puede tardar más
@@ -42,6 +43,26 @@ VAR_TOKEN = "ALIADO_INDICE_TOKEN"
 REINTENTOS_DEFECTO = 2  # intentos adicionales, no totales
 ESPERA_ENTRE_INTENTOS = 2.0  # s; se duplica en cada reintento
 CODIGOS_REINTENTABLES = frozenset({502, 503, 504})
+
+# Dónde busca la configuración quien recibe el .exe. Una variable de entorno es
+# razonable en desarrollo y absurda para alguien a quien le pasan un programa:
+# nadie va a abrir las propiedades del sistema para poder buscar una sentencia.
+# Se reutiliza la carpeta que el proyecto ya usa para credenciales, fuera del
+# repositorio, para que el token no acabe en git por descuido.
+ARCHIVO_CONFIG = Path.home() / ".aliado_libre" / "credenciales.json"
+CLAVE_URL = "indice_url"
+CLAVE_TOKEN = "indice_token"
+
+
+def configuracion_guardada() -> dict:
+    """Lee el archivo de configuración del usuario. Nunca falla: si no existe,
+    está corrupto o no se puede leer, se devuelve vacío y manda el entorno. Un
+    archivo mal escrito no puede dejar la aplicación sin arrancar."""
+    try:
+        datos = json.loads(ARCHIVO_CONFIG.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError, UnicodeDecodeError):
+        return {}
+    return datos if isinstance(datos, dict) else {}
 
 
 class ErrorIndiceRemoto(RuntimeError):
@@ -64,14 +85,22 @@ class IndiceRemoto:
         espera: float = TIEMPO_ESPERA_DEFECTO,
         reintentos: int = REINTENTOS_DEFECTO,
     ) -> None:
-        url = (url or os.environ.get(VAR_URL, "")).strip().rstrip("/")
+        # Precedencia: lo que se pasa a mano > el entorno > el archivo del
+        # usuario. Quien depura quiere que su variable gane sin borrar nada.
+        guardado = configuracion_guardada()
+        url = url or os.environ.get(VAR_URL, "") or guardado.get(CLAVE_URL, "") or ""
+        url = url.strip().rstrip("/")
         if not url:
             raise ErrorIndiceRemoto(
-                "No se indicó la dirección del índice remoto. Pásala al crear "
-                f"IndiceRemoto(...) o define la variable de entorno {VAR_URL}."
+                "No se indicó dónde está el índice. Escribe la dirección en "
+                f"{ARCHIVO_CONFIG} con la forma "
+                '{"indice_url": "https://...", "indice_token": "..."} '
+                f"o define la variable de entorno {VAR_URL}."
             )
         self.url = url
-        self.token = token if token is not None else os.environ.get(VAR_TOKEN, "").strip() or None
+        if token is None:
+            token = os.environ.get(VAR_TOKEN, "").strip() or guardado.get(CLAVE_TOKEN, "")
+        self.token = (token or "").strip() or None
         self.espera = espera
         self.reintentos = max(0, int(reintentos))
 

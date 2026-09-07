@@ -83,10 +83,20 @@ Actualizado 4-sep-2026. Los dos bloqueos grandes ya están resueltos:
 
 Queda pendiente:
 
-1. **Fijar la URL por defecto del servidor de índice** (`ALIADO_INDICE_URL` en
-   `index/cliente_remoto.py`). Hoy no hay valor por defecto porque el servidor
-   aún no está desplegado — ver `docs/DESPLIEGUE_INDICE.md`. Sin eso, el .exe
-   funciona pero hay que pasarle la URL a mano.
+1. **Fijar la URL por defecto del servidor de índice.** Sigue sin haber valor
+   por defecto porque el servidor aún no está desplegado — ver
+   `docs/DESPLIEGUE_INDICE.md`. Lo que ya no hace falta es una variable de
+   entorno: desde el 6-sep-2026 el cliente lee también
+   `~/.aliado_libre/credenciales.json`:
+
+   ```json
+   {"indice_url": "https://...", "indice_token": "..."}
+   ```
+
+   Precedencia: lo que se pasa a mano > el entorno > ese archivo. Así el .exe
+   se puede configurar sin tocar variables del sistema, y el token queda fuera
+   del repositorio. Cuando haya servidor, basta con hornear la URL como valor
+   por defecto y el archivo pasa a servir para apuntar a otro.
 2. ~~**Reevaluar la calidad del Q4.**~~ → **hecho (6-sep-2026): el Q4_K_M se
    queda.** Medido contra el q8_0 con ambos generados en CPU, sobre las mismas
    150 preguntas: la diferencia cabe en el ruido del muestreo (McNemar p = 0,40).

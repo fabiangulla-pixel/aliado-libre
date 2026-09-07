@@ -49,10 +49,18 @@ resultados = indice.buscar("prescripción de la acción disciplinaria", k=5)
 usar en un equipo donde ni `torch` ni `chromadb` estén instalados. Ese es
 justamente el punto de mover el índice al servidor.
 
-Variables de entorno del cliente:
+Configuración del cliente, por orden de precedencia:
 
-- `ALIADO_INDICE_URL` — p. ej. `https://aliado-libre-indice.onrender.com`
-- `ALIADO_INDICE_TOKEN` — el mismo secreto que el servidor
+1. Lo que se pasa a `IndiceRemoto(url, token)`.
+2. Las variables de entorno `ALIADO_INDICE_URL` y `ALIADO_INDICE_TOKEN`
+   (p. ej. `https://aliado-libre-indice.onrender.com`).
+3. El archivo `~/.aliado_libre/credenciales.json`:
+   `{"indice_url": "https://...", "indice_token": "..."}`.
+
+El archivo existe para quien recibe el .exe: pedirle a esa persona que defina
+una variable de entorno para poder buscar una sentencia no es una opción. Vive
+fuera del repositorio, así que el token no puede acabar en git por descuido, y
+si está corrupto se ignora en silencio en vez de impedir el arranque.
 
 Errores de red, timeouts y respuestas HTTP se traducen a `ErrorIndiceRemoto`
 con un mensaje en español listo para mostrar al usuario.
@@ -76,11 +84,19 @@ Otros límites duros del servidor: cuerpo máximo 64KB (`413`), `n` topado a 50.
 
 | Artefacto | Tamaño |
 |---|---|
-| `index/chroma_db/` (vectorial) | ~9,2 GB |
-| `index/fts_index.db` (FTS5) | ~1,66 GB |
-| **Total** | **~10,9 GB** |
+| `index/chroma_db/chroma.sqlite3` | ~14,9 GB |
+| `index/chroma_db/9601ae5b-…/` (vectores e5-large) | ~3,0 GB |
+| `index/chroma_db/41519883-…/` (vectores del índice viejo) | ~1,2 GB |
+| `index/fts_index.db` (FTS5) | ~1,55 GB |
+| **Total** | **~20,7 GB** |
 
-Va en un **disco persistente**, montado en `/datos` (15GB en `render.yaml`).
+Va en un **disco persistente**, montado en `/datos` (30GB en `render.yaml`).
+
+⚠️ **Estas cifras cambiaron con e5-large** (antes ~10,9 GB en total). Los
+vectores son de 1024 dimensiones en vez de 384, y `chroma.sqlite3` guarda ahora
+dos colecciones. El disco de 15 GB que estaba configurado **no alcanzaba**: el
+despliegue habría fallado al copiar. Si hace falta apretar, la colección vieja
+(`41519883-…`, 1,2 GB) se puede dejar fuera; el código ya no la consulta.
 
 No se monta sobre `/app/index` porque taparía los módulos de Python que viven
 ahí (`buscar.py`, `cliente_remoto.py`). El `Dockerfile` deja symlinks:

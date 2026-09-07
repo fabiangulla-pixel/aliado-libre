@@ -8,6 +8,7 @@ from unittest.mock import patch
 
 import pytest
 
+from index import cliente_remoto
 from index.cliente_remoto import ErrorIndiceRemoto, IndiceRemoto
 
 FRAGMENTO = {
@@ -319,3 +320,62 @@ def test_la_espera_entre_intentos_crece():
         with pytest.raises(ErrorIndiceRemoto):
             IndiceRemoto("http://x", reintentos=3).buscar("tutela")
     assert esperas == [2.0, 4.0, 8.0]
+
+
+# -- configuración para quien recibe el .exe -------------------------------
+#
+# Una variable de entorno es razonable en desarrollo y absurda para alguien a
+# quien le pasan un programa. La dirección del índice también se lee de un
+# archivo en la carpeta del usuario, fuera del repositorio.
+
+
+@pytest.fixture
+def config(tmp_path, monkeypatch):
+    """Un archivo de configuración de mentira, para no tocar el del usuario."""
+    ruta = tmp_path / "credenciales.json"
+    monkeypatch.setattr(cliente_remoto, "ARCHIVO_CONFIG", ruta)
+    return ruta
+
+
+def test_toma_url_y_token_del_archivo_del_usuario(config):
+    config.write_text(
+        json.dumps({"indice_url": "https://indice.example/", "indice_token": "secreto"}),
+        encoding="utf-8",
+    )
+    cliente = IndiceRemoto()
+    assert cliente.url == "https://indice.example"
+    assert cliente.token == "secreto"
+
+
+def test_el_entorno_le_gana_al_archivo(config, monkeypatch):
+    """Quien depura quiere que su variable mande sin tener que borrar nada."""
+    config.write_text(json.dumps({"indice_url": "https://del-archivo"}), encoding="utf-8")
+    monkeypatch.setenv("ALIADO_INDICE_URL", "https://del-entorno")
+    assert IndiceRemoto().url == "https://del-entorno"
+
+
+def test_lo_pasado_a_mano_le_gana_a_todo(config, monkeypatch):
+    config.write_text(json.dumps({"indice_url": "https://del-archivo"}), encoding="utf-8")
+    monkeypatch.setenv("ALIADO_INDICE_URL", "https://del-entorno")
+    assert IndiceRemoto("https://a-mano").url == "https://a-mano"
+
+
+def test_archivo_corrupto_no_tumba_la_aplicacion(config, monkeypatch):
+    """Un JSON mal escrito a mano no puede dejar a nadie sin poder buscar."""
+    config.write_text("{esto no es json", encoding="utf-8")
+    monkeypatch.setenv("ALIADO_INDICE_URL", "https://del-entorno")
+    assert IndiceRemoto().url == "https://del-entorno"
+    assert cliente_remoto.configuracion_guardada() == {}
+
+
+def test_archivo_con_json_que_no_es_un_objeto_se_ignora(config):
+    config.write_text("[1, 2, 3]", encoding="utf-8")
+    assert cliente_remoto.configuracion_guardada() == {}
+
+
+def test_sin_configuracion_el_mensaje_dice_donde_escribirla(config):
+    with pytest.raises(ErrorIndiceRemoto) as exc:
+        IndiceRemoto()
+    mensaje = str(exc.value)
+    assert str(config) in mensaje, "el mensaje debe decir el archivo concreto"
+    assert "indice_url" in mensaje

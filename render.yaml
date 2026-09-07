@@ -29,8 +29,11 @@ services:
       # Montado en /datos, no en /app/index: el Dockerfile deja symlinks para
       # que index/buscar.py encuentre chroma_db/ y fts_index.db sin cambios.
       mountPath: /datos
-      # Chroma ~9.2GB + FTS5 ~1.66GB = ~10.9GB, más margen para reindexar.
-      sizeGB: 15
+      # Chroma ~19.1GB (sqlite 14.9 + vectores e5-large 3.0 + los del índice
+      # viejo 1.2) + FTS5 ~1.55GB = ~20.7GB, más margen para reindexar.
+      # Con e5-large los vectores son de 1024 dimensiones, no 384: los 15GB
+      # que habia aqui se habrian quedado cortos en el propio despliegue.
+      sizeGB: 30
 
 # Servicio MCP anterior (opcional). Ahora que existe el servidor del índice,
 # el MCP puede correr en el equipo del usuario contra el índice remoto en vez
