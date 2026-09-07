@@ -24,8 +24,12 @@ import os
 import threading
 
 MODELO_RERANKER = os.environ.get("ALIADO_RERANKER", "BAAI/bge-reranker-v2-m3")
-# Cuántos candidatos se reordenan. Más candidatos dan más margen de mejora pero
-# cuestan lineal: el cross-encoder es el paso caro de toda la búsqueda.
+# Cuántos candidatos se reordenan. La intuición dice que más candidatos dan más
+# margen; **medido, no es cierto**: sobre 200 consultas apartadas, las ventanas
+# de 40, 100 y 200 dan el MISMO recall@5 (43,5%), y la de 200 cuesta cinco veces
+# más (16,85 s/consulta en GPU frente a 3,42). El reranker ya tiene delante el
+# documento correcto en los casos que falla, y no lo reconoce; darle más no lo
+# arregla. Ver docs/MEDICIONES.md.
 CANDIDATOS = int(os.environ.get("ALIADO_RERANKER_CANDIDATOS", "40"))
 MAX_LONGITUD = 512
 
