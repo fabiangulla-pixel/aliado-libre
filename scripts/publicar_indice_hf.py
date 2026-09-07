@@ -48,15 +48,39 @@ Son **dos piezas**, y la busqueda necesita las dos:
 
 | Archivo | Que es | Tamano |
 |---|---|---|
-| `chroma.sqlite3` + carpeta UUID | Indice vectorial ChromaDB | ~9,1 GB |
+| `chroma.sqlite3` + carpetas UUID | Indice vectorial ChromaDB | ~19 GB |
 | `fts_index.db` | Indice lexico SQLite FTS5 (BM25 en disco) | ~1,6 GB |
 
-Los embeddings del indice vectorial son `paraphrase-multilingual-MiniLM-L12-v2`.
+## Que embeddings tiene, y por que hay dos colecciones
 
-La busqueda **fusiona ambos con RRF**: el vectorial encuentra por significado,
-el lexico por termino exacto (numeros de norma, articulos, nombres propios).
-El FTS5 vive en disco a proposito - sustituyo a `rank_bm25`, que cargaba el
-corpus entero en memoria, y bajo la RAM del indice de **10 GB a 2,3 GB**.
+La coleccion que usa el codigo hoy es **`aliado_libre_multilingual_e5_large`**
+(`intfloat/multilingual-e5-large`, 1024 dimensiones, 512 tokens de ventana).
+
+Se conserva ademas la coleccion anterior `aliado_libre`
+(`paraphrase-multilingual-MiniLM-L12-v2`, 384 dimensiones), que ya no se usa.
+El motivo del cambio, medido sobre este mismo corpus: aquel modelo tiene una
+ventana de **128 tokens** (~450 caracteres) y el **76% de los fragmentos pasa
+de 500 caracteres**, asi que en tres de cada cuatro el vector solo representaba
+el encabezado - que en una norma no es la parte que responde. Encima era un
+modelo de *parafrasis* donde hace falta uno de *recuperacion*: una pregunta
+hecha con palabras corrientes y el articulo que la responde no se parecen en la
+superficie.
+
+Los vectores en crudo estan tambien como
+`embeddings_multilingual-e5-large.f16.npy` (718.388 x 1024, float16) con sus
+identificadores en `ids_multilingual-e5-large.json`, por si prefieres montar tu
+propio indice en vez de usar el de Chroma.
+
+**Los prefijos de e5 no son opcionales**: al consultar hay que anteponer
+`query: ` a la pregunta, porque asi se construyo el indice. Sin eso la busqueda
+empeora sin dar ningun error.
+
+## La busqueda es hibrida
+
+Se **fusionan ambos indices con RRF**: el vectorial encuentra por significado, el
+lexico por termino exacto (numeros de norma, articulos, nombres propios). El
+FTS5 vive en disco a proposito - sustituyo a `rank_bm25`, que cargaba el corpus
+entero en memoria.
 
 ## Como usarlo
 
@@ -69,7 +93,9 @@ mv /tmp/indice/* index/chroma_db/
 python mcp_server/server.py
 ```
 
-Necesitas ~11 GB de disco y ~2,3 GB de RAM libre.
+Necesitas ~21 GB de disco. La memoria RAM necesaria **se esta volviendo a medir**
+tras el cambio de modelo: la cifra anterior (2,3 GB) correspondia al embedding
+viejo, que pesaba unas cuatro veces menos. Cuenta con mas.
 
 ## Fuentes cubiertas
 
@@ -86,6 +112,10 @@ tiene su backend GraphQL devolviendo 502 de forma persistente. Detalle en
 Es una **instantanea en el tiempo**: no se actualiza en vivo, asi que una
 norma derogada o una sentencia posterior a la fecha de construccion no se
 reflejan. No sustituye asesoria juridica profesional.
+
+Sobre la calidad de la recuperacion: se esta midiendo con un banco propio de
+consultas y **todavia no esta en el nivel que justificaria publicar cifras**.
+Cuando lo este, se publicaran aqui.
 
 ## Licencia del contenido
 
