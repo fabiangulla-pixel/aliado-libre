@@ -17,6 +17,7 @@ import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from index.costos import liquidar
 from index.responder import _formatear_fragmentos
 
 RAIZ = Path(__file__).resolve().parent
@@ -44,7 +45,7 @@ Responde SOLO con JSON: {{"correcto": true/false, "razon": "una frase explicando
 
 def _juzgar(
     cliente, pregunta: str, fragmentos: list[dict], respuesta_esperada: str, respuesta_modelo: str
-) -> dict:
+) -> tuple[dict, object]:
     fragmentos_texto = _formatear_fragmentos(fragmentos) if fragmentos else "(sin fragmentos)"
     prompt = PROMPT_JUEZ.format(
         pregunta=pregunta,
@@ -59,12 +60,13 @@ def _juzgar(
     )
     texto = "".join(b.text for b in r.content if hasattr(b, "text")).strip()
     m = re.search(r"\{.*\}", texto, re.DOTALL)
+    fallo = {"correcto": False, "razon": "el juez no devolvió JSON válido"}
     if not m:
-        return {"correcto": False, "razon": "el juez no devolvió JSON válido"}
+        return fallo, r.usage
     try:
-        return json.loads(m.group(0))
+        return json.loads(m.group(0)), r.usage
     except json.JSONDecodeError:
-        return {"correcto": False, "razon": "el juez no devolvió JSON válido"}
+        return fallo, r.usage
 
 
 def main() -> None:
@@ -80,6 +82,7 @@ def main() -> None:
     cliente = anthropic.Anthropic(api_key=api_key)
 
     datos = json.loads(ruta.read_text(encoding="utf-8"))
+    gasto_usd = 0.0
     archivo_resultados = RAIZ / "eval" / "resultados.json"
     resultados_finales = {}
 
@@ -88,17 +91,18 @@ def main() -> None:
         aciertos = 0
         detalle = []
         for i, caso in enumerate(respuestas, 1):
-            juicio = _juzgar(
+            juicio, uso = _juzgar(
                 cliente,
                 caso["pregunta"],
                 caso.get("fragmentos", []),
                 caso["respuesta_esperada"],
                 caso["respuesta_modelo"],
             )
+            gasto_usd += liquidar(uso, MODELO_JUEZ).usd
             correcto = bool(juicio.get("correcto"))
             aciertos += correcto
             marca = "OK" if correcto else "FAIL"
-            print(f"  [{i}/{len(respuestas)}] {marca} - {caso['pregunta'][:70]}")
+            print(f"  [{i}/{len(respuestas)}] {marca} - {caso['pregunta'][:70]}  [{gasto_usd:.3f} USD]")
             detalle.append(
                 {
                     "pregunta": caso["pregunta"],

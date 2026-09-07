@@ -24,6 +24,7 @@ from __future__ import annotations
 import json
 import os
 import socket
+import time
 import urllib.error
 import urllib.request
 
@@ -31,6 +32,16 @@ TIEMPO_ESPERA_DEFECTO = 30.0  # s; una búsqueda típica tarda < 2s, pero un
 # servidor recién despertado (plan barato con suspensión) puede tardar más
 VAR_URL = "ALIADO_INDICE_URL"
 VAR_TOKEN = "ALIADO_INDICE_TOKEN"
+
+# Un servidor en plan barato se suspende por inactividad: el primer usuario
+# tras una pausa se topa con un timeout o un 503 mientras el servicio carga
+# los 11GB de indice. Fallar ahi seria culpar al usuario de la siesta del
+# servidor, asi que se reintenta. Solo se reintenta lo que puede curarse
+# esperando (timeout, conexion caida, 502/503/504): un 401 o un 404 se
+# reintentan igual de mal, y multiplicarlos solo retrasa el mensaje util.
+REINTENTOS_DEFECTO = 2  # intentos adicionales, no totales
+ESPERA_ENTRE_INTENTOS = 2.0  # s; se duplica en cada reintento
+CODIGOS_REINTENTABLES = frozenset({502, 503, 504})
 
 
 class ErrorIndiceRemoto(RuntimeError):
@@ -51,6 +62,7 @@ class IndiceRemoto:
         url: str | None = None,
         token: str | None = None,
         espera: float = TIEMPO_ESPERA_DEFECTO,
+        reintentos: int = REINTENTOS_DEFECTO,
     ) -> None:
         url = (url or os.environ.get(VAR_URL, "")).strip().rstrip("/")
         if not url:
@@ -61,6 +73,7 @@ class IndiceRemoto:
         self.url = url
         self.token = token if token is not None else os.environ.get(VAR_TOKEN, "").strip() or None
         self.espera = espera
+        self.reintentos = max(0, int(reintentos))
 
     # -- interfaz pública -------------------------------------------------
 
@@ -93,6 +106,19 @@ class IndiceRemoto:
     # -- transporte -------------------------------------------------------
 
     def _peticion(self, ruta: str, cuerpo: dict | None) -> dict:
+        """Hace la petición reintentando solo los fallos que curan esperando."""
+        espera_entre = ESPERA_ENTRE_INTENTOS
+        for intento in range(self.reintentos + 1):
+            try:
+                return self._intento(ruta, cuerpo)
+            except ErrorIndiceRemoto as e:
+                if intento == self.reintentos or not getattr(e, "reintentable", False):
+                    raise
+                time.sleep(espera_entre)
+                espera_entre *= 2
+        raise AssertionError("inalcanzable")  # pragma: no cover
+
+    def _intento(self, ruta: str, cuerpo: dict | None) -> dict:
         peticion = urllib.request.Request(self.url + ruta)
         peticion.add_header("Accept", "application/json")
         if self.token:
@@ -106,33 +132,39 @@ class IndiceRemoto:
             with urllib.request.urlopen(peticion, timeout=self.espera) as respuesta:
                 return self._leer_json(respuesta.read())
         except urllib.error.HTTPError as e:
-            raise ErrorIndiceRemoto(self._mensaje_http(e)) from e
+            raise self._error(self._mensaje_http(e), e.code in CODIGOS_REINTENTABLES) from e
         except urllib.error.URLError as e:
             motivo = e.reason
             if isinstance(motivo, socket.timeout):
-                raise ErrorIndiceRemoto(
-                    f"El servidor del índice ({self.url}) no respondió en "
-                    f"{self.espera:g} segundos. Puede estar despertando o saturado; "
-                    "reintenta en un momento."
-                ) from e
-            raise ErrorIndiceRemoto(
+                raise self._error(self._mensaje_timeout(), True) from e
+            raise self._error(
                 f"No se pudo conectar con el servidor del índice ({self.url}): {motivo}. "
-                "Revisa tu conexión y que la dirección sea correcta."
+                "Revisa tu conexión y que la dirección sea correcta.",
+                True,
             ) from e
         except TimeoutError as e:  # socket.timeout puro, sin envolver en URLError
-            raise ErrorIndiceRemoto(
-                f"El servidor del índice ({self.url}) no respondió en "
-                f"{self.espera:g} segundos. Puede estar despertando o saturado; "
-                "reintenta en un momento."
-            ) from e
+            raise self._error(self._mensaje_timeout(), True) from e
+
+    def _mensaje_timeout(self) -> str:
+        return (
+            f"El servidor del índice ({self.url}) no respondió en "
+            f"{self.espera:g} segundos. Puede estar despertando o saturado; "
+            "reintenta en un momento."
+        )
+
+    @staticmethod
+    def _error(mensaje: str, reintentable: bool) -> ErrorIndiceRemoto:
+        e = ErrorIndiceRemoto(mensaje)
+        e.reintentable = reintentable
+        return e
 
     @staticmethod
     def _leer_json(crudo: bytes) -> dict:
         try:
             datos = json.loads(crudo.decode("utf-8"))
         except (UnicodeDecodeError, json.JSONDecodeError) as e:
-            raise ErrorIndiceRemoto(
-                "El servidor del índice devolvió una respuesta que no es JSON válido."
+            raise IndiceRemoto._error(
+                "El servidor del índice devolvió una respuesta que no es JSON válido.", False
             ) from e
         if not isinstance(datos, dict):
             raise ErrorIndiceRemoto("El servidor del índice devolvió un JSON con formato inesperado.")

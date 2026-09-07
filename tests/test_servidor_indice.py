@@ -313,3 +313,62 @@ def test_la_respuesta_dice_que_filtro_se_aplico(base, indice):
 def test_sin_filtro_la_respuesta_lo_indica_vacio(base, indice):
     r = _post(base, "/buscar", {"consulta": "algo"})
     assert json.loads(r.read())["fuentes"] == []
+
+
+# -- el cuerpo se drena antes de contestar un error -----------------------
+#
+# Responder un 401 o un 404 sin leer el cuerpo que el cliente aún está
+# enviando cierra el socket a media escritura: en Windows el cliente recibe
+# una conexión abortada y nunca ve el mensaje. Apareció como un fallo
+# intermitente de la suite (ConnectionAbortedError en vez de 404) con la
+# máquina cargada.
+#
+# Honestidad sobre estos tests: por loopback un cuerpo de 64KB entra entero
+# en el buffer del socket, así que los dos primeros pasan también SIN el
+# arreglo — comprueban el contrato, no reproducen el fallo. El que sí falla
+# sin el arreglo es el de keep-alive. La condición de carrera original no se
+# logró reproducir a voluntad.
+
+
+def test_error_con_cuerpo_grande_llega_como_http_y_no_como_conexion_rota(base):
+    """Cuerpo justo bajo el tope (64KB) hacia una ruta inexistente: debe volver
+    un 404 legible, no un ConnectionAbortedError."""
+    relleno = json.dumps({"consulta": "x" * 65_400}).encode("utf-8")
+    with pytest.raises(urllib.error.HTTPError) as exc:
+        _post(base, "/no-existe", None, crudo=relleno)
+    assert exc.value.code == 404
+
+
+def test_401_con_cuerpo_grande_conserva_su_mensaje(base, monkeypatch):
+    monkeypatch.setenv("ALIADO_INDICE_TOKEN", "secreto")
+    relleno = json.dumps({"consulta": "y" * 65_400}).encode("utf-8")
+    with pytest.raises(urllib.error.HTTPError) as exc:
+        _post(base, "/buscar", None, token="equivocado", crudo=relleno)
+    assert exc.value.code == 401
+    assert "Token" in json.loads(exc.value.read())["error"]
+
+
+def test_json_invalido_no_intenta_releer_el_cuerpo(base):
+    """El 400 ocurre con el cuerpo ya leído: volver a leerlo colgaría la
+    petición hasta el timeout. Si este test tarda, es que se cuelga."""
+    with pytest.raises(urllib.error.HTTPError) as exc:
+        _post(base, "/buscar", None, crudo=b"{esto no es json")
+    assert exc.value.code == 400
+
+
+def test_dos_peticiones_seguidas_en_la_misma_conexion(base):
+    """La marca de 'cuerpo ya leído' es de cada petición, no del socket: en
+    keep-alive el handler se reutiliza y la segunda volvería a fallar."""
+    import http.client
+    from urllib.parse import urlparse as _urlparse
+
+    puerto = _urlparse(base).port
+    conexion = http.client.HTTPConnection("127.0.0.1", puerto, timeout=5)
+    try:
+        for _ in range(2):
+            conexion.request("POST", "/no-existe", body=json.dumps({"consulta": "z" * 1000}), headers={})
+            respuesta = conexion.getresponse()
+            assert respuesta.status == 404
+            respuesta.read()
+    finally:
+        conexion.close()

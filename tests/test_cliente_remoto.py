@@ -232,3 +232,90 @@ def test_respuesta_sin_lista_resultados_da_error_claro():
     ):
         cliente.buscar("algo")
     assert "'resultados'" in str(exc.value)
+
+
+# -- reintentos -----------------------------------------------------------
+#
+# Un servidor en plan barato se suspende por inactividad: el primer usuario
+# tras la pausa se topa con un 503 o un timeout mientras carga los 11GB de
+# índice. Eso cura solo esperando, así que se reintenta; un 401 no.
+
+
+def test_503_se_reintenta_y_la_segunda_vez_funciona():
+    respuestas = [_error_http(503), _respuesta({"resultados": [FRAGMENTO]})]
+
+    def falso(*args, **kwargs):
+        item = respuestas.pop(0)
+        if isinstance(item, urllib.error.HTTPError):
+            raise item
+        return item
+
+    with patch("urllib.request.urlopen", side_effect=falso), patch("time.sleep"):
+        cliente = IndiceRemoto("http://x", reintentos=2)
+        assert cliente.buscar("tutela") == [FRAGMENTO]
+    assert respuestas == []
+
+
+def test_timeout_se_reintenta():
+    intentos = []
+
+    def falso(*args, **kwargs):
+        intentos.append(1)
+        if len(intentos) < 3:
+            raise TimeoutError
+        return _respuesta({"resultados": []})
+
+    with patch("urllib.request.urlopen", side_effect=falso), patch("time.sleep"):
+        assert IndiceRemoto("http://x", reintentos=2).buscar("tutela") == []
+    assert len(intentos) == 3
+
+
+def test_401_no_se_reintenta_nunca():
+    intentos = []
+
+    def falso(*args, **kwargs):
+        intentos.append(1)
+        raise _error_http(401)
+
+    with patch("urllib.request.urlopen", side_effect=falso), patch("time.sleep"):
+        with pytest.raises(ErrorIndiceRemoto):
+            IndiceRemoto("http://x", reintentos=3).buscar("tutela")
+    assert len(intentos) == 1, "un token malo no mejora por insistir"
+
+
+def test_agotados_los_reintentos_se_reporta_el_ultimo_error():
+    def falso(*args, **kwargs):
+        raise _error_http(503)
+
+    with patch("urllib.request.urlopen", side_effect=falso), patch("time.sleep"):
+        with pytest.raises(ErrorIndiceRemoto) as exc:
+            IndiceRemoto("http://x", reintentos=1).buscar("tutela")
+    assert "503" in str(exc.value)
+
+
+def test_reintentos_cero_falla_a_la_primera():
+    intentos = []
+
+    def falso(*args, **kwargs):
+        intentos.append(1)
+        raise _error_http(503)
+
+    with patch("urllib.request.urlopen", side_effect=falso), patch("time.sleep"):
+        with pytest.raises(ErrorIndiceRemoto):
+            IndiceRemoto("http://x", reintentos=0).buscar("tutela")
+    assert len(intentos) == 1
+
+
+def test_la_espera_entre_intentos_crece():
+    esperas = []
+
+    def falso(*args, **kwargs):
+        raise _error_http(503)
+
+    with (
+        patch("urllib.request.urlopen", side_effect=falso),
+        patch("time.sleep", side_effect=esperas.append),
+    ):
+        with pytest.raises(ErrorIndiceRemoto):
+            IndiceRemoto("http://x", reintentos=3).buscar("tutela")
+    assert esperas == [2.0, 4.0, 8.0]

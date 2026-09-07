@@ -92,3 +92,29 @@ def test_el_pyz_del_exe_trae_lo_imprescindible():
     assert "index.cliente_remoto" in modulos
     # el índice local nunca debe viajar: importa lo que está excluido
     assert "index.buscar" not in modulos
+
+
+# -- imagen del servidor del índice ---------------------------------------
+
+
+def test_el_dockerfile_hornea_el_mismo_embedding_que_usa_el_buscador():
+    """En runtime se fuerza HF_HUB_OFFLINE=1: lo que no quedó en la imagen ya
+    no se puede descargar, y el servidor muere al arrancar. Al migrar a
+    e5-large el Dockerfile se quedó con el modelo viejo y nada lo avisó."""
+    dockerfile = (RAIZ / "Dockerfile").read_text(encoding="utf-8")
+    assert "index/buscar.py" in dockerfile, (
+        "El Dockerfile debe leer el nombre del modelo de index/buscar.py, "
+        "no repetirlo a mano: dos copias se desincronizan en silencio."
+    )
+    buscar = (RAIZ / "index" / "buscar.py").read_text(encoding="utf-8")
+    linea = next(línea for línea in buscar.splitlines() if línea.startswith("MODELO_EMBEDDINGS = "))
+    modelo = linea.split('"')[-2]
+    # Mismo sed que corre dentro del build: si deja de encontrar el nombre,
+    # el `test -n "$MODELO"` del Dockerfile aborta la imagen. Aquí se detecta
+    # antes, sin construir nada.
+    import re
+
+    patron = re.compile(r'^MODELO_EMBEDDINGS = os\.environ\.get\(".*", "(.*)"\)$', re.M)
+    hallado = patron.search(buscar)
+    assert hallado, "El sed del Dockerfile ya no casa con index/buscar.py"
+    assert hallado.group(1) == modelo

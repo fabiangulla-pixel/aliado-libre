@@ -15,10 +15,20 @@ COPY . .
 
 # El modelo de embeddings se descarga en build y queda dentro de la imagen: así
 # el arranque no depende de la red de Hugging Face ni paga esa latencia. En
-# runtime index/buscar.py fuerza HF_HUB_OFFLINE=1.
+# runtime index/buscar.py fuerza HF_HUB_OFFLINE=1, de modo que lo que no quede
+# aquí ya no se puede bajar después: el servidor moriría al arrancar.
+#
+# El nombre NO se escribe a mano. Al cambiar el embedding a e5-large esta línea
+# se quedó con el modelo viejo, y la imagen quedaba rota sin que nada lo avisara
+# hasta el despliegue. Se lee del propio index/buscar.py (con sed, para no
+# importar torch ni chroma durante el build, que además todavía no tiene el
+# índice montado). tests/test_empaquetado.py comprueba que sigan coincidiendo.
 ENV HF_HOME=/opt/hf
-RUN python -c "from sentence_transformers import SentenceTransformer; \
-    SentenceTransformer('paraphrase-multilingual-MiniLM-L12-v2')"
+RUN MODELO=$(sed -n 's/^MODELO_EMBEDDINGS = os.environ.get(".*", "\(.*\)")$/\1/p' index/buscar.py) \
+    && test -n "$MODELO" \
+    && echo "Horneando embedding: $MODELO" \
+    && python -c "import sys; from sentence_transformers import SentenceTransformer; \
+    SentenceTransformer(sys.argv[1])" "$MODELO"
 
 ENV PYTHONUNBUFFERED=1
 

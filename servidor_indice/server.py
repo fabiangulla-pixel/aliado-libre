@@ -77,6 +77,11 @@ def token_configurado() -> str | None:
 class Handler(BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
     server_version = "AliadoLibreIndice/1.0"
+    # Se pone en True en cuanto se lee el cuerpo. Sin esta marca, un error
+    # posterior (un 400 por JSON inválido, por ejemplo) volvería a leer
+    # Content-Length bytes que ya no van a llegar, y la petición se colgaría
+    # hasta el timeout.
+    cuerpo_consumido = False
 
     def log_message(self, formato, *args):
         """No registra nada. A propósito, y es una decisión de producto.
@@ -94,6 +99,32 @@ class Handler(BaseHTTPRequestHandler):
 
     # -- utilidades ------------------------------------------------------
 
+    def _descartar_cuerpo(self) -> None:
+        """Lee y tira el cuerpo pendiente antes de responder un error.
+
+        Responder sin leerlo deja al cliente escribiendo en un socket que el
+        servidor ya cerró: en Windows eso llega como una conexión abortada, no
+        como el 401 o el 404 que se acababa de enviar. El mensaje en español
+        estaba bien escrito y el usuario nunca lo veía.
+
+        Si el cuerpo supera el tope, no se drena —sería trabajo gratis para
+        quien manda basura—: se avisa con `Connection: close` y se corta.
+        """
+        try:
+            pendiente = int(self.headers.get("Content-Length") or 0)
+        except ValueError:
+            pendiente = 0
+        if pendiente <= 0 or self.cuerpo_consumido:
+            return
+        if pendiente > MAX_CUERPO:
+            self.close_connection = True
+            return
+        try:
+            self.rfile.read(pendiente)
+            self.cuerpo_consumido = True
+        except OSError:
+            self.close_connection = True
+
     def _responder_json(self, datos: dict, status: int = 200) -> None:
         cuerpo = json.dumps(datos, ensure_ascii=False).encode("utf-8")
         self.send_response(status)
@@ -103,6 +134,7 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(cuerpo)
 
     def _error(self, status: int, mensaje: str) -> None:
+        self._descartar_cuerpo()
         self._responder_json({"error": mensaje}, status=status)
 
     def _autorizado(self) -> bool:
@@ -120,6 +152,9 @@ class Handler(BaseHTTPRequestHandler):
     # -- rutas -----------------------------------------------------------
 
     def do_GET(self):  # noqa: N802 (nombre impuesto por BaseHTTPRequestHandler)
+        # El handler se reutiliza entre peticiones de una misma conexión
+        # keep-alive: la marca es de esta petición, no del socket.
+        self.cuerpo_consumido = False
         ruta = urlparse(self.path).path.rstrip("/") or "/"
 
         if ruta == "/salud":
@@ -143,6 +178,7 @@ class Handler(BaseHTTPRequestHandler):
         self._error(404, f"Ruta desconocida: {ruta}")
 
     def do_POST(self):  # noqa: N802
+        self.cuerpo_consumido = False
         ruta = urlparse(self.path).path.rstrip("/") or "/"
 
         if ruta == "/salud":
@@ -167,6 +203,7 @@ class Handler(BaseHTTPRequestHandler):
             return
 
         crudo = self.rfile.read(largo) if largo > 0 else b""
+        self.cuerpo_consumido = True
         try:
             datos = json.loads(crudo.decode("utf-8"))
         except (UnicodeDecodeError, json.JSONDecodeError):
@@ -219,6 +256,7 @@ class Handler(BaseHTTPRequestHandler):
         )
 
     def _metodo_no_permitido(self, permitidos: str) -> None:
+        self._descartar_cuerpo()
         cuerpo = json.dumps({"error": f"Método no permitido. Use {permitidos}."}).encode("utf-8")
         self.send_response(405)
         self.send_header("Allow", permitidos)
