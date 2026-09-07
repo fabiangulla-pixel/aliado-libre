@@ -6,9 +6,13 @@ services:
   - type: web
     name: aliado-libre-indice
     runtime: docker
-    # La búsqueda mide ~2.3GB de RSS en caliente (Chroma y FTS5 son
-    # disco-residentes; lo que ocupa RAM es el modelo de embeddings + el
-    # índice HNSW de Chroma). Standard (2GB) se queda corto: hace falta Pro.
+    # La búsqueda medía ~2.3GB de RSS en caliente con el embedding anterior
+    # (Chroma y FTS5 son disco-residentes; lo que ocupa RAM es el modelo de
+    # embeddings + el índice HNSW de Chroma). Standard (2GB) se queda corto.
+    #
+    # ATENCIÓN: esa medición es del embedding viejo. Con e5-large (~2.2GB solo
+    # de pesos) el pico puede rondar los 4GB, y entonces Pro va justo o no
+    # alcanza. Volver a medir antes de contratar — ver docs/DESPLIEGUE_INDICE.md.
     plan: pro
     region: oregon
     dockerfilePath: ./Dockerfile

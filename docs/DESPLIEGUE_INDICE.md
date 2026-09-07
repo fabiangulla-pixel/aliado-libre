@@ -129,7 +129,15 @@ sin avisar.
 
 ## RAM
 
-Medido: **~2,3 GB** de RSS en caliente. Se compone de:
+> ⚠️ **Esta cifra es del índice viejo y hay que volver a medirla antes de
+> contratar nada.** Se midió con `paraphrase-multilingual-MiniLM-L12-v2`
+> (~470 MB en fp32). El índice adoptado ahora es `multilingual-e5-large`, que
+> pesa ~2,2 GB solo en pesos: es razonable esperar un pico cercano a **4 GB**,
+> no 2,3. Si se confirma, la tabla de costos de más abajo se queda corta —
+> justo en el escalón que decide la factura. **No contratar un plan con esta
+> cifra.**
+
+Medido con el embedding anterior: **~2,3 GB** de RSS en caliente. Se compone de:
 
 - modelo de embeddings `paraphrase-multilingual-MiniLM-L12-v2` + PyTorch
 - índice HNSW de Chroma, que sí se mapea a memoria
