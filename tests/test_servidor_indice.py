@@ -372,3 +372,39 @@ def test_dos_peticiones_seguidas_en_la_misma_conexion(base):
             respuesta.read()
     finally:
         conexion.close()
+
+
+# -- reranker: adoptado, pero apagado por defecto --------------------------
+#
+# Sube el recall@5 de 33,5% a 41,0% en datos apartados, y cuesta ~57 s por
+# consulta en CPU más ~2,3 GB de RAM. Encenderlo es una decisión de factura, no
+# algo que deba pasar solo porque alguien actualice el servidor.
+
+
+def test_por_defecto_el_reranker_esta_apagado(base, monkeypatch):
+    monkeypatch.delenv("ALIADO_RERANKER_ACTIVO", raising=False)
+    datos = json.loads(urllib.request.urlopen(base + "/salud", timeout=5).read())
+    assert datos["reranker"] is False
+
+
+def test_se_enciende_por_variable_de_entorno(base, monkeypatch):
+    monkeypatch.setenv("ALIADO_RERANKER_ACTIVO", "1")
+    datos = json.loads(urllib.request.urlopen(base + "/salud", timeout=5).read())
+    assert datos["reranker"] is True
+
+
+def test_apagado_pide_al_indice_exactamente_lo_que_devuelve(base, monkeypatch):
+    """Sin reranker no debe pedir candidatos de más: eso costaría tiempo de
+    búsqueda para tirarlo a la basura."""
+    monkeypatch.delenv("ALIADO_RERANKER_ACTIVO", raising=False)
+    pedidos = []
+    indice = srv.obtener_indice()
+    original = indice.buscar
+
+    def espia(consulta, k=8, fuentes=None):
+        pedidos.append(k)
+        return original(consulta, k=k, fuentes=fuentes)
+
+    monkeypatch.setattr(indice, "buscar", espia)
+    _post(base, "/buscar", {"consulta": "tutela", "n": 3})
+    assert pedidos == [3]

@@ -78,6 +78,22 @@ cambiando la variable en Render y en los clientes.
 
 Otros límites duros del servidor: cuerpo máximo 64KB (`413`), `n` topado a 50.
 
+## Reranker (opcional, apagado por defecto)
+
+`ALIADO_RERANKER_ACTIVO=1` hace que el servidor reordene los candidatos con un
+cross-encoder antes de responder. `GET /salud` informa si está encendido.
+
+Qué gana: recall@5 de 33,5% a 41,0% y @8 de 37,5% a 48,5%, sobre 200 consultas
+que no se usaron para elegir nada (`docs/MEDICIONES.md`). Es la única mejora de
+recuperación confirmada en datos apartados que tiene el proyecto.
+
+Qué cuesta: **~57 s por consulta en CPU** y **~2,3 GB de RAM** además de los 5,12
+del índice. En una máquina sin GPU eso convierte una búsqueda de 2 s en una de un
+minuto: encenderlo sin GPU solo tiene sentido si se prefiere esperar a fallar.
+
+Por eso viene apagado y por eso no se enciende solo: es una decisión de factura
+(RAM y CPU o GPU del servidor), no un detalle de configuración.
+
 ## Cómo llega el índice al servidor
 
 **El índice no está en git y no cabe en la imagen Docker.**
@@ -143,27 +159,32 @@ Construye en local, sube el tar nuevo a `/datos/nuevo/`, y solo cuando termine
 mueve y reinicia. Si sobrescribes en caliente, Chroma sirve un índice a medias
 sin avisar.
 
-## RAM
+## RAM — medido con e5-large el 7-sep-2026
 
-> ⚠️ **Esta cifra es del índice viejo y hay que volver a medirla antes de
-> contratar nada.** Se midió con `paraphrase-multilingual-MiniLM-L12-v2`
-> (~470 MB en fp32). El índice adoptado ahora es `multilingual-e5-large`, que
-> pesa ~2,2 GB solo en pesos: es razonable esperar un pico cercano a **4 GB**,
-> no 2,3. Si se confirma, la tabla de costos de más abajo se queda corta —
-> justo en el escalón que decide la factura. **No contratar un plan con esta
-> cifra.**
+**Pico: 5,12 GB de RSS.** Medido en el proceso real, cargando el índice y
+sirviendo ocho consultas de verdad:
 
-Medido con el embedding anterior: **~2,3 GB** de RSS en caliente. Se compone de:
+| Momento | RSS |
+|---|---|
+| Tras importar `index.buscar` | 0,45 GB |
+| Índice construido (68 s) | 3,97 GB |
+| Tras 8 consultas | **5,12 GB** |
 
-- modelo de embeddings `paraphrase-multilingual-MiniLM-L12-v2` + PyTorch
-- índice HNSW de Chroma, que sí se mapea a memoria
+Se compone del modelo `multilingual-e5-large` (~2,2 GB de pesos) más PyTorch, y
+del índice HNSW de Chroma, que se mapea a memoria y crece al servir consultas
+(los 1,15 GB que aparecen entre la carga y la octava consulta son páginas del
+HNSW que solo se tocan al buscar; por eso medir solo el arranque engaña).
 
-Chroma y FTS5 son disco-residentes, así que **la RAM no crece con el tamaño
-del corpus** (la versión anterior con `rank_bm25` en memoria pedía ~10GB solo
-para arrancar; por eso este proyecto puede hostearse por decenas y no por
-cientos de dólares al mes).
+**La cifra anterior de 2,3 GB era del embedding viejo y estaba mal por un factor
+de más de dos.** Sostuvo durante tres días la elección de plan de hosting.
 
-Con 2,3 GB de pico, un plan de 2GB **no alcanza**: hay que ir a uno de 4GB.
+Chroma y FTS5 siguen siendo disco-residentes, así que la RAM no crece con el
+tamaño del corpus — pero sí creció con el tamaño del modelo, que es lo que
+cambió.
+
+**Consecuencia directa: Render Pro (4 GB, 85 USD/mes) NO alcanza.** Hay que ir a
+8 GB. Y si algún día se adopta el reranker, súmale otros ~2,3 GB del
+cross-encoder: el servidor pasaría a necesitar 8 GB largos o 16.
 
 ## Costo mensual estimado
 
@@ -174,15 +195,20 @@ contratar.
 
 | Concepto | Precio | Cantidad | Mes |
 |---|---|---|---|
-| Web service **Pro** (4GB RAM) | 85 USD/mes | 1 | 85,00 |
-| Disco persistente | 0,25 USD/GB/mes | 15 GB | 3,75 |
-| | | **Total** | **~88,75 USD/mes** |
+| Web service de **8 GB** (Pro Plus) | ~175 USD/mes | 1 | ~175 |
+| Disco persistente | 0,25 USD/GB/mes | 30 GB | 7,50 |
+| | | **Total** | **~180 USD/mes** |
 
 Los tiers de Render son Starter 7 USD (0,5 GB), Standard 25 USD (2 GB) y Pro
-85 USD (4 GB). Standard queda descartado por los 2,3 GB medidos. **El salto
-de 25 a 85 USD por pasar de 2 a 4 GB es lo que domina el costo de esta
-arquitectura**; si el pico de RAM bajara de 2 GB (por ejemplo cuantizando el
-modelo de embeddings o dejando el HNSW en disco), la factura caería a ~29 USD.
+85 USD (4 GB). **Con 5,12 GB medidos, Pro tampoco alcanza**: hay que subir al
+siguiente escalón. Verifica el precio exacto antes de contratar; lo que importa
+aquí es el orden de magnitud, que pasó de "caro" a "inviable para un proyecto
+gratuito".
+
+Es el mismo salto de escalón el que domina toda esta arquitectura: **bajar el
+pico por debajo de 4 GB vale más que cualquier optimización de velocidad.** Dos
+vías concretas, ninguna probada: cuantizar el modelo de embeddings, o servir el
+HNSW desde disco en vez de mapearlo.
 
 ### Fly.io
 
@@ -201,12 +227,13 @@ Antes de decidir, mira la tabla de tu región concreta.
 
 ### Conclusión
 
-Fly.io sale entre **3 y 5 veces más barato** para este caso, porque cobra la
-RAM de forma continua en vez de por escalones. El precio de Render es por la
-comodidad: `render.yaml` en el repo, disco y despliegue sin tocar CLI.
+Fly.io sale varias veces más barato para este caso, porque cobra la RAM de forma
+continua en vez de por escalones; con 8 GB su tabla por región manda, y hay que
+mirarla antes de decidir (las cifras de la tabla de arriba son para 4 GB y se
+quedaron cortas).
 
-Un tercer camino, más barato aún, es un VPS cualquiera con 4GB y 20GB de
-disco (Hetzner CX22 y similares rondan los 5 USD/mes), corriendo
+**El camino que hoy recomienda este documento es el tercero: un VPS con 8-16 GB**
+(Hetzner CX42 y similares rondan 15-30 EUR/mes con disco suficiente), corriendo
 `python servidor_indice/server.py` detrás de un nginx con TLS. Requiere
 administrarlo a mano; el servidor es stdlib puro y no pide nada más.
 

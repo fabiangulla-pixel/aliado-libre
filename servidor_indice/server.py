@@ -39,6 +39,18 @@ MAX_CUERPO = 64 * 1024  # una consulta jurídica no se acerca; corta abusos
 N_DEFECTO = 8
 N_MAXIMO = 50  # evita que un cliente pida 10.000 fragmentos y tumbe el servidor
 
+# Reordenar con un cross-encoder sube el recall@5 de 33,5% a 41,0% sobre las 200
+# consultas apartadas (McNemar p=0,0081), y en @8 de 37,5% a 48,5% (p=0,0001).
+# Es la unica mejora de recuperacion confirmada en datos que no se usaron para
+# elegir nada. Cifras en docs/MEDICIONES.md.
+#
+# Viene APAGADO a proposito. Cuesta ~57 s por consulta en CPU y ~2,3 GB de RAM
+# mas: en el equipo de un usuario es inusable, y en el servidor es una decision
+# de factura que se toma a sabiendas, no un efecto secundario de actualizar.
+# Para encenderlo: ALIADO_RERANKER_ACTIVO=1 (y ALIADO_RERANKER_CANDIDATOS para
+# el tamano de ventana; 40 es lo medido).
+VERDADEROS = {"1", "true", "si", "sí"}
+
 log = logging.getLogger("servidor_indice")
 
 # Estado del proceso. `_indice` lo inyecta cargar_indice() al arrancar; los
@@ -67,6 +79,12 @@ def cargar_indice() -> None:
     _segundos_carga = round(time.monotonic() - inicio, 2)
     _total_fragmentos = getattr(_indice, "_total", None)
     log.info("Índice cargado: %s fragmentos en %ss", _total_fragmentos, _segundos_carga)
+
+
+def reranker_activo() -> bool:
+    """Se lee en cada petición, no al importar: así un test puede activarlo y el
+    valor no queda congelado en el momento del import."""
+    return os.environ.get("ALIADO_RERANKER_ACTIVO", "").strip().lower() in VERDADEROS
 
 
 def token_configurado() -> str | None:
@@ -167,6 +185,7 @@ class Handler(BaseHTTPRequestHandler):
                     "fragmentos": _total_fragmentos,
                     "segundos_carga": _segundos_carga,
                     "autenticado": token_configurado() is not None,
+                    "reranker": reranker_activo(),
                 }
             )
             return
@@ -234,7 +253,17 @@ class Handler(BaseHTTPRequestHandler):
             fuentes = normalizar(fuentes)
 
         try:
-            resultados = obtener_indice().buscar(consulta.strip(), k=n, fuentes=fuentes)
+            texto = consulta.strip()
+            if reranker_activo():
+                # Se piden mas candidatos de los que se van a devolver: el
+                # reranker solo puede mejorar el orden de lo que reciba, asi que
+                # pedir n y reordenar n no cambiaria practicamente nada.
+                from index.reordenar import CANDIDATOS, reordenar
+
+                crudos = obtener_indice().buscar(texto, k=max(n, CANDIDATOS), fuentes=fuentes)
+                resultados = reordenar(texto, crudos, k=n)
+            else:
+                resultados = obtener_indice().buscar(texto, k=n, fuentes=fuentes)
         except RuntimeError as e:
             self._error(503, str(e))
             return
