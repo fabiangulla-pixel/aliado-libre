@@ -139,9 +139,12 @@ def main() -> None:
 
     print(f"\n{escritos} pares en {salida}")
     print(
-        f"{sin_positivo} consultas descartadas ({sin_positivo / len(banco) * 100:.0f}%): "
-        f"el buscador actual no trae su propio fragmento ni entre {args.candidatos}."
+        f"{sin_positivo} de ellos ({sin_positivo / len(banco) * 100:.0f}%) son consultas cuyo "
+        f"fragmento el buscador NO trae ni entre {args.candidatos}: se leyó del corpus por su "
+        "identificador. Son justo las que hace falta entrenar, así que no se descartan."
     )
+    if sin_texto:
+        print(f"{sin_texto} descartadas: su identificador no existe en el corpus.")
 
 
 if __name__ == "__main__":
