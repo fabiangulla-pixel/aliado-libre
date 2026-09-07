@@ -4,20 +4,26 @@ Estado al 7-sep-2026.
 
 ## Siguiente tarea concreta
 
-**Medir el índice reindexado con `multilingual-e5-large` contra el banco
-apartado.**
+**Afinar el embedding sobre este corpus, en Colab con GPU.**
 
-Es lo que decide todo lo demás. El reindexado completo a 512 tokens ya se hizo
-en GPU (Colab), pero **la hipótesis no está confirmada**: falta correr la
-medición contra la mitad de prueba del banco, que se dejó intacta justamente
-para esto (D-06).
+Todo está preparado: `finetune/data/pares_embedding.jsonl` (936 pares, todos los
+perfiles al 99-100%) y `finetune/colab_afinar_embedding.ipynb`, ambos ya en la
+carpeta de Drive. Solo hay que abrirlo, poner GPU y ejecutar.
 
-Si el recall sube como predice el diagnóstico, la recuperación deja de ser el
-cuello de botella y se puede volver a la capa que redacta. Si no sube, el
-diagnóstico estaba incompleto y hay que rehacerlo — no seguir adelante.
+Por qué es lo siguiente y no otra cosa: lo demás ya se probó y está medido.
 
-Ojo con D-07: la medición del índice nuevo tiene que correrse en el **mismo
-hardware** que la del viejo, o no compara nada.
+- El índice e5-large: adoptado, 33,5% de recall@5 en datos apartados.
+- El reranker: +10 puntos (43,5%), confirmado. Ya conectado, apagado por defecto.
+- Reordenar más profundo: **no sirve**, el acierto se satura en 40 candidatos.
+- Rechunkear: **descartado con datos**, no hay truncamiento.
+
+Lo que queda es que ninguno de los dos modelos entiende este dominio ni esta
+forma de preguntar. Afinar el embedding es la única palanca sin usar. Si
+funciona, el paso siguiente es afinar el reranker con los mismos pares.
+
+**Se mide contra la partición de prueba** (D-06), que sigue sin usarse para
+ajustar nada. Y ojo con D-07 al comparar: el mismo modelo dio 41,0% en CPU y
+43,5% en GPU sobre las mismas consultas.
 
 ## Después
 

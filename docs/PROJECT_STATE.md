@@ -24,10 +24,33 @@ encabezado. Además era un modelo de *paráfrasis* donde hace falta uno de
 *recuperación*. Esto explica la rareza ya medida: que BM25 explicara el 100% de
 los aciertos de un solo método.
 
-**En curso, sin confirmar:** reindexado completo con `multilingual-e5-large` a
-512 tokens, hecho en GPU (Colab) porque en CPU local no era viable. **Falta
-medir el índice nuevo contra el mismo banco.** Hasta que eso se haga, la
-hipótesis sigue siendo hipótesis.
+**CONFIRMADO (7-sep-2026, madrugada).** El índice `multilingual-e5-large` a 512
+tokens está adoptado y medido, y encima se midió lo siguiente:
+
+| | recall@5 (200 consultas apartadas) |
+|---|---|
+| Índice e5-large | 33,5% |
+| **+ reranker (ventana 40)** | **43,5%** |
+
+- El reranker (`bge-reranker-v2-m3`) da +10 puntos, confirmado sobre la partición
+  de prueba que no se usó para elegir nada (McNemar p=0,0081 en la corrida CPU).
+  Está conectado a `servidor_indice/server.py` pero **apagado por defecto**
+  (`ALIADO_RERANKER_ACTIVO=1`): cuesta 3,4 s por consulta en GPU y ~2,3 GB de RAM.
+- **Reordenar más profundo NO sirve**: ventanas de 40, 100 y 200 dan el mismo
+  recall@5. El reranker ya tiene delante el documento correcto y no lo reconoce.
+- **El techo de la recuperación es 75%**: en el 25% de las consultas el fragmento
+  correcto no aparece ni entre 200 candidatos. Cuando aparece, su posición
+  mediana es 8 — justo fuera de lo que el modelo lee.
+- **El chunking NO es el problema** (se descartó con datos): los fragmentos están
+  topados en 1.500 caracteres y el 0,0% supera los 512 tokens del modelo.
+
+Dónde está ahora el cuello de botella: ni el embedding ni el reranker saben
+distinguir el pasaje correcto cuando lo tienen delante, porque la pregunta está
+en lenguaje corriente y el pasaje en jurídico. **La única palanca sin probar es
+enseñarles el dominio**: el material para afinar el embedding está listo (936
+pares, `finetune/data/pares_embedding.jsonl`) y el notebook también.
+
+Cifras completas en `docs/MEDICIONES.md` (no versionado).
 
 ### Cobertura del corpus
 
@@ -55,8 +78,13 @@ tiene algo la app debe decirlo, distinguiendo "no está en el índice" de "no s�
 - `finetune/` — LoRA del modelo propio y afinado del embedding
 - `tests/` — 272 pruebas
 
-Tres modos de uso, los elige el usuario según su máquina: todo local (~11 GB
-disco, ~2,3 GB RAM) · modelo local + índice en la nube · servidor MCP.
+Tres modos de uso, los elige el usuario según su máquina: todo local · modelo
+local + índice en la nube · servidor MCP.
+
+**Cuidado con las cifras de recursos**: el índice ocupa ahora **~21 GB de disco**
+(no 11) y pica en **5,12 GB de RAM** (no 2,3) — las cifras viejas eran del
+embedding anterior. Eso descarta el plan Render Pro de 4 GB; ver
+`docs/DESPLIEGUE_INDICE.md`.
 
 ## Comandos
 
