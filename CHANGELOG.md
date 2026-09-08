@@ -1,5 +1,85 @@
 # Changelog
 
+## 2026-09-07 — El cuello de botella no era la búsqueda, y la métrica estaba torcida
+
+Sesión larga (madrugada y tarde). Dos hallazgos cambian el rumbo del proyecto, y
+los dos consisten en descubrir que estábamos midiendo mal. Las cifras están en
+`docs/MEDICIONES.md`, que no se versiona: siguen sin alcanzar el umbral acordado
+para publicarlas.
+
+### 1. Con la búsqueda de hoy, un modelo capaz ya responde casi siempre bien
+
+Mismas preguntas, los mismos fragmentos recuperados, el mismo prompt y el mismo
+juez. Lo único que cambia es quién redacta. El modelo propio afinado se queda muy
+por detrás de un modelo de API, y no por poco: entre las preguntas comparables
+**no hay una sola** en la que gane el modelo propio.
+
+La diferencia más grave está en las preguntas cuya respuesta no está en los
+fragmentos, donde lo correcto es callarse. El modelo pequeño se inventa una
+respuesta buena parte de esas veces. El grande, ninguna.
+
+El objetivo de calidad que nos fijamos no estaba lejos por culpa de la búsqueda:
+estaba en qué modelo redacta. Encaja con la decisión de producto ya tomada —nube
+por defecto, local como alternativa sin conexión— y significa que **a este tamaño
+seguir afinando el modelo propio no tiene recorrido**. Conviene decirlo después de
+cinco modelos entrenados y dos generaciones de dataset.
+
+Generar una respuesta cuesta menos de medio centavo de dólar. Eso convierte el
+recaudo en el pendiente urgente: por fin hay una cifra concreta que sostener.
+
+### 2. Buena parte de nuestros "fallos" no eran fallos
+
+El banco de evaluación marca **un** fragmento como correcto: aquel del que se
+generó la pregunta. Pero el corpus tiene más de setecientos mil fragmentos y
+muchas preguntas las responde otro igual de bien. Auditando cien de esos supuestos
+fallos con un juez, en la gran mayoría había un documento que sí respondía.
+
+La utilidad real de la búsqueda es bastante mayor de lo que veníamos reportando.
+Las comparaciones entre técnicas siguen valiendo, porque el sesgo afectaba igual a
+los dos lados de cada una; lo que no vale es la cifra absoluta, y así se estaba
+usando al hablar del objetivo.
+
+Queda preparada una revisión humana de veinte casos, con el veredicto del juez
+oculto hasta que la persona marque el suyo. Hasta que alguien la haga, esto es una
+hipótesis con buen aspecto y no un resultado.
+
+### Cuatro técnicas medidas: una funciona, dos fallan, una da igual
+
+- **Reordenar los resultados con un cross-encoder**: funciona, y es la única
+  mejora de recuperación confirmada sobre datos apartados. Queda conectada al
+  servidor y **apagada por defecto**: cuesta segundos por consulta y más memoria
+  de la que ya pide el índice, así que encenderla es una decisión de factura.
+- **Reordenar más candidatos**: mismo resultado que con pocos y varias veces el
+  costo. El reordenador ya tiene delante el documento correcto y no lo reconoce.
+- **Buscar con el pasaje jurídico que imagina un modelo**: empeora, y bastante.
+  Inventa números de norma que suenan bien y son falsos, y la búsqueda léxica se
+  va detrás de la cita inventada.
+- **Traducir la consulta al vocabulario de la norma**: neutro. No se adopta; el
+  código se conserva por si cambia el peso de la fusión.
+
+También quedó descartado con datos que el problema fuera el troceado del corpus, y
+medido cuál es el techo real de la recuperación: hay consultas cuyo documento no
+aparece por ningún lado, y esas no las arregla ningún reordenamiento.
+
+### Un error propio, corregido antes de que costara una GPU
+
+El material para afinar el modelo de búsqueda estaba contaminado con un defecto
+que la literatura tiene identificado: los ejemplos negativos se sacan de los
+primeros resultados, que son justo los más propensos a ser correctos sin estar
+etiquetados. Entrenar así le enseña al modelo a alejar del usuario documentos que
+sí responden. El proceso ahora los limpia antes de entrenar.
+
+### Lo que se arregló de camino
+
+Cuatro cosas que habrían roto el servicio el día del despliegue: la imagen
+horneaba el modelo de búsqueda equivocado, el servidor cortaba la conexión antes
+de entregar sus propios mensajes de error, el cliente se rendía ante un servidor
+que estaba despertando, y el ejecutable exigía una variable de entorno para poder
+buscar. Además, el índice publicado servía una versión que el código ya no usa, y
+las cifras de recursos estaban calculadas con el modelo anterior: ocupa el doble
+de disco y más del doble de memoria de lo documentado, lo que descarta el plan de
+hosting que se había elegido.
+
 ## 2026-09-06 (tarde) — Una conclusión que había que retirar, y cuatro fallos del despliegue
 
 ### Se retira la recomendación sobre la cuantización
@@ -161,11 +241,13 @@ el usuario según su equipo. Consecuencia: la precisión pasa a ser la métrica 
 
 ### Resuelto
 
-- **Q4_K_M del modelo ganador**: 940 MB (32% del f16). Pero **cuesta precisión** frente al
-  q8_0: contraste pareado sobre las mismas preguntas, con significancia estadística
-  (McNemar) — la caída es real, no ruido. El daño está en las positivas
-  (elegir el fragmento correcto); las abstenciones no empeoran. Recomendación:
-  distribuir el q8_0.
+- **Q4_K_M del modelo ganador**: 940 MB (32% del f16). ~~Pero **cuesta precisión** frente
+  al q8_0: contraste pareado sobre las mismas preguntas, con significancia estadística
+  (McNemar) — la caída es real, no ruido. Recomendación: distribuir el q8_0.~~
+  **RETIRADO el 6-sep-2026**: aquella comparación no era válida (una versión se había
+  generado en GPU y la otra en CPU, así que comparaba dos cosas a la vez). Repetida en
+  igualdad de condiciones, la diferencia cabe en el ruido. **Se distribuye el Q4_K_M.**
+  Ver la entrada del 6-sep.
 - **Índice en la nube listo, sin desplegar**: `servidor_indice/` (stdlib) e
   `index/cliente_remoto.py`, que no importa torch ni chromadb — ese es el punto de mover
   el índice. Costo real documentado en `docs/DESPLIEGUE_INDICE.md`.
