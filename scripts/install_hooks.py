@@ -11,7 +11,23 @@ CONTENIDO = """#!/bin/sh
 # No usar `cmd.exe /c check.bat`: bajo Git Bash/MSYS su código de salida
 # no siempre se propaga y el hook puede pasar en silencio aunque algo falle.
 # Se invoca el python del venv directamente, paso a paso.
-PY="venv/Scripts/python.exe"
+#
+# El nombre del entorno NO se da por supuesto. Estaba fijado a "venv/" y en un
+# equipo cuyo entorno se llamaba ".venv/" el hook bloqueaba TODOS los commits
+# con "No such file or directory" — falla segura, pero por el motivo
+# equivocado y sin decir cuál era. Si no aparece ninguno, el hook lo dice y
+# corta: un hook que no encuentra con qué comprobar no debe dejar pasar nada.
+PY=""
+for CANDIDATO in venv/Scripts/python.exe .venv/Scripts/python.exe \\
+                 venv/bin/python .venv/bin/python; do
+    if [ -x "$CANDIDATO" ]; then PY="$CANDIDATO"; break; fi
+done
+
+if [ -z "$PY" ]; then
+    echo "pre-commit: no encuentro el entorno virtual (probé venv/ y .venv/)." >&2
+    echo "            Créalo con: py -3.12 -m venv venv" >&2
+    exit 1
+fi
 
 "$PY" -m ruff check . || exit 1
 "$PY" -m ruff format --check . || exit 1
