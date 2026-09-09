@@ -1,9 +1,11 @@
 """Genera una hoja para que una persona compruebe si el juez automático acierta.
 
-Un juez de IA no es verdad de referencia. Dijo que en el 79% de los "fallos"
-había un documento que sí respondía, y de ese número depende si el proyecto está
-al 33% o al 86%. Antes de reescribir los objetivos con esa cifra, alguien tiene
-que mirar unos cuantos casos.
+Un juez de IA no es verdad de referencia. Dijo que en la mayoría de los "fallos"
+había un documento que sí respondía, y de ese número depende si el recall del
+proyecto es el que se reporta o casi el triple. Antes de reescribir los objetivos
+con esa cifra, alguien tiene que mirar unos cuantos casos. El porcentaje concreto
+se lee de la auditoría y se imprime en la hoja: no se escribe aquí, porque cada
+vez que se vuelve a auditar cambia.
 
 Se eligen casos repartidos entre los dos veredictos —no solo los "sí", que es
 donde el juez podría estar siendo blando— y se muestran la pregunta y los cinco
@@ -11,7 +13,7 @@ documentos tal como los vio él. El veredicto del juez va oculto detrás de un
 botón: verlo antes contamina el juicio propio.
 
 Uso:
-    ./venv/Scripts/python.exe finetune/hoja_revision_humana.py [--casos 20]
+    .venv/Scripts/python.exe finetune/hoja_revision_humana.py [--casos 20]
 """
 
 from __future__ import annotations
@@ -33,7 +35,13 @@ def main() -> None:
     p.add_argument("--salida", default=str(RAIZ / "eval" / "revision_humana.html"))
     args = p.parse_args()
 
-    auditoria = json.loads(Path(args.auditoria).read_text(encoding="utf-8"))["detalle"]
+    crudo = json.loads(Path(args.auditoria).read_text(encoding="utf-8"))
+    auditoria = crudo["detalle"]
+    # El porcentaje se calcula del archivo, no se escribe a mano: esta hoja se
+    # regenera cada vez que se vuelve a auditar, y una cifra cableada convierte
+    # el instrumento de comprobacion en algo que hay que comprobar.
+    n_auditados = crudo.get("n") or len(auditoria)
+    pct_juez = round(sum(1 for x in auditoria if x["responde"]) / n_auditados * 100)
     candidatos = {c["consulta"]: c for c in json.loads(Path(args.candidatos).read_text(encoding="utf-8"))}
 
     dijo_si = [x for x in auditoria if x["responde"]]
@@ -96,9 +104,10 @@ def main() -> None:
               padding: .8rem 1rem; border-radius: 4px 4px 0 0; }}
 </style></head><body>
 <h1>¿Acierta el juez automático?</h1>
-<p>El juez dijo que en el <strong>79%</strong> de los casos que contábamos como fallo
-había un documento que sí respondía. De esa cifra depende que el proyecto esté
-al 33% o al 86%, así que conviene comprobarla a mano.</p>
+<p>El juez dijo que en el <strong>{pct_juez}%</strong> de los {n_auditados} casos que
+contábamos como fallo había un documento que sí respondía. De esa cifra depende que
+el recall del proyecto sea el que se reporta o casi el triple, así que conviene
+comprobarla a mano.</p>
 <p>Para cada caso: lee la pregunta, abre los documentos, y decide <em>tú</em> si
 alguno responde. <strong>Decide antes de mirar lo que dijo el juez.</strong>
 Sé estricto: que hable del mismo tema no basta.</p>
