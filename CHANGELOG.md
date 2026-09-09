@@ -80,9 +80,28 @@ La prueba negativa: con el arreglo revertido, **11 de 12 repeticiones fallan**; 
 `drenar_cuerpo` se añadió a `hiddenimports` del .spec y al test de empaquetado:
 `gui/server.py` lo importa al arrancar, así que sin él el .exe no abriría.
 
+### La clave de la API deja de vivir solo en el entorno
+
+Para volver a auditar la métrica hacía falta `ANTHROPIC_API_KEY` exportada, y en
+este PC no estaba: la clave no se migró del equipo viejo. Exigirla por entorno
+obliga a exportarla en cada terminal nueva, y lo que pasa en la práctica es que
+acaba pegada en el historial o en un archivo del repositorio.
+
+`finetune/clave_api.py` la lee del entorno o de `~/.aliado_libre/credenciales.json`
+—la misma carpeta fuera del repositorio que el .exe ya usa para el token del
+índice— y si no hay ninguna, explica las dos formas en vez de soltar un traceback.
+`auditar_metrica.py` ya la usa; los demás scripts de `finetune/` siguen pidiendo
+la variable de entorno.
+
+También quedó verificado el insumo de la auditoría: `candidatos_prueba.json` se
+copió de Drive (55,5 MB) y se comprobó **parseándolo entero**, no por tamaño —200
+consultas, la última íntegra con sus 200 candidatos. Son 133 fallos en @5 de 200,
+que es exactamente el 33,5% de acierto ya reportado. Ver
+[[feedback_drive_copia_silenciosa_truncada]].
+
 ### Pruebas
 
-278 → 328 tests. Nuevo `tests/test_buscar_reordena.py` (contrato del punto único:
+278 → 337 tests. Nuevo `tests/test_buscar_reordena.py` (contrato del punto único:
 cuántos candidatos se piden, cuántos se devuelven, que apagado no cueste nada, que
 un reranker que no carga no rompa la búsqueda, y que el cliente remoto no reordene).
 `tests/test_reordenar.py` cubre la regla de encendido y la media precisión, y

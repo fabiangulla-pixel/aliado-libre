@@ -24,7 +24,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import sys
 from pathlib import Path
 
@@ -59,9 +58,10 @@ def main() -> None:
     p.add_argument("--salida", default=str(RAIZ / "eval" / "auditoria_metrica.json"))
     args = p.parse_args()
 
-    clave = os.environ.get("ANTHROPIC_API_KEY")
-    if not clave:
-        raise SystemExit("Falta ANTHROPIC_API_KEY en el entorno.")
+    # Entorno o ~/.aliado_libre/credenciales.json; ver finetune/clave_api.py.
+    from finetune.clave_api import leer_clave
+
+    clave = leer_clave()
 
     datos = json.loads(Path(args.candidatos).read_text(encoding="utf-8"))
     fallos = [d for d in datos if not d["posicion_original"] or d["posicion_original"] > TOPE]
