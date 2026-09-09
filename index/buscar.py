@@ -149,7 +149,32 @@ class IndiceBusqueda:
         return conexion
 
     def buscar(self, consulta: str, k: int = 8, fuentes: list[str] | None = None) -> list[dict]:
-        """Busca en el índice; `fuentes` acota a esas entidades (None = todas).
+        """Busca y, si toca, reordena con el cross-encoder antes de devolver.
+
+        Reordenar es la única mejora de recuperación confirmada en datos
+        apartados (+10 puntos de recall@5) y hasta ahora solo estaba cableada en
+        el servidor del índice: quien usa el programa en su equipo buscaba sin
+        ella. Va aquí y no en la GUI para que la hereden todos los que consultan
+        el índice local —GUI, servidor MCP, `responder`, la línea de comandos— y
+        para que el cliente remoto quede fuera por construcción: el .exe no
+        lleva la pila de ML con la que reordenar.
+
+        Quién decide, en `index.reordenar.activo()`: hay GPU o no. Se piden más
+        candidatos de los que se van a devolver porque reordenar solo puede
+        mejorar el orden de lo que recibe.
+        """
+        from index.reordenar import CANDIDATOS, activo, reordenar
+
+        if not activo():
+            return self._buscar_crudo(consulta, k=k, fuentes=fuentes)
+
+        crudos = self._buscar_crudo(consulta, k=max(k, CANDIDATOS), fuentes=fuentes)
+        return reordenar(consulta, crudos, k=k)
+
+    def _buscar_crudo(self, consulta: str, k: int = 8, fuentes: list[str] | None = None) -> list[dict]:
+        """Búsqueda híbrida (vectorial + FTS5, fusionadas por RRF), sin reordenar.
+
+        `fuentes` acota a esas entidades (None = todas).
 
         Al filtrar hay que pedir MÁS candidatos a cada método antes de fusionar:
         si se piden k*3 sin filtro y luego se descartan los de otras fuentes,

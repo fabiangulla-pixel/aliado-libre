@@ -89,10 +89,15 @@ recuperación confirmada en datos apartados que tiene el proyecto.
 
 Qué cuesta: **~57 s por consulta en CPU** y **~2,3 GB de RAM** además de los 5,12
 del índice. En una máquina sin GPU eso convierte una búsqueda de 2 s en una de un
-minuto: encenderlo sin GPU solo tiene sentido si se prefiere esperar a fallar.
+minuto: encenderlo sin GPU solo tiene sentido si se prefiere esperar a fallar. Con
+GPU son 1,5 s por consulta (medido en una RTX 5080 el 9-sep-2026).
 
 Por eso viene apagado y por eso no se enciende solo: es una decisión de factura
-(RAM y CPU o GPU del servidor), no un detalle de configuración.
+(RAM y CPU o GPU del servidor), no un detalle de configuración. **En el modo
+escritorio sí se enciende solo cuando hay GPU**, y el servidor se queda fuera de
+esa regla de forma explícita: `main()` fija `ALIADO_RERANKER_ACTIVO=0` si el
+operador no dijo nada, así que desplegar en un host con aceleradora no empieza a
+gastar por su cuenta. Un `ALIADO_RERANKER_ACTIVO=1` sigue mandando.
 
 ## Cómo llega el índice al servidor
 

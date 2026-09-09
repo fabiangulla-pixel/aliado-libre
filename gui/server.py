@@ -37,6 +37,7 @@ if not ESTA_CONGELADO:
     sys.path.insert(0, str(RAIZ))
 
 from confianza_tls import confiar_en_almacen_del_sistema  # noqa: E402
+from drenar_cuerpo import descartar_cuerpo  # noqa: E402
 
 RAIZ_ESTATICA = RAIZ / "gui" / "static"
 PUERTO = 8765
@@ -98,6 +99,10 @@ def _obtener_indice():
 
 
 class Handler(BaseHTTPRequestHandler):
+    # Se pone en True en cuanto el cuerpo se lee o se drena, para que dos
+    # caminos de error seguidos no intenten leerlo dos veces.
+    cuerpo_consumido = False
+
     def log_message(self, formato, *args):  # silencia el log por defecto, ruidoso
         pass
 
@@ -126,21 +131,39 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self):  # noqa: N802 (nombre impuesto por BaseHTTPRequestHandler)
         ruta = urlparse(self.path)
         if ruta.path != "/api/responder":
+            # El cuerpo se lee y se tira ANTES de contestar. Sin esto el cliente
+            # sigue escribiendo en un socket ya cerrado y en Windows recibe una
+            # conexión abortada en vez del 404: era el fallo intermitente de
+            # tests/test_ia_externa_endpoint.py. Ver drenar_cuerpo.py.
+            descartar_cuerpo(self)
             self.send_error(404)
             return
         self._responder_con_ia_externa()
 
     def _leer_json(self, maximo: int = 256 * 1024) -> dict | None:
+        """Devuelve el dict del cuerpo, o None si no sirve.
+
+        En todos los caminos que devuelven None el cuerpo queda drenado: quien
+        llama va a contestar un 400, y contestar un error sin leer lo que el
+        cliente todavía está escribiendo se convierte en una conexión abortada.
+        """
         try:
             largo = int(self.headers.get("Content-Length") or 0)
         except ValueError:
+            descartar_cuerpo(self)
             return None
-        if largo <= 0 or largo > maximo:
+        if largo <= 0:
+            return None
+        if largo > maximo:
+            descartar_cuerpo(self)
             return None
         try:
             datos = json.loads(self.rfile.read(largo).decode("utf-8"))
         except (UnicodeDecodeError, json.JSONDecodeError):
+            # el read ya consumió el cuerpo; marcarlo evita un segundo intento
+            self.cuerpo_consumido = True
             return None
+        self.cuerpo_consumido = True
         return datos if isinstance(datos, dict) else None
 
     def _responder_con_ia_externa(self) -> None:

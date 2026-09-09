@@ -13,7 +13,8 @@ carpeta de Drive. Solo hay que abrirlo, poner GPU y ejecutar.
 Por qué es lo siguiente y no otra cosa: lo demás ya se probó y está medido.
 
 - El índice e5-large: adoptado, 33,5% de recall@5 en datos apartados.
-- El reranker: +10 puntos (43,5%), confirmado. Ya conectado, apagado por defecto.
+- El reranker: +10 puntos (43,5%), confirmado. Encendido en escritorio con GPU
+  desde el 9-sep-2026; en el servidor sigue siendo decisión del operador.
 - Reordenar más profundo: **no sirve**, el acierto se satura en 40 candidatos.
 - Rechunkear: **descartado con datos**, no hay truncamiento.
 

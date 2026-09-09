@@ -124,8 +124,8 @@ rueda de PyPI, que en Windows es solo CPU y deja la tarjeta sin usar:
 Esa rueda exige **driver NVIDIA 580 o superior**. Con uno anterior, `import torch`
 no falla al usar la GPU: falla al importar, con `WinError 1114` cargando `c10.dll`,
 que no se parece en nada a la causa. Comprobar con `nvidia-smi` antes de perder
-la tarde. Merece la pena: el reranker pasa de ~57 s por consulta en CPU a 0,66 s
-en una RTX 5080.
+la tarde. Merece la pena: el reranker pasa de ~57 s por consulta en CPU a 1,5 s
+en una RTX 5080, y con GPU se enciende solo (ver `docs/PROJECT_STATE.md`).
 
 `llama-cpp-python` (solo para el modelo propio local) **no tiene rueda
 precompilada** en la versión fijada: se compila, así que hace falta las Build

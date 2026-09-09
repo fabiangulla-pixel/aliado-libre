@@ -76,6 +76,9 @@ hiddenimports = [
     # CERTIFICATE_VERIFY_FAILED al primer uso. Ver confianza_tls.py.
     "confianza_tls",
     "truststore",
+    # gui/server.py lo importa al arrancar: sin el, el .exe muere en el import.
+    # Ver drenar_cuerpo.py.
+    "drenar_cuerpo",
 ]
 try:
     import index.cliente_remoto  # noqa: F401

@@ -34,11 +34,15 @@ from urllib.parse import urlparse
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+# Hasta MAX_DRENAJE se drena un cuerpo ya rechazado, para poder contestar el 413;
+# pasado ese tope se corta y el cliente puede no llegar a ver el mensaje. Vive en
+# drenar_cuerpo porque gui/server.py tiene el mismo problema. El import va aquí,
+# tras el sys.path.insert, porque de otro modo no se encuentra al arrancar el
+# servidor por ruta (python servidor_indice/server.py).
+from drenar_cuerpo import MAX_DRENAJE, descartar_cuerpo  # noqa: E402
+
 PUERTO_DEFECTO = 8800
 MAX_CUERPO = 64 * 1024  # una consulta jurídica no se acerca; corta abusos
-# Hasta aquí se drena un cuerpo ya rechazado, para poder contestar el 413;
-# pasado este tope se corta y el cliente puede no llegar a ver el mensaje.
-MAX_DRENAJE = 1024 * 1024
 N_DEFECTO = 8
 N_MAXIMO = 50  # evita que un cliente pida 10.000 fragmentos y tumbe el servidor
 
@@ -47,9 +51,13 @@ N_MAXIMO = 50  # evita que un cliente pida 10.000 fragmentos y tumbe el servidor
 # Es la unica mejora de recuperacion confirmada en datos que no se usaron para
 # elegir nada. Cifras en docs/MEDICIONES.md.
 #
-# Viene APAGADO a proposito. Cuesta ~57 s por consulta en CPU y ~2,3 GB de RAM
-# mas: en el equipo de un usuario es inusable, y en el servidor es una decision
-# de factura que se toma a sabiendas, no un efecto secundario de actualizar.
+# Aqui viene APAGADO a proposito, y es lo que separa al servidor del modo
+# escritorio. En el equipo del usuario reordenar se enciende solo cuando hay GPU
+# (0,66 s medidos: sale gratis). En el servidor cuesta ~57 s por consulta en CPU
+# y ~2,3 GB de RAM mas, y encenderlo es una decision de factura que se toma a
+# sabiendas, no un efecto secundario de actualizar: main() fija
+# ALIADO_RERANKER_ACTIVO="0" si el operador no dijo nada, y con eso el servidor
+# queda fuera de la regla automatica de index.reordenar.activo().
 # Para encenderlo: ALIADO_RERANKER_ACTIVO=1 (y ALIADO_RERANKER_CANDIDATOS para
 # el tamano de ventana; 40 es lo medido).
 VERDADEROS = {"1", "true", "si", "sí"}
@@ -90,6 +98,21 @@ def reranker_activo() -> bool:
     return os.environ.get("ALIADO_RERANKER_ACTIVO", "").strip().lower() in VERDADEROS
 
 
+def quedarse_fuera_de_la_regla_automatica() -> None:
+    """El servidor NO hereda el "se enciende si hay GPU" del modo escritorio.
+
+    En el equipo del usuario reordenar se enciende solo cuando hay GPU porque
+    cuesta 0,66 s y no lo paga nadie. Aqui lo paga una factura por segundo de
+    CPU o de GPU alquilada, y esa decision se toma a sabiendas, no porque el
+    host de turno traiga aceleradora. Se llama en main(), o sea una vez por
+    proceso y antes de la primera busqueda.
+
+    Es setdefault y no una asignacion: el operador que si lo pidio sigue
+    mandando.
+    """
+    os.environ.setdefault("ALIADO_RERANKER_ACTIVO", "0")
+
+
 def token_configurado() -> str | None:
     token = os.environ.get("ALIADO_INDICE_TOKEN", "").strip()
     return token or None
@@ -121,39 +144,12 @@ class Handler(BaseHTTPRequestHandler):
     # -- utilidades ------------------------------------------------------
 
     def _descartar_cuerpo(self) -> None:
-        """Lee y tira el cuerpo pendiente antes de responder un error.
+        """Delega en drenar_cuerpo, que es el sitio unico donde vive esta regla.
 
-        Responder sin leerlo deja al cliente escribiendo en un socket que el
-        servidor ya cerró: en Windows eso llega como una conexión abortada, no
-        como el 401 o el 404 que se acababa de enviar. El mensaje en español
-        estaba bien escrito y el usuario nunca lo veía.
-
-        Un cuerpo que pasa MAX_CUERPO se sigue drenando: para que el 413 llegue
-        hay que leer lo que el cliente todavía está escribiendo, o el cierre del
-        socket lo pisa con un RST y el cliente ve una conexión abortada en vez
-        del mensaje. Solo por encima de MAX_DRENAJE se corta sin leer —ahí sí
-        sería trabajo gratis para quien manda basura—, y esa es la única
-        respuesta de error que el cliente puede no llegar a ver.
+        Estuvo aqui hasta que el mismo defecto aparecio tambien en gui/server.py.
         """
-        try:
-            pendiente = int(self.headers.get("Content-Length") or 0)
-        except ValueError:
-            pendiente = 0
-        if pendiente <= 0 or self.cuerpo_consumido:
-            return
-        if pendiente > MAX_DRENAJE:
-            self.close_connection = True
-            return
-        try:
-            restante = pendiente
-            while restante > 0:
-                trozo = self.rfile.read(min(restante, 64 * 1024))
-                if not trozo:
-                    break
-                restante -= len(trozo)
+        if descartar_cuerpo(self, MAX_DRENAJE):
             self.cuerpo_consumido = True
-        except OSError:
-            self.close_connection = True
 
     def _responder_json(self, datos: dict, status: int = 200) -> None:
         cuerpo = json.dumps(datos, ensure_ascii=False).encode("utf-8")
@@ -266,16 +262,11 @@ class Handler(BaseHTTPRequestHandler):
 
         try:
             texto = consulta.strip()
-            if reranker_activo():
-                # Se piden mas candidatos de los que se van a devolver: el
-                # reranker solo puede mejorar el orden de lo que reciba, asi que
-                # pedir n y reordenar n no cambiaria practicamente nada.
-                from index.reordenar import CANDIDATOS, reordenar
-
-                crudos = obtener_indice().buscar(texto, k=max(n, CANDIDATOS), fuentes=fuentes)
-                resultados = reordenar(texto, crudos, k=n)
-            else:
-                resultados = obtener_indice().buscar(texto, k=n, fuentes=fuentes)
+            # Reordenar (o no) lo decide IndiceBusqueda.buscar leyendo
+            # ALIADO_RERANKER_ACTIVO, que main() fija a "0" si el operador no
+            # dijo nada. Aqui no se duplica: tener dos sitios que ensanchan la
+            # ventana y reordenan es tener dos sitios donde se desincroniza.
+            resultados = obtener_indice().buscar(texto, k=n, fuentes=fuentes)
         except RuntimeError as e:
             self._error(503, str(e))
             return
@@ -315,6 +306,9 @@ def main() -> None:
             "ALIADO_INDICE_TOKEN no está definida: el servidor queda ABIERTO a "
             "cualquiera que alcance el puerto. Defínela antes de exponerlo a internet."
         )
+
+    quedarse_fuera_de_la_regla_automatica()
+    log.info("Reordenado con cross-encoder: %s", "activo" if reranker_activo() else "apagado")
 
     puerto = int(os.environ.get("PORT") or PUERTO_DEFECTO)
     cargar_indice()

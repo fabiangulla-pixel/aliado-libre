@@ -1,5 +1,98 @@
 # Changelog
 
+## 2026-09-09 (tarde) — Reordenar llega al escritorio, y el bug del cuerpo no drenado reaparece en la GUI
+
+### El reranker llega al escritorio, que era donde no estaba
+
+Los +10 puntos de recall@5 del cross-encoder llevaban meses medidos y adoptados,
+pero cableados **solo en `servidor_indice/server.py`**. Quien usaba el programa en
+su equipo —la GUI, el servidor MCP, `responder`— buscaba sin ellos. La mejora
+confirmada del proyecto no le llegaba al usuario.
+
+Ahora vive en `IndiceBusqueda.buscar`, que es el punto por donde pasan todos los
+que consultan el índice local. El cliente remoto queda fuera **por construcción**:
+el .exe no lleva la pila de ML con la que reordenar, y allí decide el servidor.
+El servidor deja de duplicar el ensanchado de ventana y el reordenado: tener dos
+sitios que hacen lo mismo es tener dos sitios que se desincronizan.
+
+Quién decide, en `index.reordenar.activo()`: **hay GPU o no**. La señal es el
+costo medido, no una preferencia. `ALIADO_RERANKER_ACTIVO` sigue mandando en
+ambos sentidos, y el servidor del índice se queda fuera de la regla a propósito
+(`quedarse_fuera_de_la_regla_automatica()`): desplegar en un host con aceleradora
+no debe empezar a gastar por su cuenta.
+
+### Media precisión: 2,9x más rápido con el mismo orden, exactamente
+
+En GPU el modelo se carga en `float16`. Lo que autoriza el cambio no es la
+velocidad sino el acuerdo, comprobado sobre las 60 primeras consultas del banco
+apartado con sus candidatos reales:
+
+| | float32 | float16 |
+|---|---|---|
+| Tiempo por consulta | 3,49 s | **1,19 s** |
+| Mismo top-1 | — | **60/60** |
+| Mismo top-5, mismo orden | — | **60/60** |
+| Ancla dentro del top-5 | 16/60 | **16/60** |
+
+O sea que los +10 puntos medidos en float32 se heredan enteros: no es una
+aproximación que haya que volver a validar. De paso, los 40 candidatos van en un
+solo lote; el batch por defecto (32) los partía en dos sin ganar nada.
+
+### La cifra de 0,66 s era optimista
+
+Al medir el camino completo contra el índice real (718.388 fragmentos, seis
+consultas reales, RTX 5080), el costo honesto es:
+
+| | |
+|---|---|
+| Búsqueda como estaba (k=5) | 0,06 s |
+| Ensanchar la ventana a 40 candidatos | +0,01 s |
+| Reordenar 40 en float16 | 1,50 s |
+| **Total por consulta** | **1,57 s** |
+
+Los 0,66 s que circulaban en la bitácora no se reproducen: el reordenado real
+cuesta 1,50 s con media precisión, y habría costado 3,5 s sin ella. Aun así el
+intercambio se sostiene —1,5 s por +10 puntos de recall en una consulta legal— y
+la conclusión de encenderlo en escritorio no cambia. La que cambia es la cifra, y
+se corrige donde estaba mal escrita (README, `docs/PROJECT_STATE.md`,
+`docs/DESPLIEGUE_INDICE.md`, `docs/NEXT_STEPS.md`).
+
+### Y de paso, el mismo bug del cuerpo no drenado, ahora en la GUI
+
+El hook de pre-commit hizo fallar la suite con `ConnectionResetError
+[WinError 10054]` en `test_ia_externa_endpoint.py`. No era ruido: `do_POST` de
+`gui/server.py` respondía **404 sin leer el cuerpo** que el cliente seguía
+enviando, y `_leer_json` rechazaba igual en tres caminos más. En Windows eso no
+llega como el 404 sino como una conexión abortada.
+
+Es **exactamente el defecto que se arregló el 8-sep en `servidor_indice`**, donde
+también era "el fallo intermitente de la suite". Que reapareciera en el otro
+servidor es la razón de que la regla ya no esté copiada: vive en
+`drenar_cuerpo.py` y los dos la usan.
+
+Este pesa más que el del servidor del índice, porque `gui/server.py` es lo que
+usa la gente.
+
+La prueba negativa: con el arreglo revertido, **11 de 12 repeticiones fallan**; con
+él, 25 de 25 pasan. Ese 1 que pasaba es la razón de que hagan falta repeticiones
+—una sola petición no detecta esto— y de que llevara meses escondido.
+
+`drenar_cuerpo` se añadió a `hiddenimports` del .spec y al test de empaquetado:
+`gui/server.py` lo importa al arrancar, así que sin él el .exe no abriría.
+
+### Pruebas
+
+278 → 328 tests. Nuevo `tests/test_buscar_reordena.py` (contrato del punto único:
+cuántos candidatos se piden, cuántos se devuelven, que apagado no cueste nada, que
+un reranker que no carga no rompa la búsqueda, y que el cliente remoto no reordene).
+`tests/test_reordenar.py` cubre la regla de encendido y la media precisión, y
+`tests/test_ia_externa_endpoint.py` el cuerpo drenado, con repeticiones porque el
+fallo es intermitente.
+
+**Un test cambió de signo**: `test_no_esta_conectado_a_la_busqueda_todavia`
+afirmaba que `buscar()` no llamaba al reranker —era el guardián de que se midiera
+antes de encenderlo—. Ahora afirma lo contrario.
+
 ## 2026-09-09 — El equipo nuevo cambia la cuenta del reranker, y aparece un fallo de instalación que no era nuestro
 
 Sesión de montaje en el PC nuevo (RTX 5080 Laptop, 16 GB de VRAM). Además de dejar

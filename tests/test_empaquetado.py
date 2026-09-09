@@ -94,6 +94,8 @@ def test_el_pyz_del_exe_trae_lo_imprescindible():
     # con un antivirus que inspeccione TLS. Ver confianza_tls.py.
     assert "confianza_tls" in modulos
     assert "truststore" in {m.split(".")[0] for m in modulos}
+    # gui/server.py lo importa al arrancar: si falta, el .exe no abre.
+    assert "drenar_cuerpo" in modulos
     # el índice local nunca debe viajar: importa lo que está excluido
     assert "index.buscar" not in modulos
 

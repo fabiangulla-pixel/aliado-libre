@@ -168,3 +168,61 @@ def test_otras_rutas_post_dan_404(base):
     with pytest.raises(urllib.error.HTTPError) as exc:
         urllib.request.urlopen(peticion, timeout=10)
     assert exc.value.code == 404
+
+
+# -- el cuerpo se drena antes de cualquier error ---------------------------
+#
+# Responder un error sin leer el cuerpo deja al cliente escribiendo en un socket
+# ya cerrado, y en Windows eso llega como ConnectionResetError [WinError 10054]
+# en vez del 404. Es intermitente por naturaleza —depende de si el cliente
+# alcanzó a escribir antes del cierre—, así que UNA petición no lo detecta: este
+# test hizo fallar la suite una vez de tres. De ahí las repeticiones.
+#
+# El mismo defecto se arregló antes en servidor_indice/server.py. Que reapareciera
+# aquí es la razón de que la regla viva en drenar_cuerpo.py y no copiada dos veces.
+
+CUERPO_GRANDE = json.dumps({"relleno": "x" * 200_000}).encode("utf-8")
+
+
+@pytest.mark.parametrize("intento", range(12))
+def test_el_404_llega_aunque_el_cuerpo_sea_grande(base, intento):
+    """El cuerpo pasa del tope de _leer_json, así que se rechaza igual: lo que
+    se prueba es que el cliente reciba el 404 y no una conexión abortada."""
+    peticion = urllib.request.Request(
+        base + "/api/otra",
+        data=CUERPO_GRANDE,
+        method="POST",
+        headers={"Content-Type": "application/json"},
+    )
+    with pytest.raises(urllib.error.HTTPError) as exc:
+        urllib.request.urlopen(peticion, timeout=10)
+    assert exc.value.code == 404
+
+
+@pytest.mark.parametrize("intento", range(12))
+def test_el_400_llega_aunque_el_cuerpo_no_sea_json(base, intento):
+    peticion = urllib.request.Request(
+        base + "/api/responder",
+        data=b"{esto no es json" + b"y" * 100_000,
+        method="POST",
+        headers={"Content-Type": "application/json"},
+    )
+    with pytest.raises(urllib.error.HTTPError) as exc:
+        urllib.request.urlopen(peticion, timeout=10)
+    assert exc.value.code == 400
+
+
+def test_un_cuerpo_enorme_no_se_drena_entero(base):
+    """Drenar megas de basura sería trabajo gratis para quien la manda: por
+    encima de MAX_DRENAJE se corta la conexión a sabiendas."""
+    from drenar_cuerpo import MAX_DRENAJE, descartar_cuerpo
+
+    class _Handler:
+        headers = {"Content-Length": str(MAX_DRENAJE + 1)}
+        cuerpo_consumido = False
+        close_connection = False
+        rfile = None  # si intentara leer, reventaría: no debe intentarlo
+
+    h = _Handler()
+    assert descartar_cuerpo(h) is False
+    assert h.close_connection is True

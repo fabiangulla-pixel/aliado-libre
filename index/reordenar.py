@@ -36,6 +36,45 @@ MAX_LONGITUD = 512
 _modelo = None
 _candado = threading.Lock()
 _fallo: str | None = None
+_gpu: bool | None = None
+# Se aceptan las mismas formas que en el resto del programa, en español incluido.
+VERDADEROS = {"1", "true", "si", "sí"}
+
+
+def _hay_gpu() -> bool:
+    """True si torch ve una GPU. Se memoriza: importar torch no es gratis."""
+    global _gpu
+    if _gpu is None:
+        try:
+            import torch
+
+            _gpu = bool(torch.cuda.is_available())
+        except Exception:  # noqa: BLE001 - sin torch no hay reranker que encender
+            _gpu = False
+    return _gpu
+
+
+def _opciones_dtype() -> dict:
+    """En GPU carga el modelo en media precisión. Es 2,9x más rápido y ordena igual.
+
+    Medido sobre las 60 primeras consultas del banco apartado, con sus candidatos
+    reales: 3,49 s por consulta en float32 contra 1,19 s en float16. Lo que
+    autoriza el cambio no es la velocidad sino el acuerdo: **60 de 60 con el
+    mismo top-1, el mismo top-5 y en el mismo orden**, y el ancla dentro del
+    top-5 en los mismos 16 casos. O sea que los +10 puntos de recall@5 medidos
+    en float32 se heredan enteros; no es una aproximación que haya que volver a
+    validar.
+
+    Solo en GPU: en CPU la media precisión no está acelerada y sale más lenta.
+    """
+    if not _hay_gpu():
+        return {}
+    try:
+        import torch
+
+        return {"model_kwargs": {"torch_dtype": torch.float16}}
+    except Exception:  # noqa: BLE001 - sin torch no se llega hasta aquí
+        return {}
 
 
 def cargar_reranker():
@@ -48,7 +87,7 @@ def cargar_reranker():
             try:
                 from sentence_transformers import CrossEncoder
 
-                _modelo = CrossEncoder(MODELO_RERANKER, max_length=MAX_LONGITUD)
+                _modelo = CrossEncoder(MODELO_RERANKER, max_length=MAX_LONGITUD, **_opciones_dtype())
             except Exception as e:  # noqa: BLE001 - sin reranker se sigue buscando
                 _fallo = f"{type(e).__name__}: {e}"
     return _modelo
@@ -56,6 +95,26 @@ def cargar_reranker():
 
 def disponible() -> bool:
     return cargar_reranker() is not None
+
+
+def activo() -> bool:
+    """Decide si reordenar, cuando quien llama no lo dice explícitamente.
+
+    La regla es el costo medido, no una preferencia: reordenar 40 candidatos
+    cuesta 0,66 s en la RTX 5080, 3,42 s en la T4 de Colab y ~57 s en CPU. A
+    0,66 s sobre una búsqueda de 0,04 s, los +10 puntos de recall@5 salen
+    prácticamente gratis; a 57 s el programa queda inusable. Así que se enciende
+    donde hay GPU y se apaga donde no, y el equipo del usuario decide solo.
+
+    `ALIADO_RERANKER_ACTIVO` manda por encima de todo, en ambos sentidos: un 0
+    explícito lo apaga aunque haya GPU. El servidor del índice lo usa para
+    quedarse fuera de esta regla, porque allí cada segundo es una factura y esa
+    decisión se toma a sabiendas (ver servidor_indice/server.py).
+    """
+    crudo = os.environ.get("ALIADO_RERANKER_ACTIVO", "").strip().lower()
+    if crudo:
+        return crudo in VERDADEROS
+    return _hay_gpu()
 
 
 def reordenar(consulta: str, resultados: list[dict], k: int | None = None) -> list[dict]:
@@ -74,7 +133,9 @@ def reordenar(consulta: str, resultados: list[dict], k: int | None = None) -> li
     candidatos = resultados[:CANDIDATOS]
     try:
         pares = [(consulta, (r.get("texto") or "")[:4000]) for r in candidatos]
-        puntajes = modelo.predict(pares)
+        # Un solo lote: son 40 pares y el batch por defecto (32) los parte en dos
+        # sin ganar nada, ni en memoria ni en tiempo.
+        puntajes = modelo.predict(pares, batch_size=max(len(pares), 1))
     except Exception:  # noqa: BLE001
         return resultados[:k] if k else resultados
 
@@ -92,6 +153,8 @@ if __name__ == "__main__":
 
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     print("modelo:", MODELO_RERANKER)
+    print("hay gpu:", _hay_gpu())
+    print("activo por defecto:", activo())
     print("disponible:", disponible())
     if not disponible():
         print("motivo:", _fallo)

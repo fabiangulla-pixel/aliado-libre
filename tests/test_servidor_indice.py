@@ -3,6 +3,7 @@ Chroma y FTS5) ni importan index.buscar: se inyecta un doble en
 servidor_indice.server._indice."""
 
 import json
+import os
 import threading
 import time
 import urllib.error
@@ -412,9 +413,34 @@ def test_se_enciende_por_variable_de_entorno(base, monkeypatch):
     assert datos["reranker"] is True
 
 
+def test_el_servidor_se_queda_fuera_de_la_regla_automatica(monkeypatch):
+    """En el escritorio reordenar se enciende solo si hay GPU. Aqui no: el
+    host de turno puede traer aceleradora y eso no es una decision de producto,
+    es una factura. main() lo deja apagado si nadie dijo nada."""
+    from index import reordenar as R
+
+    monkeypatch.delenv("ALIADO_RERANKER_ACTIVO", raising=False)
+    monkeypatch.setattr(R, "_hay_gpu", lambda: True)
+
+    srv.quedarse_fuera_de_la_regla_automatica()
+
+    assert os.environ["ALIADO_RERANKER_ACTIVO"] == "0"
+    assert R.activo() is False
+    assert srv.reranker_activo() is False
+
+
+def test_el_operador_que_lo_encendio_sigue_mandando(monkeypatch):
+    monkeypatch.setenv("ALIADO_RERANKER_ACTIVO", "1")
+    srv.quedarse_fuera_de_la_regla_automatica()
+    assert os.environ["ALIADO_RERANKER_ACTIVO"] == "1"
+    assert srv.reranker_activo() is True
+
+
 def test_apagado_pide_al_indice_exactamente_lo_que_devuelve(base, monkeypatch):
     """Sin reranker no debe pedir candidatos de más: eso costaría tiempo de
-    búsqueda para tirarlo a la basura."""
+    búsqueda para tirarlo a la basura. Ensanchar la ventana ya no se hace aquí
+    sino en IndiceBusqueda.buscar (tests/test_buscar_reordena.py); el servidor
+    solo pide lo que va a devolver."""
     monkeypatch.delenv("ALIADO_RERANKER_ACTIVO", raising=False)
     pedidos = []
     indice = srv.obtener_indice()

@@ -34,8 +34,21 @@ tokens está adoptado y medido, y encima se midió lo siguiente:
 
 - El reranker (`bge-reranker-v2-m3`) da +10 puntos, confirmado sobre la partición
   de prueba que no se usó para elegir nada (McNemar p=0,0081 en la corrida CPU).
-  Está conectado a `servidor_indice/server.py` pero **apagado por defecto**
-  (`ALIADO_RERANKER_ACTIVO=1`): cuesta 3,4 s por consulta en GPU y ~2,3 GB de RAM.
+  Está cableado en `IndiceBusqueda.buscar`, o sea que lo usan la GUI, el servidor
+  MCP y `responder`, y **se enciende solo cuando hay GPU** (9-sep-2026). El
+  cliente remoto queda fuera por construcción: el .exe no lleva la pila de ML.
+- **Lo que cuesta encenderlo, medido el 9-sep-2026 en la RTX 5080** con seis
+  consultas reales: la búsqueda pasa de 0,06 s a 1,57 s. Ensanchar la ventana a
+  40 candidatos cuesta 0,01 s; el resto es el cross-encoder. En CPU son ~57 s, y
+  por eso allí no se enciende. La cifra de 0,66 s que circulaba era optimista.
+- **Media precisión en GPU**: el modelo se carga en float16, que es 2,9x más
+  rápido (3,49 s → 1,19 s por consulta sobre 60 consultas del banco apartado) y
+  **ordena idéntico**: mismo top-1, mismo top-5 y en el mismo orden en 60 de 60,
+  con el ancla dentro del top-5 en los mismos 16 casos. Los +10 puntos medidos en
+  float32 se heredan enteros.
+- El servidor del índice **queda fuera de esa regla a propósito**
+  (`quedarse_fuera_de_la_regla_automatica()` fija `ALIADO_RERANKER_ACTIVO=0` si el
+  operador no dijo nada): allí cada segundo es una factura.
 - **Reordenar más profundo NO sirve**: ventanas de 40, 100 y 200 dan el mismo
   recall@5. El reranker ya tiene delante el documento correcto y no lo reconoce.
 - **El techo de la recuperación es 75%**: en el 25% de las consultas el fragmento
