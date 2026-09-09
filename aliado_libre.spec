@@ -71,6 +71,11 @@ excludes = (
 # chromadb, que son justo lo que no debe viajar en el .exe.
 hiddenimports = [
     "index.responder",
+    # confianza_tls y truststore hacen que el .exe funcione en equipos con un
+    # antivirus que inspecciona TLS. Sin ellos dentro, esos equipos ven
+    # CERTIFICATE_VERIFY_FAILED al primer uso. Ver confianza_tls.py.
+    "confianza_tls",
+    "truststore",
 ]
 try:
     import index.cliente_remoto  # noqa: F401

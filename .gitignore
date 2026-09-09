@@ -1,4 +1,7 @@
 venv/
+# El punto importa: "venv/" no cubre ".venv/" ni ".venv312/". Un entorno
+# virtual sin ignorar son varios GB a un "git add -A" de entrar al repositorio.
+.venv*/
 __pycache__/
 *.pyc
 .pytest_cache/

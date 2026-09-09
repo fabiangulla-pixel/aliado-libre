@@ -5,3 +5,9 @@
 
 pytest==9.1.1
 ruff==0.16.5
+
+# scripts/build_exe.py compila el .exe con PyInstaller, y dos tests de
+# tests/test_empaquetado.py abren el PYZ del .exe para comprobar que la pila ML
+# no se colo dentro. Sin declararlo, esos tests no se saltan: fallan con
+# ModuleNotFoundError en cuanto existe un .exe compilado.
+pyinstaller==6.22.2

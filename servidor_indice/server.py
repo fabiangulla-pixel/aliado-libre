@@ -36,6 +36,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 PUERTO_DEFECTO = 8800
 MAX_CUERPO = 64 * 1024  # una consulta jurídica no se acerca; corta abusos
+# Hasta aquí se drena un cuerpo ya rechazado, para poder contestar el 413;
+# pasado este tope se corta y el cliente puede no llegar a ver el mensaje.
+MAX_DRENAJE = 1024 * 1024
 N_DEFECTO = 8
 N_MAXIMO = 50  # evita que un cliente pida 10.000 fragmentos y tumbe el servidor
 
@@ -125,8 +128,12 @@ class Handler(BaseHTTPRequestHandler):
         como el 401 o el 404 que se acababa de enviar. El mensaje en español
         estaba bien escrito y el usuario nunca lo veía.
 
-        Si el cuerpo supera el tope, no se drena —sería trabajo gratis para
-        quien manda basura—: se avisa con `Connection: close` y se corta.
+        Un cuerpo que pasa MAX_CUERPO se sigue drenando: para que el 413 llegue
+        hay que leer lo que el cliente todavía está escribiendo, o el cierre del
+        socket lo pisa con un RST y el cliente ve una conexión abortada en vez
+        del mensaje. Solo por encima de MAX_DRENAJE se corta sin leer —ahí sí
+        sería trabajo gratis para quien manda basura—, y esa es la única
+        respuesta de error que el cliente puede no llegar a ver.
         """
         try:
             pendiente = int(self.headers.get("Content-Length") or 0)
@@ -134,11 +141,16 @@ class Handler(BaseHTTPRequestHandler):
             pendiente = 0
         if pendiente <= 0 or self.cuerpo_consumido:
             return
-        if pendiente > MAX_CUERPO:
+        if pendiente > MAX_DRENAJE:
             self.close_connection = True
             return
         try:
-            self.rfile.read(pendiente)
+            restante = pendiente
+            while restante > 0:
+                trozo = self.rfile.read(min(restante, 64 * 1024))
+                if not trozo:
+                    break
+                restante -= len(trozo)
             self.cuerpo_consumido = True
         except OSError:
             self.close_connection = True

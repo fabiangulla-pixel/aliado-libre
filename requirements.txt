@@ -33,6 +33,12 @@ huggingface_hub==1.29.0
 llama-cpp-python==0.3.35   # modelo propio, en proceso, sin depender de Ollama
 anthropic==1.3.0           # IA externa opcional, con la clave del usuario
 
+# -- compatibilidad con antivirus que inspeccionan TLS -------------------
+# Llegaba de rebote como dependencia de otro paquete, pero confianza_tls.py lo
+# importa directamente: se declara para que su version sea una decision y no un
+# efecto secundario, igual que torch y transformers mas arriba.
+truststore==0.10.4
+
 # -- servidor MCP --------------------------------------------------------
 mcp==2.1.1
 

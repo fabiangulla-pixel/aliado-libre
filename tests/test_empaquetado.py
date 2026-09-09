@@ -90,6 +90,10 @@ def test_el_pyz_del_exe_trae_lo_imprescindible():
     modulos = _modulos_del_pyz()
     assert "llama_cpp" in {m.split(".")[0] for m in modulos}
     assert "index.cliente_remoto" in modulos
+    # Sin esto, el .exe falla con CERTIFICATE_VERIFY_FAILED en cualquier equipo
+    # con un antivirus que inspeccione TLS. Ver confianza_tls.py.
+    assert "confianza_tls" in modulos
+    assert "truststore" in {m.split(".")[0] for m in modulos}
     # el índice local nunca debe viajar: importa lo que está excluido
     assert "index.buscar" not in modulos
 

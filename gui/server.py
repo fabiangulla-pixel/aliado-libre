@@ -36,6 +36,8 @@ RAIZ = _raiz_recursos()
 if not ESTA_CONGELADO:
     sys.path.insert(0, str(RAIZ))
 
+from confianza_tls import confiar_en_almacen_del_sistema  # noqa: E402
+
 RAIZ_ESTATICA = RAIZ / "gui" / "static"
 PUERTO = 8765
 
@@ -288,6 +290,10 @@ class Handler(BaseHTTPRequestHandler):
 
 
 def main() -> None:
+    # Antes de abrir nada: con un antivirus que inspecciona TLS (Norton, Avast,
+    # Kaspersky…), las llamadas a la IA de nube y al índice remoto fallarían con
+    # CERTIFICATE_VERIFY_FAILED. Ver confianza_tls.py.
+    confiar_en_almacen_del_sistema()
     servidor = ThreadingHTTPServer(("127.0.0.1", PUERTO), Handler)
     url = f"http://127.0.0.1:{PUERTO}"
     print(f"Aliado Libre corriendo en {url} (Ctrl+C para detener)")

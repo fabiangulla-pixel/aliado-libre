@@ -12,7 +12,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from mcp.server.mcpserver import MCPServer
 
+from confianza_tls import confiar_en_almacen_del_sistema
 from index.buscar import IndiceBusqueda
+
+# Con un antivirus que inspecciona TLS, las llamadas salientes (índice remoto,
+# IA de nube) fallarían con CERTIFICATE_VERIFY_FAILED. Ver confianza_tls.py.
+confiar_en_almacen_del_sistema()
 
 mcp = MCPServer("aliado-libre")
 _indice: IndiceBusqueda | None = None

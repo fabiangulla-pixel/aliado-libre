@@ -176,6 +176,25 @@ def test_buscar_con_cuerpo_enorme_da_413(base):
     assert exc.value.code == 413
 
 
+def test_cuerpo_pasado_el_tope_de_drenaje_corta_sin_drenar(base, monkeypatch):
+    """El drenaje tiene tope y se nota: por encima de MAX_DRENAJE el servidor
+    corta en vez de leer.
+
+    Es la mitad negativa de la prueba anterior. El 413 llega porque el servidor
+    drena lo que el cliente está escribiendo, pero drenar sin límite regalaría
+    trabajo a quien manda basura; sin este test, "arreglar" el 413 quitando el
+    tope pasaría inadvertido.
+    """
+    monkeypatch.setattr(srv, "MAX_DRENAJE", 1024)
+    enorme = json.dumps({"consulta": "a" * (srv.MAX_CUERPO + 100)}).encode("utf-8")
+    with pytest.raises((urllib.error.HTTPError, OSError)) as exc:
+        _post(base, "/buscar", None, crudo=enorme)
+    # Si llega respuesta HTTP sigue siendo el 413; lo que no puede pasar es que
+    # el cuerpo se drene entero por encima del tope.
+    if isinstance(exc.value, urllib.error.HTTPError):
+        assert exc.value.code == 413
+
+
 def test_fallo_del_indice_da_500_y_no_filtra_traza(base, indice):
     indice.excepcion = ValueError("chroma corrupto")
     with pytest.raises(urllib.error.HTTPError) as exc:

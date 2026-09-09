@@ -14,7 +14,7 @@ la máquina que tenga:
 
 | Modo | Qué necesita | Para quién |
 |---|---|---|
-| Todo local | ~11 GB de disco, ~2,3 GB de RAM | quien quiera independencia total |
+| Todo local | ~21 GB de disco, ~5,1 GB de RAM de pico | quien quiera independencia total |
 | Modelo local + índice en la nube | conexión; el .exe pesa 29 MB + modelo | equipos modestos |
 | Servidor MCP | un asistente de IA propio (Claude, Cursor…) | perfil técnico |
 
@@ -76,7 +76,7 @@ Ver `CHANGELOG.md` para el detalle sesión a sesión.
 o se descargan ya construidos desde Hugging Face Hub una vez publicados
 (`scripts/publicar_indice_hf.py`).
 
-**Calidad**: 63+ tests (`make test`), lint limpio (ruff), hook de pre-commit instalado.
+**Calidad**: 278 tests (`make test`), lint limpio (ruff), hook de pre-commit instalado.
 
 ## Arquitectura
 
@@ -90,8 +90,11 @@ data/raw/         JSON crudo por fuente
 index/
   build_index.py  construye embeddings + índice Chroma a partir de data/raw/
   build_fts.py     construye el índice léxico FTS5 (SQLite, en disco) a partir de Chroma
-  buscar.py        búsqueda híbrida (vectorial + FTS5, fusión RRF ponderada — RAM ~2.3GB
-                    con los 718k fragmentos, antes ~10GB con BM25 en memoria)
+  buscar.py        búsqueda híbrida (vectorial + FTS5, fusión RRF ponderada — RAM ~5,1GB
+                    de PICO con los 718k fragmentos, antes ~10GB con BM25 en memoria.
+                    Los 2,3GB que decía antes eran del embedding MiniLM viejo Y medidos
+                    solo al arrancar: el HNSW de Chroma se mapea a memoria y crece al
+                    buscar, así que hay que medir DESPUÉS de servir consultas)
 mcp_server/
   server.py        expone buscar_normativa() como herramienta MCP
 ```
@@ -111,18 +114,52 @@ py -3.12 -m venv venv
 ./venv/Scripts/python.exe scripts/install_hooks.py                # hook de pre-commit
 ```
 
+**Si el equipo tiene GPU NVIDIA, instala torch aparte y ANTES**, o `pip` traerá la
+rueda de PyPI, que en Windows es solo CPU y deja la tarjeta sin usar:
+
+```sh
+./venv/Scripts/python.exe -m pip install torch==2.13.0 --index-url https://download.pytorch.org/whl/cu130
+```
+
+Esa rueda exige **driver NVIDIA 580 o superior**. Con uno anterior, `import torch`
+no falla al usar la GPU: falla al importar, con `WinError 1114` cargando `c10.dll`,
+que no se parece en nada a la causa. Comprobar con `nvidia-smi` antes de perder
+la tarde. Merece la pena: el reranker pasa de ~57 s por consulta en CPU a 0,66 s
+en una RTX 5080.
+
+`llama-cpp-python` (solo para el modelo propio local) **no tiene rueda
+precompilada** en la versión fijada: se compila, así que hace falta las Build
+Tools de C++ de Visual Studio. En Windows, además, hay que darle una carpeta
+temporal corta (`set TMP=C:\t`), porque su paquete fuente contiene rutas que pasan
+del límite de 260 caracteres y el error que devuelve pip habla de un archivo
+`.svelte`, no del límite de ruta.
+
 Las versiones están fijadas a propósito: son las que se usaron para construir el índice y
 medir la calidad. Sin fijarlas, una instalación de dentro de tres meses trae otra cosa y las
 mediciones dejan de ser reproducibles sin que nadie se entere.
 
 Falta el índice: no está en git (pesa ~21 GB). Se descarga ya construido desde
-[Hugging Face](https://huggingface.co/datasets/Gullax/indice-legal-colombia) o se reconstruye
-con `index/build_index.py` + `index/build_fts.py`.
+[Hugging Face](https://huggingface.co/datasets/Gullax/indice-legal-colombia) —es público, no
+hace falta token— o se reconstruye con `index/build_index.py` + `index/build_fts.py`.
+
+Al descargarlo a mano, dos avisos que cuestan horas:
+
+- **Bájalo en paralelo.** Un solo flujo de descarga da una fracción del ancho de banda
+  disponible; con 8 trozos simultáneos se midió 8× más rápido (de más de 5 horas a menos
+  de una). `huggingface-cli download` ya lo hace.
+- **De las dos carpetas de vectores sobra una.** Son ids de *segmento*, no de colección:
+  `9601ae5b-…` es la del embedding actual (e5-large) y `41519883-…` la del MiniLM viejo,
+  que ya no se usa. Verifica cuál es cuál en la tabla `segments` de `chroma.sqlite3`
+  antes de fiarte del nombre. Los `.npy` de vectores solo sirven para reconstruir el
+  índice: para consultarlo no hacen falta.
+
+Comprueba el índice descargado abriéndolo, no por su tamaño: `PRAGMA quick_check` en
+`chroma.sqlite3` y `fts_index.db`, y que las tres estructuras den 718.388 fragmentos.
 
 Comprobar que todo está bien:
 
 ```sh
-./venv/Scripts/python.exe -m pytest tests/ -q     # 257 tests
+./venv/Scripts/python.exe -m pytest tests/ -q     # 278 tests
 check.bat                                          # lint + formato + tests
 ```
 

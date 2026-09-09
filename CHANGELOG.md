@@ -1,5 +1,59 @@
 # Changelog
 
+## 2026-09-09 — El equipo nuevo cambia la cuenta del reranker, y aparece un fallo de instalación que no era nuestro
+
+Sesión de montaje en el PC nuevo (RTX 5080 Laptop, 16 GB de VRAM). Además de dejar
+el entorno funcionando, salieron tres cosas que valen más que el montaje.
+
+### El reranker deja de ser caro donde hay GPU
+
+Medido aquí, reordenar 40 candidatos cuesta **0,66 s**, frente a los 3,42 s de la
+T4 de Colab y los ~57 s en CPU sobre los que se decidió dejarlo apagado. Con la
+búsqueda en 0,04 s, una consulta completa con reranker sale por **~0,70 s** a
+cambio de los +10 puntos de recall@5 ya confirmados en datos apartados.
+
+La consecuencia es que `ALIADO_RERANKER_ACTIVO` merece revisarse: "encenderlo
+convierte una búsqueda de 2 s en una de un minuto" era cierto en CPU y ya no
+describe el modo escritorio con GPU. **La decisión no se toma en este commit**,
+porque el servidor del índice sigue siendo el caso caro.
+
+De paso, el **pico de RAM se replicó en hardware distinto**: 5,06 GB aquí contra
+los 5,12 GB medidos antes. La cifra que decide el plan de hosting deja de depender
+de una sola máquina.
+
+### El programa se rompía en equipos con antivirus, y no era culpa del programa
+
+Norton (y Avast, Kaspersky, ESET) interceptan el TLS: sustituyen el certificado
+del servidor por uno propio, firmado por una raíz que está en el almacén de
+Windows pero no en `certifi`. El navegador y `curl` no se enteran; Python falla
+con `CERTIFICATE_VERIFY_FAILED`. Un usuario final habría visto ese error en inglés
+al primer arranque, sobre una descarga que él no pidió.
+
+Añadido `confianza_tls.py`, invocado desde la GUI y el servidor MCP: verifica
+contra el almacén del sistema en vez de contra `certifi`. **No** se desactiva la
+verificación —que es la receta habitual para este error—, y hay un test que falla
+si alguien lo intenta. `truststore` pasa a estar declarado en `requirements.txt`,
+porque ahora se importa directamente, y añadido al `.spec` para que viaje en el
+`.exe`.
+
+### El 413 seguía roto, y esta vez de forma reproducible
+
+`test_buscar_con_cuerpo_enorme_da_413` fallaba 5 de 5 veces. La sesión del 7-sep
+arregló los caminos 404 y 401, pero el de 413 seguía cerrando el socket sin drenar
+el cuerpo, así que el cliente recibía un RST en lugar del mensaje. El docstring
+prometía un `Connection: close` que el código nunca enviaba. Ahora se drena con
+tope (`MAX_DRENAJE`), con su test negativo para que el límite no se pierda al
+"arreglarlo".
+
+### Higiene
+
+- `.gitignore` ignoraba `venv/` pero no `.venv/`: un entorno virtual estaba a un
+  `git add -A` de entrar al repositorio. Cubierto con `.venv*/`.
+- Ruff analizaba el código de las dependencias dentro de los entornos con sufijo
+  (`.venv312`) y reportaba 13 errores ajenos, rompiendo `make check`.
+- Sigue pendiente: **PyInstaller no está declarado** en `requirements-dev.txt`
+  pese a que `scripts/build_exe.py` y dos tests lo necesitan.
+
 ## 2026-09-07 — El cuello de botella no era la búsqueda, y la métrica estaba torcida
 
 Sesión larga (madrugada y tarde). Dos hallazgos cambian el rumbo del proyecto, y
