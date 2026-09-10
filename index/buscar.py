@@ -234,15 +234,31 @@ class IndiceBusqueda:
         texto_por_id = dict(zip(datos["ids"], datos["documents"], strict=True))
         metadata_por_id = dict(zip(datos["ids"], datos["metadatas"], strict=True))
 
+        # Palabras ceremoniales que no son contenido substantivo
+        PALABRAS_CEREMONIAL = frozenset(
+            ["COMUNÍQUESE", "CÚMPLASE", "DADO EN", "FIRMA", "MINISTRO", "PRESIDENTE", "CONGRESO"]
+        )
+
         resultados = []
         for doc_id, puntaje in mejores:
             if doc_id not in texto_por_id:
                 continue  # inconsistencia rara entre Chroma y FTS5 (ej. reindex parcial)
+
+            texto = texto_por_id[doc_id]
+
+            # Filtrar fragmentos que son PURO ceremonial (sin contenido sustantivo)
+            es_ceremonial = (
+                len(texto) < 200
+                and any(palabra in texto.upper() for palabra in PALABRAS_CEREMONIAL)
+            )
+            if es_ceremonial:
+                continue
+
             resultados.append(
                 {
                     "id": doc_id,
                     "puntaje": round(puntaje, 4),
-                    "texto": texto_por_id[doc_id],
+                    "texto": texto,
                     **metadata_por_id[doc_id],
                 }
             )

@@ -115,6 +115,15 @@
     margin-bottom: 1rem;
     box-shadow: var(--sombra);
   }
+  .resultado-decreto {
+    font-family: ui-sans-serif, system-ui, sans-serif;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--acento);
+    margin-bottom: 0.4rem;
+  }
   .resultado-cabecera {
     display: flex;
     justify-content: space-between;
@@ -124,7 +133,7 @@
   }
   .resultado h2 {
     margin: 0;
-    font-size: 1.15rem;
+    font-size: 1.12rem;
     line-height: 1.35;
   }
   .resultado h2 a {
@@ -155,16 +164,52 @@
   }
   .meta .puntaje { color: var(--dorado); font-weight: 600; }
 
-  .fragmento {
+  .fragmento-preview {
     font-size: 0.98rem;
     line-height: 1.6;
     color: var(--texto);
+    margin-bottom: 0.8rem;
   }
-  .fragmento mark {
+  .fragmento-preview mark {
     background: var(--acento-suave);
     color: inherit;
     padding: 0 0.1em;
     border-radius: 3px;
+  }
+
+  .fragmento-completo {
+    font-size: 0.98rem;
+    line-height: 1.6;
+    color: var(--texto);
+    margin-top: 0.6rem;
+    padding: 0.8rem;
+    background: var(--bg);
+    border-radius: 8px;
+    border-left: 3px solid var(--dorado);
+  }
+  .fragmento-completo mark {
+    background: var(--acento-suave);
+    color: inherit;
+    padding: 0 0.1em;
+    border-radius: 3px;
+  }
+
+  details.fragmento-expandible {
+    margin: 0.6rem 0;
+  }
+  details.fragmento-expandible summary {
+    cursor: pointer;
+    font-family: ui-sans-serif, system-ui, sans-serif;
+    font-size: 0.85rem;
+    color: var(--acento);
+    font-weight: 600;
+    padding: 0.4rem 0.6rem;
+    margin: -0.4rem -0.6rem 0;
+    border-radius: 6px;
+    transition: background 0.15s ease;
+  }
+  details.fragmento-expandible summary:hover {
+    background: var(--acento-suave);
   }
 
   .vacio, .error {
@@ -598,20 +643,32 @@ async function buscar() {
       }
     }
 
-    contenedor.innerHTML = bloqueRespuesta + datos.resultados.map(r => `
+    contenedor.innerHTML = bloqueRespuesta + datos.resultados.map(r => {
+      const textoCompleto = r.texto || '';
+      const preview = textoCompleto.slice(0, 400);
+      const tieneExtension = textoCompleto.length > 400;
+      const htmlCompleto = resaltar(textoCompleto, consulta);
+      const htmlPreview = resaltar(preview, consulta);
+
+      return `
       <article class="resultado">
+        <div class="resultado-decreto">${escaparHtml((r.fuente || '').replace(/_/g, ' '))} ${escaparHtml(r.identificador_documento || '')}</div>
         <div class="resultado-cabecera">
-          <h2><a href="${escaparHtml(r.url_original || '#')}" target="_blank" rel="noopener">${escaparHtml(r.titulo_documento || r.identificador_documento || 'Sin título')}</a></h2>
-          <span class="fuente">${escaparHtml((r.fuente || '').replace(/_/g, ' '))}</span>
+          <h2><a href="${escaparHtml(r.url_original || '#')}" target="_blank" rel="noopener">${escaparHtml(r.titulo_documento || 'Sin título')}</a></h2>
         </div>
         <div class="meta">
-          ${escaparHtml(r.identificador_documento || '')}
-          <span class="puntaje"> · relevancia ${r.puntaje}</span>
+          <span class="puntaje">Relevancia ${r.puntaje}</span>
         </div>
-        <div class="fragmento">${resaltar((r.texto || '').slice(0, 500), consulta)}${(r.texto || '').length > 500 ? '…' : ''}</div>
+        <div class="fragmento-preview">${htmlPreview}${tieneExtension ? ' […]' : ''}</div>
+        ${tieneExtension ? `
+        <details class="fragmento-expandible">
+          <summary>Ver texto completo (${textoCompleto.length} caracteres)</summary>
+          <div class="fragmento-completo">${htmlCompleto}</div>
+        </details>
+        ` : ''}
         <button class="guardar" data-id="${escaparHtml(r.id)}">+ Guardar en mi tablero</button>
-      </article>
-    `).join('');
+      </article>`;
+    }).join('');
 
     // El boton guarda el fragmento COMPLETO, no el recorte que se muestra: lo
     // que el usuario exporta tiene que servirle para citar.
