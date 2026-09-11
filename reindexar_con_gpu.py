@@ -15,10 +15,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from ingest.chunking import fragmentar
 from ingest.schema import Documento
 
-MODELO_EMBEDDINGS = "intfloat/multilingual-e5-large"
 DIR_INDICE = Path(__file__).resolve().parent / "index" / "chroma_db"
 DB_FTS = Path(__file__).resolve().parent / "index" / "fts_index.db"
-COLECCION = "aliado_libre_multilingual_e5_large"
+from index.buscar import COLECCION, MODELO_EMBEDDINGS, PREFIJO_PASAJE  # noqa: E402
 
 
 def cargar_documentos(dir_raw: Path) -> list[Documento]:
@@ -50,14 +49,11 @@ def reindexar(dir_raw: Path) -> None:
 
     print(f"Total: {len(fragmentos)} fragmentos después del chunking mejorado")
 
-    # Borrar índice anterior (CUIDADO: esto es destructivo)
-    print("Borrando índice anterior...")
-    if DIR_INDICE.exists():
-        import shutil
-        shutil.rmtree(DIR_INDICE)
-    if DB_FTS.exists():
-        DB_FTS.unlink()
-
+    # El índice anterior NO se borra: se reanuda sobre él. La versión destructiva
+    # de este script borraba Chroma y el FTS antes de empezar, así que una corrida
+    # interrumpida dejaba el proyecto sin índice utilizable y sin aviso — fue lo
+    # que pasó el 9-sep-2026, que terminó con 158.000 fragmentos de los 226.000
+    # anunciados y el índice léxico borrado y nunca reconstruido.
     # Cargar modelo con GPU (device_map automático)
     print("Cargando modelo de embeddings (GPU si está disponible)...")
     modelo = SentenceTransformer(MODELO_EMBEDDINGS)
@@ -67,16 +63,33 @@ def reindexar(dir_raw: Path) -> None:
     cliente = chromadb.PersistentClient(path=str(DIR_INDICE))
     coleccion = cliente.get_or_create_collection(COLECCION)
 
+    # Reanudar: lo que ya está indexado no se vuelve a codificar. Sin esto, una
+    # corrida de horas que se cae obliga a empezar de cero.
+    ya_estan: set[str] = set()
+    if coleccion.count():
+        desplazamiento = 0
+        while True:
+            pagina = coleccion.get(include=[], limit=50000, offset=desplazamiento)
+            if not pagina["ids"]:
+                break
+            ya_estan.update(pagina["ids"])
+            desplazamiento += len(pagina["ids"])
+        print(f"Ya indexados: {len(ya_estan)} fragmentos; se reanuda sobre ellos")
+    pendientes = [f for f in fragmentos if f.id not in ya_estan]
+    print(f"Pendientes de indexar: {len(pendientes)}")
+
     # Upsert incremental con GPU
     tamanio_lote = 1000
-    total = len(fragmentos)
+    total = len(pendientes)
     for inicio in range(0, total, tamanio_lote):
-        lote = fragmentos[inicio : inicio + tamanio_lote]
+        lote = pendientes[inicio : inicio + tamanio_lote]
         textos = [f.texto for f in lote]
 
         # batch_size > 1 usa más memoria pero aprovecha mejor la GPU
         print(f"  Codificando fragmentos {inicio}-{min(inicio + tamanio_lote, total)}/{total}...")
-        embeddings = modelo.encode(textos, batch_size=64, show_progress_bar=True).tolist()
+        embeddings = modelo.encode(
+            [PREFIJO_PASAJE + t for t in textos], batch_size=64, show_progress_bar=True
+        ).tolist()
 
         ids = [f.id for f in lote]
         metadatas = [
@@ -91,10 +104,26 @@ def reindexar(dir_raw: Path) -> None:
             for f in lote
         ]
 
-        print(f"  Subiendo lote...")
+        print("  Subiendo lote...")
         coleccion.upsert(ids=ids, embeddings=embeddings, documents=textos, metadatas=metadatas)
 
-    print(f"\nReindexacion completada: {coleccion.count()} fragmentos totales")
+    indexados = coleccion.count()
+    print(f"\nChroma: {indexados} fragmentos ({len(fragmentos)} esperados)")
+    if indexados < len(fragmentos):
+        raise SystemExit(
+            f"Reindexacion INCOMPLETA: faltan {len(fragmentos) - indexados} fragmentos. "
+            "Volver a correr este script; reanuda donde quedo."
+        )
+
+    # El indice lexico se reconstruye aqui, encadenado: dejarlo como un segundo
+    # paso manual es justo lo que fallo el 9-sep-2026.
+    print("Reconstruyendo el indice lexico FTS5...")
+    if DB_FTS.exists():
+        DB_FTS.unlink()
+    from index.build_fts import construir as construir_fts
+
+    construir_fts()
+    print(f"\nReindexacion completada: {indexados} fragmentos + indice lexico")
     print(f"Indices en: {DIR_INDICE}")
 
 

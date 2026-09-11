@@ -16,15 +16,15 @@ from __future__ import annotations
 
 import os
 import sqlite3
-from pathlib import Path
 
 os.environ.setdefault("HF_HUB_OFFLINE", "1")
 
 import chromadb
 
-DIR_INDICE = Path(__file__).resolve().parent / "chroma_db"
-COLECCION = "aliado_libre"
-DB_FTS = Path(__file__).resolve().parent / "fts_index.db"
+# Colección y rutas se toman del buscador: este archivo tenía fijado el nombre
+# de la colección vieja y habría construido el índice léxico del corpus que ya
+# no se usa, o ninguno.
+from index.buscar import COLECCION, DB_FTS, DIR_INDICE  # noqa: E402
 
 
 def construir() -> None:

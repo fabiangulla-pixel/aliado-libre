@@ -52,3 +52,43 @@ def test_ids_de_fragmentos_son_unicos():
     fragmentos = fragmentar(_doc(texto))
     ids = [f.id for f in fragmentos]
     assert len(ids) == len(set(ids))
+
+
+# --- Regresiones del 10-sep-2026 -------------------------------------------
+# El limpiador de ceremonial cortaba por "FIRMA", "MINISTRO" y "PRESIDENTE"
+# sueltos, sin límite de palabra ni ancla de final. Sobre el corpus real se
+# perdía el 77% de los caracteres y el 12,2% de los documentos salía con cero
+# fragmentos, o sea desaparecía del índice sin dejar rastro.
+
+_CUERPO = "ARTÍCULO 1. " + ("contenido normativo que debe sobrevivir. " * 40)
+
+
+def test_una_palabra_que_contiene_firma_no_trunca_el_documento():
+    texto = "El juez confirma lo resuelto. " + _CUERPO
+    fragmentos = fragmentar(_doc(texto))
+    assert "debe sobrevivir" in fragmentos[-1].texto
+    assert sum(len(f.texto) for f in fragmentos) > len(texto) * 0.9
+
+
+def test_mencionar_al_presidente_o_al_ministro_no_trunca_el_documento():
+    for mencion in ("El Presidente de la República decreta: ", "El Ministro reglamentará. "):
+        fragmentos = fragmentar(_doc(mencion + _CUERPO))
+        assert sum(len(f.texto) for f in fragmentos) > len(_CUERPO) * 0.9, mencion
+
+
+def test_la_formula_de_cierre_al_final_si_se_recorta():
+    fragmentos = fragmentar(_doc(_CUERPO + "\nCOMUNÍQUESE Y CÚMPLASE\nEl Ministro de Hacienda"))
+    texto = " ".join(f.texto for f in fragmentos)
+    assert "COMUNÍQUESE" not in texto.upper()
+    assert "debe sobrevivir" in texto
+
+
+def test_la_formula_al_principio_no_es_un_cierre():
+    texto = "COMUNÍQUESE Y CÚMPLASE\n" + _CUERPO
+    fragmentos = fragmentar(_doc(texto))
+    assert "debe sobrevivir" in " ".join(f.texto for f in fragmentos)
+
+
+def test_ningun_documento_con_texto_sale_sin_fragmentos():
+    for texto in ("Resolución breve.", "ARTÍCULO 1. Corto.", "Firma del ponente.", "El Presidente."):
+        assert fragmentar(_doc(texto)), f"documento perdido: {texto!r}"

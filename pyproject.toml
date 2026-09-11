@@ -44,3 +44,6 @@ ignore = [
 "finetune/evaluar.py" = ["E501"]
 "finetune/diagnosticar_busqueda.py" = ["E501"]
 "finetune/juzgar_respuestas.py" = ["E501"]
+# Generadores de HTML: las lineas largas son plantillas, no codigo.
+"finetune/generar_hoja_compartible.py" = ["E501"]
+"generar_html_limpio_v2.py" = ["E501"]

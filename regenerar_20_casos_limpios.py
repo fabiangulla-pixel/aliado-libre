@@ -35,8 +35,8 @@ CONSULTAS_AUDIT = [
 
 indice = IndiceBusqueda()
 
-print(f"Regenerando 20 consultas con filtro de ceremonial...")
-print(f"(El filtro excluye fragmentos cortos que solo contienen 'Comuniquese', 'Dado en', etc.)\n")
+print("Regenerando 20 consultas con filtro de ceremonial...")
+print("(El filtro excluye fragmentos cortos que solo contienen 'Comuniquese', 'Dado en', etc.)\n")
 
 casos = []
 for i, consulta in enumerate(CONSULTAS_AUDIT, 1):
@@ -55,17 +55,16 @@ for i, consulta in enumerate(CONSULTAS_AUDIT, 1):
         "fuente": primer.get("fuente", ""),
         "identificador": primer.get("identificador_documento", ""),
         "fragmento_preview": primer.get("texto", "")[:300] + "..."
-            if len(primer.get("texto", "")) > 300 else primer.get("texto", ""),
+        if len(primer.get("texto", "")) > 300
+        else primer.get("texto", ""),
         "longitud_fragmento": len(primer.get("texto", "")),
         "puntaje": primer.get("puntaje", 0),
     }
     casos.append(caso)
 
     # Verificar si es basura
-    es_basura = (
-        len(primer.get("texto", "")) < 200 and
-        any(palabra in primer.get("texto", "").upper()
-            for palabra in ["COMUNÍQUESE", "DADO EN", "FIRMA"])
+    es_basura = len(primer.get("texto", "")) < 200 and any(
+        palabra in primer.get("texto", "").upper() for palabra in ["COMUNÍQUESE", "DADO EN", "FIRMA"]
     )
 
     estado = "OK" if not es_basura else "BASURA AUN PRESENTE"
@@ -76,13 +75,12 @@ resultado = {
     "fecha": __import__("datetime").datetime.now().isoformat(),
     "total": len(casos),
     "casos": casos,
-    "nota": "Regenerado con filtro de ceremonial en recuperación"
+    "nota": "Regenerado con filtro de ceremonial en recuperación",
 }
 
 pathlib.Path("finetune/eval/20_casos_regenerados.json").write_text(
-    json.dumps(resultado, indent=2, ensure_ascii=False),
-    encoding="utf-8"
+    json.dumps(resultado, indent=2, ensure_ascii=False), encoding="utf-8"
 )
 
-print(f"\nOK - 20 casos regenerados en: finetune/eval/20_casos_regenerados.json")
-print(f"Verifica manualmente que NO hay 'Comuniquese y Cumplase' o ceremonial puro")
+print("\nOK - 20 casos regenerados en: finetune/eval/20_casos_regenerados.json")
+print("Verifica manualmente que NO hay 'Comuniquese y Cumplase' o ceremonial puro")

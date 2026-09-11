@@ -84,7 +84,7 @@ Otros límites duros del servidor: cuerpo máximo 64KB (`413`), `n` topado a 50.
 cross-encoder antes de responder. `GET /salud` informa si está encendido.
 
 Qué gana: recall@5 de 33,5% a 41,0% y @8 de 37,5% a 48,5%, sobre 200 consultas
-que no se usaron para elegir nada (`docs/MEDICIONES.md`). Es la única mejora de
+que no se usaron para elegir nada (`docs/PROJECT_STATE.md`). Es la única mejora de
 recuperación confirmada en datos apartados que tiene el proyecto.
 
 Qué cuesta: **~57 s por consulta en CPU** y **~2,3 GB de RAM** además de los 5,12

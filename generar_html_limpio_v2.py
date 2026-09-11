@@ -17,48 +17,59 @@ for i, caso in enumerate(casos, 1):
     docs_html = ""
     for j, d in enumerate(docs, 1):
         texto = d.get("texto", "")[:1500]
-        docs_html += f'<details><summary>Documento {j}</summary><pre>{texto}</pre></details>'
+        docs_html += f"<details><summary>Documento {j}</summary><pre>{texto}</pre></details>"
 
-    casos_con_docs.append({
-        "num": i,
-        "consulta": caso["consulta"],
-        "fuente": caso["fuente"],
-        "identificador": caso["identificador"],
-        "documento": caso["documento"],
-        "fragmento": caso["fragmento_preview"][:300] + "..." if len(caso["fragmento_preview"]) > 300 else caso["fragmento_preview"],
-        "docs_html": docs_html,
-        "longitud": caso["longitud_fragmento"],
-    })
+    casos_con_docs.append(
+        {
+            "num": i,
+            "consulta": caso["consulta"],
+            "fuente": caso["fuente"],
+            "identificador": caso["identificador"],
+            "documento": caso["documento"],
+            "fragmento": caso["fragmento_preview"][:300] + "..."
+            if len(caso["fragmento_preview"]) > 300
+            else caso["fragmento_preview"],
+            "docs_html": docs_html,
+            "longitud": caso["longitud_fragmento"],
+        }
+    )
 
-casos_json = json.dumps([
-    {
-        "num": c["num"],
-        "consulta": c["consulta"],
-        "fuente": c["fuente"],
-        "identificador": c["identificador"],
-    }
-    for c in casos_con_docs
-])
+casos_json = json.dumps(
+    [
+        {
+            "num": c["num"],
+            "consulta": c["consulta"],
+            "fuente": c["fuente"],
+            "identificador": c["identificador"],
+        }
+        for c in casos_con_docs
+    ]
+)
 
-html_casos = "\n".join([f'''<article id="art{c['num']}">
-    <h2><span class="num">{c['num']}</span>{c['consulta'][:90]}</h2>
+html_casos = "\n".join(
+    [
+        f"""<article id="art{c["num"]}">
+    <h2><span class="num">{c["num"]}</span>{c["consulta"][:90]}</h2>
     <p class="perfil">Pregunta</p>
     <div class="fuente-info">
-      <strong>{c['fuente'].replace('_', ' ')} - {c['identificador']}</strong><br>
-      <small>{c['documento']}</small>
+      <strong>{c["fuente"].replace("_", " ")} - {c["identificador"]}</strong><br>
+      <small>{c["documento"]}</small>
     </div>
     <div style="background: #f9f7f3; padding: 0.8rem; border-radius: 3px; margin-bottom: 0.8rem;">
-      <p style="margin: 0; font-size: 0.9rem; line-height: 1.5;">{c['fragmento']}</p>
-      <p style="margin: 0.4rem 0 0; font-size: 0.75rem; color: #999;">[{c['longitud']} caracteres]</p>
+      <p style="margin: 0; font-size: 0.9rem; line-height: 1.5;">{c["fragmento"]}</p>
+      <p style="margin: 0.4rem 0 0; font-size: 0.75rem; color: #999;">[{c["longitud"]} caracteres]</p>
     </div>
     <div class="btns">
-      <button onclick="marcar({c['num']}, 'si')">Si responde</button>
-      <button onclick="marcar({c['num']}, 'no')" class="no">No responde</button>
-      <span id="m{c['num']}" class="marca"></span>
+      <button onclick="marcar({c["num"]}, 'si')">Si responde</button>
+      <button onclick="marcar({c["num"]}, 'no')" class="no">No responde</button>
+      <span id="m{c["num"]}" class="marca"></span>
     </div>
-  </article>''' for c in casos_con_docs])
+  </article>"""
+        for c in casos_con_docs
+    ]
+)
 
-html = f'''<!doctype html>
+html = f"""<!doctype html>
 <html lang="es">
 <head>
   <meta charset="utf-8">
@@ -175,7 +186,7 @@ function descargar() {{
 </script>
 
 </body>
-</html>'''
+</html>"""
 
 pathlib.Path("finetune/eval/revision_juridica_limpia_v2.html").write_text(html, encoding="utf-8")
-print(f"OK - HTML generado: revision_juridica_limpia_v2.html ({len(html)/1024:.0f} KB)")
+print(f"OK - HTML generado: revision_juridica_limpia_v2.html ({len(html) / 1024:.0f} KB)")

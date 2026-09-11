@@ -77,7 +77,7 @@ Las cifras de acierto **no se publican** hasta alcanzar el 90% de precisión
 (decidido el 4-sep-2026). Mientras tanto, la interfaz advierte que la capa que
 redacta está en calibración y que hay que verificar siempre la cita.
 
-Esto no es ocultar: las mediciones se llevan al día en `docs/MEDICIONES.md`
+Esto no es ocultar: las mediciones se llevan al día en `docs/PROJECT_STATE.md`
 (no versionado). Lo que se evita es publicar una cifra que invite a confiar
 más de lo que corresponde.
 

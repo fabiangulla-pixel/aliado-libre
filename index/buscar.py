@@ -18,6 +18,7 @@ import re
 import sqlite3
 import threading
 import unicodedata
+import warnings
 from pathlib import Path
 
 # El modelo ya queda cacheado localmente tras la primera descarga; sin esto,
@@ -38,8 +39,11 @@ COLECCION = os.environ.get("ALIADO_COLECCION", "aliado_libre_multilingual_e5_lar
 
 # Los modelos e5 se entrenaron con prefijos que distinguen la consulta del
 # pasaje, y son asimétricos a propósito: sin ellos rinden bastante peor. El
-# índice se construye con "passage: " (ver finetune/colab_reindexar_embeddings_060926.ipynb).
+# índice debe construirse con "passage: ". Los dos prefijos viven aquí y los
+# importan los indexadores: el 9-sep-2026 el reindexado los omitió al pasar por
+# su propio script, y el índice quedó desalineado con el buscador sin avisar.
 PREFIJO_CONSULTA = "query: " if "e5" in MODELO_EMBEDDINGS.lower() else ""
+PREFIJO_PASAJE = "passage: " if "e5" in MODELO_EMBEDDINGS.lower() else ""
 K_RRF = 60
 # Pesos de la fusión RRF, recalibrados el 6-sep-2026 sobre el índice de
 # e5-large. La calibración anterior (BM25 x2) era CORRECTA para el índice viejo
@@ -136,10 +140,27 @@ class IndiceBusqueda:
         # hilo, en modo solo lectura, y cada una se reusa mientras el hilo viva.
         self._local = threading.local()
 
+    _aviso_fts_dado = False
+
     @property
     def _fts(self) -> sqlite3.Connection | None:
-        """Conexión FTS5 propia del hilo que llama (None si no hay índice)."""
+        """Conexión FTS5 propia del hilo que llama (None si no hay índice).
+
+        Si falta el índice, la búsqueda sigue funcionando solo con vectores, y
+        eso es una degradación grave y silenciosa: los pesos del RRF están
+        calibrados para la fusión de las dos mitades. El 9-sep-2026 el
+        reindexado borró este archivo y no lo reconstruyó; nadie se enteró hasta
+        que el recall@5 se midió en 0,5%. Ahora al menos avisa.
+        """
         if not DB_FTS.exists():
+            if not IndiceBusqueda._aviso_fts_dado:
+                IndiceBusqueda._aviso_fts_dado = True
+                warnings.warn(
+                    f"No existe el índice FTS5 ({DB_FTS}): la búsqueda pierde su mitad léxica "
+                    "y el recall se desploma. Reconstruirlo con index/build_fts.py.",
+                    RuntimeWarning,
+                    stacklevel=2,
+                )
             return None
         conexion = getattr(self._local, "fts", None)
         if conexion is None:
@@ -247,9 +268,8 @@ class IndiceBusqueda:
             texto = texto_por_id[doc_id]
 
             # Filtrar fragmentos que son PURO ceremonial (sin contenido sustantivo)
-            es_ceremonial = (
-                len(texto) < 200
-                and any(palabra in texto.upper() for palabra in PALABRAS_CEREMONIAL)
+            es_ceremonial = len(texto) < 200 and any(
+                palabra in texto.upper() for palabra in PALABRAS_CEREMONIAL
             )
             if es_ceremonial:
                 continue

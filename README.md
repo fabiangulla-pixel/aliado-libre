@@ -190,7 +190,7 @@ descartó por un bug real del conversor de llama.cpp para su arquitectura híbri
 carga, sin importar el tamaño del modelo).
 
 Las cifras de acierto de cada candidato están en las mediciones internas
-(`docs/MEDICIONES.md`, no versionado), no aquí.
+(`docs/PROJECT_STATE.md`), no aquí.
 
 ## Próximos pasos
 

@@ -14,12 +14,14 @@ import chromadb
 from sentence_transformers import SentenceTransformer
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+# Modelo, colección y prefijos se toman del buscador: son un contrato entre
+# quien indexa y quien consulta, y tenerlos por duplicado ya produjo un índice
+# con el modelo viejo (384 dimensiones) que el buscador no podía usar.
+from index.buscar import COLECCION, MODELO_EMBEDDINGS, PREFIJO_PASAJE
 from ingest.chunking import fragmentar
 from ingest.schema import Documento
 
-MODELO_EMBEDDINGS = "paraphrase-multilingual-MiniLM-L12-v2"
 DIR_INDICE = Path(__file__).resolve().parent / "chroma_db"
-COLECCION = "aliado_libre"
 
 
 def cargar_documentos(dir_raw: Path) -> list[Documento]:
@@ -61,7 +63,7 @@ def construir(dir_raw: Path) -> None:
     for inicio in range(0, total, tamanio_lote):
         lote = fragmentos[inicio : inicio + tamanio_lote]
         textos = [f.texto for f in lote]
-        embeddings = modelo.encode(textos, batch_size=32).tolist()
+        embeddings = modelo.encode([PREFIJO_PASAJE + t for t in textos], batch_size=32).tolist()
         ids = [f.id for f in lote]
         metadatas = [
             {

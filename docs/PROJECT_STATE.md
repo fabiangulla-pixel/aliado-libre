@@ -1,16 +1,22 @@
 # PROJECT_STATE — Aliado Libre
 
-Última verificación: **7-sep-2026**, en el PC Lenovo, antes de migrar a un MSI.
-Comprobado en esta sesión, no recordado.
+Última verificación: **10-sep-2026**, en el MSI. Comprobado, no recordado.
+
+> 🔴 **El índice en disco no sirve.** El reindexado del 9-sep-2026 quedó a
+> medias (158.000 fragmentos de 226.000 anunciados), con el texto mutilado por
+> un fallo del chunking, sin el prefijo `passage: ` y sin índice léxico.
+> Medido: **recall@5 = 0,5%**. El chunking ya está arreglado y verificado
+> (99,7% del corpus conservado, 0 documentos perdidos), pero **hay que
+> reindexar** — unas 849.000 fragmentos — antes de que el programa vuelva a
+> buscar. Detalle en `docs/SESSION_LOG.md`.
 
 ## Estado funcional
 
 **En desarrollo. No apto para uso profesional todavía.** La capa que redacta
 respuestas está en calibración y no alcanza el umbral de acierto fijado.
 
-- `pytest tests/ -q` → **272 pasan, 0 fallan** (75 s). El README todavía dice
-  257; el número real hoy es 272.
-- Búsqueda operativa sobre **718.388 fragmentos** de 7 entidades colombianas,
+- `pytest tests/ -q` → **342 pasan, 0 fallan** (84 s), lint y formato limpios.
+- Búsqueda operativa (con el índice sano) sobre **718.388 fragmentos** de 7 entidades colombianas,
   con citas verificables.
 - Servidor MCP (`buscar_normativa()`) operativo en modo local (`stdio`).
 - GUI web local operativa; `.exe` de 29 MB + modelo.
@@ -63,7 +69,8 @@ en lenguaje corriente y el pasaje en jurídico. **La única palanca sin probar e
 enseñarles el dominio**: el material para afinar el embedding está listo (936
 pares, `finetune/data/pares_embedding.jsonl`) y el notebook también.
 
-Cifras completas en `docs/MEDICIONES.md` (no versionado).
+Las cifras completas viven aquí; `docs/MEDICIONES.md` nunca llegó a existir
+y se citaba desde el código (10-sep-2026).
 
 ### Cobertura del corpus
 

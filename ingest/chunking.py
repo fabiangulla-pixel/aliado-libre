@@ -18,15 +18,28 @@ from ingest.schema import Documento
 PATRON_ARTICULO = re.compile(r"(?=^\s*ART[IÍ]CULO\s+\d+[oO°.]?)", re.MULTILINE | re.IGNORECASE)
 PATRON_PARRAFO = re.compile(r"\n\s*\n+")
 
-# Secciones ceremoniales a excluir (al final del documento)
+# Fórmulas de cierre: solo las que en derecho colombiano cierran el acto, y solo
+# como frase completa al principio de una línea. La versión anterior cortaba por
+# FIRMA/MINISTRO/PRESIDENTE sueltos, sin límites de palabra ni ancla: "confirma"
+# y "firmará" disparaban el corte y se llevaban por delante el resto del
+# documento. Medido sobre el corpus real: se perdía el 77% de los caracteres.
 PATRON_CIERRE = re.compile(
-    r"(COMUNÍQUESE\s+Y\s+CÚMPLASE|Comuníquese\s+y\s+Cúmplase|"
-    r"DADO\s+EN|Dado\s+en|"
-    r"FIRMA|Firma|"
-    r"MINISTRO|Ministro|"
-    r"PRESIDENTE|Presidente|"
-    r"CONGRESO|Congreso).*$",
-    re.MULTILINE | re.IGNORECASE | re.DOTALL
+    r"^[ 	]*(?:COMUN[IÍ]QUESE|PUBL[IÍ]QUESE|NOT[IÍ]F[IÍ]QUESE|C[UÚ]MPLASE)"
+    r"(?:[ 	,]+(?:Y|E)?[ 	,]*(?:PUBL[IÍ]QUESE|NOT[IÍ]F[IÍ]QUESE|C[UÚ]MPLASE|EJEC[UÚ]TESE))*"
+    r"[ 	]*[.…]?[ 	]*$"
+    r"|^[ 	]*DADO\s+EN.{0,120}?a\s+los",
+    re.MULTILINE | re.IGNORECASE,
+)
+
+# Un cierre solo es un cierre si está al final. Si el patrón aparece antes de
+# esta fracción del documento, es una cita dentro del cuerpo, no el cierre.
+FRACCION_MINIMA_DEL_CIERRE = 0.7
+
+# Un trozo corto que no es más que la fórmula, la fecha o la firma.
+PATRON_SOLO_CEREMONIAL = re.compile(
+    r"[\s.,;:—-]*(?:(?:COMUN[IÍ]QUESE|PUBL[IÍ]QUESE|NOT[IÍ]F[IÍ]QUESE|C[UÚ]MPLASE|EJEC[UÚ]TESE|"
+    r"DADO\s+EN|FIRMADO|EL\s+PRESIDENTE|EL\s+MINISTRO)\b[^\n]*[\s.,;:]*)+",
+    re.IGNORECASE,
 )
 
 TAMANIO_MAX = 1500
@@ -47,12 +60,19 @@ class Fragmento:
 
 
 def _limpiar_ceremonial(texto: str) -> str:
-    """Remueve secciones ceremoniales del final del documento."""
-    # Busca el primer match de cierre y elimina TODO lo que sigue
-    match = PATRON_CIERRE.search(texto)
-    if match:
-        return texto[:match.start()].strip()
-    return texto.strip()
+    """Remueve la fórmula de cierre y lo que la sigue, si de verdad está al final.
+
+    Nunca devuelve vacío: si el corte se comiera el documento entero, es señal de
+    que el patrón acertó donde no debía y se conserva el texto original.
+    """
+    texto = texto.strip()
+    if not texto:
+        return texto
+    for match in PATRON_CIERRE.finditer(texto):
+        if match.start() >= len(texto) * FRACCION_MINIMA_DEL_CIERRE:
+            recortado = texto[: match.start()].strip()
+            return recortado or texto
+    return texto
 
 
 def _cortar_respetando_parrafos(texto: str) -> list[str]:
@@ -99,6 +119,16 @@ def _cortar_por_tamanio(texto: str) -> list[str]:
     return partes
 
 
+def _es_solo_ceremonial(texto: str) -> bool:
+    """Un trozo corto que es solo la fórmula de cierre, la fecha o la firma.
+
+    Se comprueba contra el trozo completo, no por subcadena: el filtro anterior
+    descartaba cualquier fragmento que contuviera "FIRMA", y eso incluye
+    "confirma", "firmante" o "firmará".
+    """
+    return bool(PATRON_SOLO_CEREMONIAL.fullmatch(texto.strip()))
+
+
 def fragmentar(doc: Documento) -> list[Fragmento]:
     # Paso 1: Limpiar secciones ceremoniales
     texto_limpio = _limpiar_ceremonial(doc.texto)
@@ -117,27 +147,32 @@ def fragmentar(doc: Documento) -> list[Fragmento]:
         # Sin estructura de artículos: cortar respetando párrafos
         trozos_articulo = _cortar_respetando_parrafos(texto_limpio)
 
-    # Paso 4: Crear fragmentos, filtrando muy pequeños
-    fragmentos = []
-    for i, texto in enumerate(trozos_articulo):
+    # Paso 4: descartar los trozos que no aportan, pero nunca el documento entero
+    utiles = []
+    for texto in trozos_articulo:
         texto = texto.strip()
-        # Descartar fragmentos triviales (ceremonial que se coló)
-        if len(texto) < TAMANIO_MIN:
+        if len(texto) < TAMANIO_MIN and _es_solo_ceremonial(texto):
             continue
-        if any(palabra in texto.upper() for palabra in ["COMUNÍQUESE", "DADO EN", "FIRMA"]):
-            continue
+        utiles.append(texto)
 
-        fragmentos.append(
-            Fragmento(
-                id=f"{doc.id}::frag{i}",
-                documento_id=doc.id,
-                fuente=doc.fuente,
-                identificador_documento=doc.identificador,
-                titulo_documento=doc.titulo,
-                texto=texto,
-                url_original=doc.url_original,
-                orden=i,
-            )
+    # Un documento corto es un documento corto, no basura: si el filtro se lo
+    # llevó todo, se indexa el texto limpio tal cual. Antes, el 12,2% de los
+    # documentos del corpus salía con cero fragmentos y desaparecía del índice.
+    if not utiles:
+        utiles = [texto_limpio.strip()] if texto_limpio.strip() else []
+
+    fragmentos = [
+        Fragmento(
+            id=f"{doc.id}::frag{i}",
+            documento_id=doc.id,
+            fuente=doc.fuente,
+            identificador_documento=doc.identificador,
+            titulo_documento=doc.titulo,
+            texto=texto,
+            url_original=doc.url_original,
+            orden=i,
         )
+        for i, texto in enumerate(utiles)
+    ]
 
     return fragmentos

@@ -102,7 +102,7 @@ Queda pendiente:
    150 preguntas: la diferencia cabe en el ruido del muestreo (McNemar p = 0,40).
    La comparación anterior, que sí daba una caída significativa, comparaba a la
    vez cuantización y hardware —una en GPU y otra en CPU— y quedó retirada.
-   Detalle en `docs/MEDICIONES.md`. Con esto el paquete se queda en ~970 MB en
+   Detalle en `docs/PROJECT_STATE.md`. Con esto el paquete se queda en ~970 MB en
    vez de ~3 GB.
 3. Firma de código e icono propio (hoy usa el icono por defecto de PyInstaller).
 

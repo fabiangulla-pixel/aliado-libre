@@ -5,6 +5,59 @@ extenso y explica el porqué de cada cosa.
 
 ---
 
+## 10-sep-2026 — El reindexado del 9-sep dejó el índice inservible
+
+Medido, no supuesto: **recall@5 = 0,5%** sobre las 200 consultas apartadas
+(`finetune/eval/banco_prueba_200.json`), contra el 33,5% del índice anterior.
+Tres causas independientes, todas del mismo cambio:
+
+1. **El limpiador de ceremonial se comía el documento.** `PATRON_CIERRE` cortaba
+   por `FIRMA`, `MINISTRO`, `PRESIDENTE` y `CONGRESO` sueltos, sin límite de
+   palabra ni ancla de final, y con `DOTALL` se llevaba todo lo que siguiera.
+   "confirma", "firmará" y "el Presidente de la República" disparaban el corte.
+   Sobre el corpus real: **se perdía el 77% de los caracteres** y el **12,2% de
+   los documentos salía con cero fragmentos**, o sea desaparecía del índice.
+   En `gestor_normativo` el 99,75% quedaba truncado a menos de la mitad.
+2. **Los pasajes se codificaron sin el prefijo `passage: `** que e5 necesita,
+   mientras las consultas sí llevan `query: `. El comentario de `index/buscar.py`
+   afirmaba que el índice se construía con él; el script que lo construyó no lo
+   hacía.
+3. **El índice léxico se borró y nunca se reconstruyó.** El script elimina
+   `index/fts_index.db` al empezar y no lo vuelve a crear, así que la búsqueda
+   híbrida perdió su mitad FTS5 — en silencio, porque `_fts` devolvía `None` sin
+   decir nada, con los pesos del RRF calibrados para una fusión que ya no pasaba.
+
+Y el índice **ni siquiera terminó**: 158.000 fragmentos en disco, no los 226.000
+del mensaje del commit. El script borraba el índice bueno antes de empezar, así
+que la corrida interrumpida dejó el proyecto sin índice utilizable.
+
+**Los 20 casos de `revision_juridica_limpia_v2.html` salieron de ese índice. No
+se pueden mandar a la abogada.**
+
+### Arreglado
+
+- `ingest/chunking.py`: fórmulas de cierre ancladas a principio de línea, como
+  frase completa, y solo si aparecen en el último 30% del documento. Ningún
+  documento con texto puede salir con cero fragmentos. Retención medida sobre el
+  corpus real: **99,7% de los caracteres, 0 documentos perdidos** (antes 22,9% y
+  12,2%). Proyección: ~849.000 fragmentos, el mismo orden que el índice sano de
+  718.388.
+- Modelo, colección y prefijos pasan a vivir solo en `index/buscar.py` y los
+  importan `index/build_index.py`, `index/build_fts.py` y `reindexar_con_gpu.py`.
+  Los tres tenían constantes propias: `build_index.py` seguía apuntando al modelo
+  viejo de 384 dimensiones y `build_fts.py` a la colección vieja.
+- `reindexar_con_gpu.py` ya no borra el índice antes de tener uno nuevo, reanuda
+  sobre lo ya indexado, verifica el conteo final y encadena la reconstrucción del
+  FTS5.
+- Falta el índice léxico → `RuntimeWarning`, una vez por proceso.
+- 9 tests de regresión nuevos (chunking y aviso de FTS). **342 en total**, lint y
+  formato limpios.
+- `docs/MEDICIONES.md` se citaba en código y en cinco documentos, y nunca existió
+  (está en `.gitignore`). Las citas vivas apuntan ahora a `docs/PROJECT_STATE.md`.
+
+**Pendiente y bloqueante: reindexar.** Sin eso el programa no busca. El índice en
+disco hoy es el roto.
+
 ## 7-sep-2026 — Cierre para migración a PC MSI
 
 Sesión de infraestructura, sin cambios funcionales.

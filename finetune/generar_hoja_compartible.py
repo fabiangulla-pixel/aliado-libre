@@ -1,17 +1,15 @@
 """Genera HTML profesional para compartir con revisores jurídicos expertos."""
 
+import html as html_lib
 import json
 import pathlib
 import random
-import html as html_lib
 
 # Leer los datos
-auditoria = json.loads(
-    pathlib.Path("finetune/eval/auditoria_metrica.json").read_text(encoding="utf-8")
-)["detalle"]
-candidatos = json.loads(
-    pathlib.Path("finetune/eval/candidatos_prueba.json").read_text(encoding="utf-8")
-)
+auditoria = json.loads(pathlib.Path("finetune/eval/auditoria_metrica.json").read_text(encoding="utf-8"))[
+    "detalle"
+]
+candidatos = json.loads(pathlib.Path("finetune/eval/candidatos_prueba.json").read_text(encoding="utf-8"))
 
 # Seleccionar 20 casos con la misma lógica
 TOPE = 5
@@ -202,7 +200,7 @@ for i, caso in enumerate(muestra, 1):
     <summary>📋 Ver veredicto del juez automático (antes de decidir, ¡no hagas clic!)</summary>
     <p><strong>{veredicto}</strong></p>
     <p style="font-size: 0.9rem; color: #666; margin-top: 0.5rem;">{html_lib.escape(caso["razon"])}</p>
-    <input type="hidden" id="j{i}" value="{'si' if caso['responde'] else 'no'}">
+    <input type="hidden" id="j{i}" value="{"si" if caso["responde"] else "no"}">
   </details>
 </article>
 """
@@ -302,11 +300,9 @@ document.addEventListener("DOMContentLoaded", actualizar);
 </html>
 """
 
-pathlib.Path("finetune/eval/revision_juridica_compartible.html").write_text(
-    html_out, encoding="utf-8"
-)
+pathlib.Path("finetune/eval/revision_juridica_compartible.html").write_text(html_out, encoding="utf-8")
 print("✓ HTML profesional para compartir creado")
-print(f"  Archivo: finetune/eval/revision_juridica_compartible.html")
+print("  Archivo: finetune/eval/revision_juridica_compartible.html")
 print(f"  Tamaño: {len(html_out.encode()) // 1024} KB")
 print("  Características:")
 print("    • Instrucciones claras en la parte superior")

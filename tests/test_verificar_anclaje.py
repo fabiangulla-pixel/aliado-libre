@@ -4,7 +4,7 @@ Medido contra las 150 respuestas reales ya juzgadas
 (finetune/eval/resultados.json), no marca ni una sola respuesta buena: cero
 falsos positivos. Ese es el requisito que estos tests protegen — NUNCA marcar
 una respuesta buena, aunque cueste dejar pasar malas. Las cifras completas
-están en docs/MEDICIONES.md, que no se versiona.
+están en docs/PROJECT_STATE.md.
 """
 
 from __future__ import annotations
