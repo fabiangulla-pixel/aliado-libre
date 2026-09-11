@@ -29,7 +29,7 @@ alcance el objetivo fijado.
 
 **Lo que puedes hacer hoy**
 
-- Buscar en 718.388 fragmentos de 7 entidades colombianas, con citas verificables.
+- Buscar en 928.086 fragmentos de 7 entidades colombianas, con citas verificables.
 - **Acotar por entidad** (solo la SIC, solo la DIAN, o varias cruzadas) y ver qué
   fuentes están cubiertas y **cuáles no, con el motivo**.
 - **Apartar fuentes en un tablero** y exportarlas a `.md` o `.txt` para trabajar en tu
@@ -91,7 +91,7 @@ index/
   build_index.py  construye embeddings + índice Chroma a partir de data/raw/
   build_fts.py     construye el índice léxico FTS5 (SQLite, en disco) a partir de Chroma
   buscar.py        búsqueda híbrida (vectorial + FTS5, fusión RRF ponderada — RAM ~5,1GB
-                    de PICO con los 718k fragmentos, antes ~10GB con BM25 en memoria.
+                    de PICO con los 928k fragmentos, antes ~10GB con BM25 en memoria.
                     Los 2,3GB que decía antes eran del embedding MiniLM viejo Y medidos
                     solo al arrancar: el HNSW de Chroma se mapea a memoria y crece al
                     buscar, así que hay que medir DESPUÉS de servir consultas)
@@ -109,16 +109,16 @@ Instalación desde cero:
 
 ```sh
 py -3.12 -m venv venv
-./venv/Scripts/python.exe -m pip install -r requirements.txt      # para usarlo
-./venv/Scripts/python.exe -m pip install -r requirements-dev.txt  # además, para desarrollar
-./venv/Scripts/python.exe scripts/install_hooks.py                # hook de pre-commit
+./.venv/Scripts/python.exe -m pip install -r requirements.txt      # para usarlo
+./.venv/Scripts/python.exe -m pip install -r requirements-dev.txt  # además, para desarrollar
+./.venv/Scripts/python.exe scripts/install_hooks.py                # hook de pre-commit
 ```
 
 **Si el equipo tiene GPU NVIDIA, instala torch aparte y ANTES**, o `pip` traerá la
 rueda de PyPI, que en Windows es solo CPU y deja la tarjeta sin usar:
 
 ```sh
-./venv/Scripts/python.exe -m pip install torch==2.13.0 --index-url https://download.pytorch.org/whl/cu130
+./.venv/Scripts/python.exe -m pip install torch==2.13.0 --index-url https://download.pytorch.org/whl/cu130
 ```
 
 Esa rueda exige **driver NVIDIA 580 o superior**. Con uno anterior, `import torch`
@@ -154,23 +154,23 @@ Al descargarlo a mano, dos avisos que cuestan horas:
   índice: para consultarlo no hacen falta.
 
 Comprueba el índice descargado abriéndolo, no por su tamaño: `PRAGMA quick_check` en
-`chroma.sqlite3` y `fts_index.db`, y que las tres estructuras den 718.388 fragmentos.
+`chroma.sqlite3` y `fts_index.db`, y que las tres estructuras den 928.086 fragmentos.
 
 Comprobar que todo está bien:
 
 ```sh
-./venv/Scripts/python.exe -m pytest tests/ -q     # 278 tests
+./.venv/Scripts/python.exe -m pytest tests/ -q     # 278 tests
 check.bat                                          # lint + formato + tests
 ```
 
 Comandos de uso:
 
 ```
-./venv/Scripts/python.exe index/build_index.py     # construir/actualizar índice vectorial (Chroma)
-./venv/Scripts/python.exe index/build_fts.py       # construir el índice léxico (FTS5) a partir de Chroma
-./venv/Scripts/python.exe index/buscar.py "consulta"  # probar búsqueda por CLI
-./venv/Scripts/python.exe mcp_server/server.py      # levantar servidor MCP
-./venv/Scripts/python.exe gui/server.py             # GUI web local (abre navegador solo)
+./.venv/Scripts/python.exe index/build_index.py     # construir/actualizar índice vectorial (Chroma)
+./.venv/Scripts/python.exe index/build_fts.py       # construir el índice léxico (FTS5) a partir de Chroma
+./.venv/Scripts/python.exe index/buscar.py "consulta"  # probar búsqueda por CLI
+./.venv/Scripts/python.exe mcp_server/server.py      # levantar servidor MCP
+./.venv/Scripts/python.exe gui/server.py             # GUI web local (abre navegador solo)
 ```
 
 La GUI (`gui/server.py`) es la forma recomendada de uso diario: búsqueda

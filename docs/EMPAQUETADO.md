@@ -12,7 +12,7 @@ build.bat
 o, equivalente:
 
 ```
-./venv/Scripts/python.exe scripts/build_exe.py
+./.venv/Scripts/python.exe scripts/build_exe.py
 ```
 
 Siempre con el intérprete del venv (Python 3.12). El Python del sistema (3.14)

@@ -27,7 +27,7 @@ PATRON_CIERRE = re.compile(
     r"^[ 	]*(?:COMUN[IÍ]QUESE|PUBL[IÍ]QUESE|NOT[IÍ]F[IÍ]QUESE|C[UÚ]MPLASE)"
     r"(?:[ 	,]+(?:Y|E)?[ 	,]*(?:PUBL[IÍ]QUESE|NOT[IÍ]F[IÍ]QUESE|C[UÚ]MPLASE|EJEC[UÚ]TESE))*"
     r"[ 	]*[.…]?[ 	]*$"
-    r"|^[ 	]*DADO\s+EN.{0,120}?a\s+los",
+    r"|^[ 	]*DADO\s+EN\b.{0,120}?\ba\s+los\b",
     re.MULTILINE | re.IGNORECASE,
 )
 
@@ -76,23 +76,36 @@ def _limpiar_ceremonial(texto: str) -> str:
 
 
 def _cortar_respetando_parrafos(texto: str) -> list[str]:
-    """Corta un artículo por párrafos antes de usar tamaño."""
+    """Corta un articulo por parrafos antes de usar tamano.
+
+    Ningun parrafo se descarta. La version del 9-sep-2026 filtraba los de menos
+    de TAMANIO_MIN caracteres y los BORRABA: en texto juridico esos parrafos son
+    numerales, definiciones y clausulas operativas. Medido sobre el corpus real,
+    `legalize_co_github` conservaba el 82,3% de su texto y `supersociedades` el
+    91,7%; el agregado parecia sano solo porque el solape de
+    `_cortar_por_tamanio` duplica texto en otras fuentes y compensaba la perdida.
+    Los parrafos cortos ahora se agrupan con el siguiente, que es lo que se
+    pretendia.
+    """
     if len(texto) <= TAMANIO_MAX:
         return [texto]
 
-    # Primero intenta cortar por párrafos
-    parrafos = PATRON_PARRAFO.split(texto)
-    parrafos = [p.strip() for p in parrafos if p.strip() and len(p.strip()) >= TAMANIO_MIN]
-
+    parrafos = [p.strip() for p in PATRON_PARRAFO.split(texto) if p.strip()]
     if len(parrafos) <= 1:
-        # Sin párrafos claros: corta por tamaño
         return _cortar_por_tamanio(texto)
 
-    # Agrupa párrafos para no exceder TAMANIO_MAX
-    bloques = []
+    bloques: list[str] = []
     bloque_actual = ""
     for parrafo in parrafos:
-        if len(bloque_actual) + len(parrafo) + 1 <= TAMANIO_MAX:
+        # Un parrafo que por si solo pasa del tope se trocea por tamano: antes
+        # se emitia entero y el fragmento excedia el limite declarado.
+        if len(parrafo) > TAMANIO_MAX:
+            if bloque_actual:
+                bloques.append(bloque_actual)
+                bloque_actual = ""
+            bloques.extend(_cortar_por_tamanio(parrafo))
+            continue
+        if len(bloque_actual) + len(parrafo) + 2 <= TAMANIO_MAX:
             bloque_actual += ("\n\n" if bloque_actual else "") + parrafo
         else:
             if bloque_actual:

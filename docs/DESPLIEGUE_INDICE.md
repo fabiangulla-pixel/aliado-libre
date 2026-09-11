@@ -253,7 +253,7 @@ administrarlo a mano; el servidor es stdlib puro y no pide nada más.
 
 ```sh
 export ALIADO_INDICE_TOKEN=lo-que-sea
-./venv/Scripts/python.exe servidor_indice/server.py     # escucha en 8800
+./.venv/Scripts/python.exe servidor_indice/server.py     # escucha en 8800
 ```
 
 Sin `PORT` usa el 8800. En Render usa `$PORT`.
@@ -275,3 +275,27 @@ curl -s -X POST http://localhost:8800/buscar \
   plan del servidor suspende por inactividad, el primer usuario después de una
   pausa verá el mensaje de timeout.
 - El token es único para todos los clientes. No hay revocación por usuario.
+
+---
+
+## Cifras remedidas el 11-sep-2026 (indice de 928.086 fragmentos)
+
+**Las cifras de arriba quedaron obsoletas**: se calcularon sobre el indice de
+718.388 fragmentos. El reindexado del 10/11-sep lo dejo en **928.086** (+29%).
+Medido en el MSI, con el reranker apagado (que es como corre el servidor):
+
+| | antes (718.388) | ahora (928.086) |
+|---|---|---|
+| RAM del proceso de busqueda | 5,12 GB | **6,43 GB** |
+| Disco (Chroma) | — | **14 GB** |
+| Disco (FTS5) | — | **2,1 GB** |
+| Disco total | ~21 GB | **16,1 GB** |
+
+La RAM sube un 26% y el disco BAJA: el indice viejo ocupaba 19,8 GB en Chroma.
+La conclusion de no contratar sin releer esto **sigue en pie**, y con mas razon
+en RAM: cualquier plan dimensionado para 5,12 GB se queda corto.
+
+**Pendiente antes de decidir hosting:** el indice actual se construyo con un
+troceo que borraba los parrafos de menos de 150 caracteres (ver CHANGELOG del
+11-sep). Corregido en codigo, pero **habra que reindexar**, y eso movera otra vez
+estas cifras al alza.

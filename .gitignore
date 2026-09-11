@@ -29,3 +29,4 @@ docs/MEDICIONES.md
 # Bitacoras de corridas largas (el plan si se versiona)
 _run/*.log
 index/chroma_db.roto_9sep/
+_run/.ultimo_conteo

@@ -3,6 +3,7 @@
 
 import json
 import pathlib
+import re
 import sys
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
@@ -47,9 +48,22 @@ for i, consulta in enumerate(CONSULTAS_AUDIT, 1):
         print("SIN RESULTADOS")
         continue
 
-    # Tomar el primero
+    # Los CINCO resultados, no solo el primero: la abogada juzga si la busqueda
+    # responde la pregunta, y eso no se puede juzgar con un solo documento. La
+    # hoja anterior mostraba top-1 y ademas no llegaba a imprimir los documentos.
     primer = resultados[0]
     caso = {
+        "documentos": [
+            {
+                "orden": j,
+                "fuente": r.get("fuente", ""),
+                "identificador": r.get("identificador_documento", ""),
+                "titulo": r.get("titulo_documento", ""),
+                "texto": r.get("texto", ""),
+                "longitud": len(r.get("texto", "")),
+            }
+            for j, r in enumerate(resultados[:5], 1)
+        ],
         "consulta": consulta,
         "documento": primer.get("titulo_documento", ""),
         "fuente": primer.get("fuente", ""),
@@ -63,8 +77,11 @@ for i, consulta in enumerate(CONSULTAS_AUDIT, 1):
     casos.append(caso)
 
     # Verificar si es basura
-    es_basura = len(primer.get("texto", "")) < 200 and any(
-        palabra in primer.get("texto", "").upper() for palabra in ["COMUNÍQUESE", "DADO EN", "FIRMA"]
+    # Frase completa, no subcadena: "FIRMA" esta dentro de "confirma" y "firmara",
+    # que es el mismo fallo que mutilo el corpus entero el 9-sep-2026.
+    texto_primero = primer.get("texto", "").strip().upper()
+    es_basura = len(texto_primero) < 200 and bool(
+        re.match(r"^[\s.,;:-]*(COMUNÍQUESE|COMUNIQUESE|DADO\s+EN|PUBLÍQUESE|PUBLIQUESE)", texto_primero)
     )
 
     estado = "OK" if not es_basura else "BASURA AUN PRESENTE"

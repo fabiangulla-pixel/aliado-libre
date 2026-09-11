@@ -16,7 +16,7 @@
 respuestas está en calibración y no alcanza el umbral de acierto fijado.
 
 - `pytest tests/ -q` → **342 pasan, 0 fallan** (84 s), lint y formato limpios.
-- Búsqueda operativa (con el índice sano) sobre **718.388 fragmentos** de 7 entidades colombianas,
+- Búsqueda operativa (con el índice sano) sobre **928.086 fragmentos** de 7 entidades colombianas,
   con citas verificables.
 - Servidor MCP (`buscar_normativa()`) operativo en modo local (`stdio`).
 - GUI web local operativa; `.exe` de 29 MB + modelo.
@@ -109,19 +109,19 @@ embedding anterior. Eso descarta el plan Render Pro de 4 GB; ver
 ## Comandos
 
 ```bash
-./venv/Scripts/python.exe -m pip install -r requirements.txt       # uso
-./venv/Scripts/python.exe -m pip install -r requirements-dev.txt   # desarrollo
-./venv/Scripts/python.exe scripts/install_hooks.py                 # hook pre-commit
+./.venv/Scripts/python.exe -m pip install -r requirements.txt       # uso
+./.venv/Scripts/python.exe -m pip install -r requirements-dev.txt   # desarrollo
+./.venv/Scripts/python.exe scripts/install_hooks.py                 # hook pre-commit
 
-./venv/Scripts/python.exe -m pytest tests/ -q     # 272 pruebas, 75 s
+./.venv/Scripts/python.exe -m pytest tests/ -q     # 344 pruebas, 75 s
 check.bat                                          # lint + formato + tests
 make check                                         # equivalente vía Makefile
 
-./venv/Scripts/python.exe index/build_index.py        # índice vectorial (Chroma)
-./venv/Scripts/python.exe index/build_fts.py          # índice léxico (FTS5)
-./venv/Scripts/python.exe index/buscar.py "consulta"  # probar búsqueda
-./venv/Scripts/python.exe mcp_server/server.py        # servidor MCP
-./venv/Scripts/python.exe gui/server.py               # GUI web local
+./.venv/Scripts/python.exe index/build_index.py        # índice vectorial (Chroma)
+./.venv/Scripts/python.exe index/build_fts.py          # índice léxico (FTS5)
+./.venv/Scripts/python.exe index/buscar.py "consulta"  # probar búsqueda
+./.venv/Scripts/python.exe mcp_server/server.py        # servidor MCP
+./.venv/Scripts/python.exe gui/server.py               # GUI web local
 ```
 
 **Empaquetado:** `aliado_libre.spec` (PyInstaller) → `.exe` de 29 MB.

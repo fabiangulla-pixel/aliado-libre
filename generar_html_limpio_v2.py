@@ -1,23 +1,35 @@
 #!/usr/bin/env python3
+import html as _html
 import json
 import pathlib
+
+
+def escapar(texto: str) -> str:
+    return _html.escape(texto or "")
+
 
 casos_data = json.loads(pathlib.Path("finetune/eval/20_casos_regenerados.json").read_text(encoding="utf-8"))
 casos = casos_data["casos"]
 
-cand_data = json.loads(pathlib.Path("finetune/eval/candidatos_prueba.json").read_text(encoding="utf-8"))
-cand_map = {c["consulta"]: c for c in cand_data}
+# Los documentos salen del propio JSON regenerado, o sea del indice vigente.
+# Antes se leian de candidatos_prueba.json, que son los candidatos del indice
+# VIEJO: la hoja mezclaba una cabecera del indice nuevo con documentos de otro.
 
 # Construir casos con documentos
 casos_con_docs = []
 for i, caso in enumerate(casos, 1):
-    fuente = cand_map.get(caso["consulta"], {})
-    docs = fuente.get("candidatos", [])[:5]
+    docs = caso.get("documentos", [])[:5]
 
     docs_html = ""
-    for j, d in enumerate(docs, 1):
-        texto = d.get("texto", "")[:1500]
-        docs_html += f"<details><summary>Documento {j}</summary><pre>{texto}</pre></details>"
+    for d in docs:
+        texto = escapar(d.get("texto", "")[:1500])
+        cabecera = escapar(f"{d.get('identificador', '')} - {d.get('titulo', '')}"[:110])
+        docs_html += (
+            f"<details><summary>Documento {d.get('orden', '?')}: {cabecera}</summary>"
+            f"<pre>{texto}</pre></details>"
+        )
+    if not docs_html:
+        docs_html = "<p class='aviso'>SIN DOCUMENTOS: la busqueda no devolvio nada para esta consulta.</p>"
 
     casos_con_docs.append(
         {
@@ -58,6 +70,10 @@ html_casos = "\n".join(
     <div style="background: #f9f7f3; padding: 0.8rem; border-radius: 3px; margin-bottom: 0.8rem;">
       <p style="margin: 0; font-size: 0.9rem; line-height: 1.5;">{c["fragmento"]}</p>
       <p style="margin: 0.4rem 0 0; font-size: 0.75rem; color: #999;">[{c["longitud"]} caracteres]</p>
+    </div>
+    <div class="docs">
+      <p class="docs-titulo">Los 5 documentos que devolvio la busqueda:</p>
+      {c["docs_html"]}
     </div>
     <div class="btns">
       <button onclick="marcar({c["num"]}, 'si')">Si responde</button>

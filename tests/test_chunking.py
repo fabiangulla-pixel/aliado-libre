@@ -1,4 +1,4 @@
-from ingest.chunking import fragmentar
+from ingest.chunking import TAMANIO_MAX, fragmentar
 from ingest.schema import Documento
 
 
@@ -92,3 +92,48 @@ def test_la_formula_al_principio_no_es_un_cierre():
 def test_ningun_documento_con_texto_sale_sin_fragmentos():
     for texto in ("Resolución breve.", "ARTÍCULO 1. Corto.", "Firma del ponente.", "El Presidente."):
         assert fragmentar(_doc(texto)), f"documento perdido: {texto!r}"
+
+
+def test_la_formula_dado_en_tambien_se_recorta():
+    """La rama "DADO EN ... a los" del patron de cierre tiene que funcionar.
+
+    Estuvo muerta sin que nadie lo notara: al escribirla, los `\b` acabaron como
+    caracteres de retroceso reales (0x08) dentro del archivo, asi que la rama
+    exigia un byte que ningun documento contiene y nunca coincidia. Los tests
+    existentes solo ejercitaban la rama de COMUNIQUESE, asi que pasaban.
+    """
+    texto = _CUERPO + "\nDADO EN BOGOTA, D.C., a los 5 dias del mes de marzo de 2020.\nEl Ministro"
+    fragmentos = fragmentar(_doc(texto))
+    unido = " ".join(f.texto for f in fragmentos)
+    assert "debe sobrevivir" in unido
+    assert "DADO EN" not in unido.upper()
+
+
+def test_el_troceo_no_borra_texto():
+    """Trocear no puede perder contenido, solo repartirlo (o duplicarlo por solape).
+
+    La version del 9-sep-2026 descartaba los parrafos de menos de 150 caracteres
+    dentro de un articulo largo. En texto juridico esos parrafos son numerales y
+    clausulas operativas. Sobre el corpus real, `legalize_co_github` conservaba
+    el 82,3% de su texto; el agregado no lo delataba porque el solape duplica
+    texto en otras fuentes y compensaba la perdida.
+    """
+    parrafos = [
+        "ARTÍCULO 5. Definiciones aplicables al presente decreto. " + "Texto de relleno. " * 60,
+        "1. Beneficiario.",  # corto a proposito: antes desaparecia
+        "2. Autoridad competente.",
+        "PARÁGRAFO. La entidad reglamentará la materia. " + "Mas relleno. " * 60,
+        "3. Vigencia inmediata.",
+    ]
+    texto = "\n\n".join(parrafos)
+    fragmentos = fragmentar(_doc(texto))
+    unido = " ".join(f.texto for f in fragmentos)
+    for corto in ("1. Beneficiario.", "2. Autoridad competente.", "3. Vigencia inmediata."):
+        assert corto in unido, f"el troceo borro un parrafo corto: {corto!r}"
+
+
+def test_ningun_fragmento_supera_el_tope_declarado():
+    """Un parrafo mas largo que el tope se trocea; antes se emitia entero."""
+    texto = "ARTÍCULO 1. " + ("palabra " * 900)  # un solo parrafo de ~7.200 caracteres
+    for f in fragmentar(_doc(texto)):
+        assert len(f.texto) <= TAMANIO_MAX + 1, f"fragmento de {len(f.texto)} caracteres"
