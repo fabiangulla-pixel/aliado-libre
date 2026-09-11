@@ -25,3 +25,7 @@ dist/
 
 # Cifras de calidad: no se publican hasta alcanzar el objetivo de precision
 docs/MEDICIONES.md
+
+# Bitacoras de corridas largas (el plan si se versiona)
+_run/*.log
+index/chroma_db.roto_9sep/
