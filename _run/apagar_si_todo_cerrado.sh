@@ -37,4 +37,6 @@ if [ "$fallos" -gt 0 ]; then
 fi
 echo "Todas las condiciones se cumplen. Apagando en 90 segundos."
 echo "Para cancelar: shutdown /a"
-shutdown /s /t 90 /c "Aliado Libre: trabajo de la noche terminado"
+# MSYS_NO_PATHCONV: Git Bash convierte /s y /t en rutas de Windows antes de
+# pasarlas, y shutdown.exe responde imprimiendo su ayuda sin apagar nada.
+MSYS_NO_PATHCONV=1 shutdown /s /t 90 /c "Aliado Libre: trabajo de la noche terminado"
