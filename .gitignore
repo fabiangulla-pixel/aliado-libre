@@ -30,3 +30,9 @@ docs/MEDICIONES.md
 _run/*.log
 index/chroma_db.roto_9sep/
 _run/.ultimo_conteo
+
+# Modelos entrenados: 2,2 GB por modelo. Viven en disco, no en el historial.
+modelos/
+# Indices apartados al reindexar (copias de seguridad, decenas de GB).
+index/chroma_db.*/
+_run/.conteo*

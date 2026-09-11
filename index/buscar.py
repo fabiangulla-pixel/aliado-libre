@@ -38,12 +38,36 @@ DB_FTS = Path(__file__).resolve().parent / "fts_index.db"
 COLECCION = os.environ.get("ALIADO_COLECCION", "aliado_libre_multilingual_e5_large")
 
 # Los modelos e5 se entrenaron con prefijos que distinguen la consulta del
-# pasaje, y son asimétricos a propósito: sin ellos rinden bastante peor. El
-# índice debe construirse con "passage: ". Los dos prefijos viven aquí y los
-# importan los indexadores: el 9-sep-2026 el reindexado los omitió al pasar por
-# su propio script, y el índice quedó desalineado con el buscador sin avisar.
-PREFIJO_CONSULTA = "query: " if "e5" in MODELO_EMBEDDINGS.lower() else ""
-PREFIJO_PASAJE = "passage: " if "e5" in MODELO_EMBEDDINGS.lower() else ""
+# pasaje, y son asimetricos a proposito: sin ellos rinden bastante peor. El
+# indice debe construirse con "passage: ". Los dos prefijos viven aqui y los
+# importan los indexadores: el 9-sep-2026 el reindexado los omitio al pasar por
+# su propio script, y el indice quedo desalineado con el buscador sin avisar.
+#
+# La deteccion por subcadena basta para un identificador del Hub, pero NO para
+# una ruta local: un modelo afinado guardado en "modelos/afinado_v2" perderia
+# los prefijos sin decir nada, que es el mismo fallo mudo de aquel dia. Por eso
+# ALIADO_PREFIJOS permite fijarlos a mano ("e5" o "ninguno"), y si el modelo es
+# una ruta local sin pista en el nombre, se avisa en vez de suponer.
+_PREFIJOS = os.environ.get("ALIADO_PREFIJOS", "").strip().lower()
+if _PREFIJOS in ("e5", "si", "sí"):
+    _USA_PREFIJOS = True
+elif _PREFIJOS in ("ninguno", "no"):
+    _USA_PREFIJOS = False
+else:
+    _USA_PREFIJOS = "e5" in MODELO_EMBEDDINGS.lower()
+    _es_ruta = os.sep in MODELO_EMBEDDINGS or "/" in MODELO_EMBEDDINGS
+    if _es_ruta and not _USA_PREFIJOS:
+        warnings.warn(
+            f"El modelo de embeddings es una ruta local ({MODELO_EMBEDDINGS}) sin 'e5' en el "
+            "nombre, asi que NO se aplicaran los prefijos query:/passage:. Si es un e5, fijar "
+            "ALIADO_PREFIJOS=e5; si no lo es, ALIADO_PREFIJOS=ninguno para silenciar esto.",
+            RuntimeWarning,
+            stacklevel=2,
+        )
+
+PREFIJO_CONSULTA = "query: " if _USA_PREFIJOS else ""
+PREFIJO_PASAJE = "passage: " if _USA_PREFIJOS else ""
+
 K_RRF = 60
 # Pesos de la fusión RRF, recalibrados el 6-sep-2026 sobre el índice de
 # e5-large. La calibración anterior (BM25 x2) era CORRECTA para el índice viejo

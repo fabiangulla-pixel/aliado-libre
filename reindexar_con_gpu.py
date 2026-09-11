@@ -9,11 +9,29 @@ from pathlib import Path
 os.environ.setdefault("HF_HUB_OFFLINE", "1")
 
 import chromadb
+import torch
 from sentence_transformers import SentenceTransformer
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from ingest.chunking import fragmentar
 from ingest.schema import Documento
+
+# TF32 solo al INDEXAR. Medido el 11-sep-2026 sobre 3.000 pasajes y 60 consultas
+# reales, con las consultas codificadas siempre en fp32 estricto (que es como
+# corre la busqueda):
+#
+#   fp32 estricto   19 pasajes/s   (referencia)
+#   TF32            32 pasajes/s   conjunto top-5 identico 60/60, top-40 92%
+#   fp16            78 pasajes/s   conjunto top-5 solo 51/60, top-40 36/60
+#
+# fp16 queda descartado: cambia QUE documentos se recuperan en el 15% de las
+# consultas, y eso no es una optimizacion sino otro indice. TF32 no cambia el
+# conjunto de los cinco primeros, que es lo que mide el recall@5; si altera el
+# top-40 en un 8% de casos, en la cola de la ventana del reranker.
+torch.backends.cuda.matmul.allow_tf32 = True
+torch.backends.cudnn.allow_tf32 = True
+torch.set_float32_matmul_precision("high")
+
 
 DIR_INDICE = Path(__file__).resolve().parent / "index" / "chroma_db"
 DB_FTS = Path(__file__).resolve().parent / "index" / "fts_index.db"
