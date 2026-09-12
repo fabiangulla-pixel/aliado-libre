@@ -1,14 +1,20 @@
 # PROJECT_STATE — Aliado Libre
 
-Última verificación: **10-sep-2026**, en el MSI. Comprobado, no recordado.
+Última verificación: **12-sep-2026**, en el MSI. Comprobado, no recordado.
 
-> 🔴 **El índice en disco no sirve.** El reindexado del 9-sep-2026 quedó a
-> medias (158.000 fragmentos de 226.000 anunciados), con el texto mutilado por
-> un fallo del chunking, sin el prefijo `passage: ` y sin índice léxico.
-> Medido: **recall@5 = 0,5%**. El chunking ya está arreglado y verificado
-> (99,7% del corpus conservado, 0 documentos perdidos), pero **hay que
-> reindexar** — unas 849.000 fragmentos — antes de que el programa vuelva a
-> buscar. Detalle en `docs/SESSION_LOG.md`.
+> ✅ **El índice funciona.** Reindexado completo el 12-sep-2026 a las 04:38:
+> **1.049.705 fragmentos** + FTS5 cuadrando, corpus `e422ffbae7186cb8`
+> (145.560 documentos). Recall@5 **36,5%** con reranker, 24,5% sin.
+>
+> ⚠️ **No comparar con el 33,5% / 43,5% del 7-sep-2026**: aquella cifra salió de
+> un corpus más pequeño y se retiró como línea base el 12-sep. El porqué, en
+> `docs/MEDICIONES.md`; desde ahora el corpus y el troceo quedan grabados en los
+> metadatos del índice para que esto no se pueda repetir.
+>
+> 🔶 Pendiente de decisión humana: la **revisión de 20 casos**
+> (`finetune/eval/revision_humana.html`) sigue sin hacerse desde el 7-sep. Hasta
+> que se haga, el 93% de punta a punta y el 86% de utilidad real son hipótesis,
+> no resultados, y no deben publicarse.
 
 ## Estado funcional
 
@@ -69,8 +75,10 @@ en lenguaje corriente y el pasaje en jurídico. **La única palanca sin probar e
 enseñarles el dominio**: el material para afinar el embedding está listo (936
 pares, `finetune/data/pares_embedding.jsonl`) y el notebook también.
 
-Las cifras completas viven aquí; `docs/MEDICIONES.md` nunca llegó a existir
-y se citaba desde el código (10-sep-2026).
+Las cifras completas viven en **`docs/MEDICIONES.md`** (creado el 12-sep-2026;
+no se versiona, porque recoge resultados sin revisión humana). Empieza con la
+regla de comparación: dos recalls solo valen uno contra otro si salieron del
+mismo corpus y del mismo troceo.
 
 ### Cobertura del corpus
 
@@ -96,7 +104,7 @@ tiene algo la app debe decirlo, distinguiendo "no está en el índice" de "no s�
 - `mcp_server/server.py` — servidor MCP (API `mcp` 2.x)
 - `servidor_indice/` — índice remoto (Docker, Render); ver `docs/DEPLOY.md`
 - `finetune/` — LoRA del modelo propio y afinado del embedding
-- `tests/` — 272 pruebas
+- `tests/` — 368 pruebas
 
 Tres modos de uso, los elige el usuario según su máquina: todo local · modelo
 local + índice en la nube · servidor MCP.

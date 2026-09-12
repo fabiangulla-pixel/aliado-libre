@@ -87,7 +87,7 @@ Qué gana: recall@5 de 33,5% a 41,0% y @8 de 37,5% a 48,5%, sobre 200 consultas
 que no se usaron para elegir nada (`docs/PROJECT_STATE.md`). Es la única mejora de
 recuperación confirmada en datos apartados que tiene el proyecto.
 
-Qué cuesta: **~57 s por consulta en CPU** y **~2,3 GB de RAM** además de los 5,12
+Qué cuesta: **~57 s por consulta en CPU** y **~2,3 GB de RAM** además de los 6,43
 del índice. En una máquina sin GPU eso convierte una búsqueda de 2 s en una de un
 minuto: encenderlo sin GPU solo tiene sentido si se prefiere esperar a fallar. Con
 GPU son 1,5 s por consulta (medido en una RTX 5080 el 9-sep-2026).
@@ -166,6 +166,11 @@ sin avisar.
 
 ## RAM — medido con e5-large el 7-sep-2026
 
+> ⚠️ **Cifra superada.** El índice de hoy pide **6,43 GB** (remedido el
+> 11-sep-2026 y confirmado el 12-sep; ver el apartado final de este documento).
+> Lo que sigue se conserva porque explica el método de medición y el desglose,
+> no porque el número siga vigente. Para dimensionar un plan, usar 6,43 GB.
+
 **Pico: 5,12 GB de RSS.** Medido en el proceso real, cargando el índice y
 sirviendo ocho consultas de verdad:
 
@@ -205,8 +210,9 @@ contratar.
 | | | **Total** | **~180 USD/mes** |
 
 Los tiers de Render son Starter 7 USD (0,5 GB), Standard 25 USD (2 GB) y Pro
-85 USD (4 GB). **Con 5,12 GB medidos, Pro tampoco alcanza**: hay que subir al
-siguiente escalón. Verifica el precio exacto antes de contratar; lo que importa
+85 USD (4 GB). **Con 6,43 GB medidos, Pro tampoco alcanza**: hay que subir al
+siguiente escalón, y el margen es mayor de lo que decía la cifra de 5,12 GB
+(medida el 7-sep sobre un índice más pequeño; ver el apartado final). Verifica el precio exacto antes de contratar; lo que importa
 aquí es el orden de magnitud, que pasó de "caro" a "inviable para un proyecto
 gratuito".
 
@@ -284,18 +290,18 @@ curl -s -X POST http://localhost:8800/buscar \
 718.388 fragmentos. El reindexado del 10/11-sep lo dejo en **928.086** (+29%).
 Medido en el MSI, con el reranker apagado (que es como corre el servidor):
 
-| | antes (718.388) | ahora (928.086) |
-|---|---|---|
-| RAM del proceso de busqueda | 5,12 GB | **6,43 GB** |
-| Disco (Chroma) | — | **14 GB** |
-| Disco (FTS5) | — | **2,1 GB** |
-| Disco total | ~21 GB | **16,1 GB** |
+| | 7-sep (718.388) | 11-sep (928.086) | **12-sep (1.049.705)** |
+|---|---|---|---|
+| RAM del proceso de busqueda | 5,12 GB | 6,43 GB | **6,43 GB** |
+| Disco (Chroma) | 19,8 GB | 14 GB | **15,0 GB** |
+| Disco (FTS5) | — | 2,1 GB | **2,2 GB** |
+| Disco total | ~21 GB | 16,1 GB | **17,2 GB** |
 
-La RAM sube un 26% y el disco BAJA: el indice viejo ocupaba 19,8 GB en Chroma.
-La conclusion de no contratar sin releer esto **sigue en pie**, y con mas razon
-en RAM: cualquier plan dimensionado para 5,12 GB se queda corto.
+**Estas son las cifras definitivas**: el reindexado que quedaba pendiente el
+11-sep terminó el 12-sep-2026 a las 04:38 y el índice ya no va a moverse por esa
+vía. La conclusión de no contratar sin releer esto **sigue en pie**, y con más
+razón en RAM: cualquier plan dimensionado para 5,12 GB se queda corto.
 
-**Pendiente antes de decidir hosting:** el indice actual se construyo con un
-troceo que borraba los parrafos de menos de 150 caracteres (ver CHANGELOG del
-11-sep). Corregido en codigo, pero **habra que reindexar**, y eso movera otra vez
-estas cifras al alza.
+Ojo al comparar la fila del 7-sep: salió de un corpus más pequeño, no solo de
+otro troceo (ver `docs/MEDICIONES.md`). Sirve para ver la tendencia, no para
+calcular un crecimiento por fragmento.

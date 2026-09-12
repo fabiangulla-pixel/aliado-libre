@@ -33,8 +33,32 @@ from sentence_transformers import SentenceTransformer
 # Modelo y colección se pueden cambiar por variable de entorno para poder
 # comparar un índice nuevo contra el actual sin tocar código ni pisar nada.
 MODELO_EMBEDDINGS = os.environ.get("ALIADO_MODELO_EMBEDDINGS", "intfloat/multilingual-e5-large")
-DIR_INDICE = Path(__file__).resolve().parent / "chroma_db"
-DB_FTS = Path(__file__).resolve().parent / "fts_index.db"
+# Las rutas tambien: construir un indice alternativo y medirlo al lado del de
+# produccion es la unica forma de cambiar UNA variable del troceo o del modelo
+# sin quedarse sin busqueda mientras dura el experimento. Si se da una sola, se
+# deriva la otra al lado, para que nunca se mezcle el Chroma de un indice con el
+# FTS5 de otro: esa mezcla es silenciosa y falsea cualquier medicion.
+_DIR_INDICE_ENV = os.environ.get("ALIADO_DIR_INDICE", "").strip()
+_DB_FTS_ENV = os.environ.get("ALIADO_DB_FTS", "").strip()
+if _DIR_INDICE_ENV and not _DB_FTS_ENV:
+    DIR_INDICE = Path(_DIR_INDICE_ENV).expanduser().resolve()
+    DB_FTS = DIR_INDICE.with_name(DIR_INDICE.name + "_fts.db")
+elif _DB_FTS_ENV and not _DIR_INDICE_ENV:
+    raise ValueError(
+        "ALIADO_DB_FTS sin ALIADO_DIR_INDICE: se estaria midiendo el FTS5 de un "
+        "indice contra el Chroma de otro. Definir las dos, o ninguna."
+    )
+else:
+    DIR_INDICE = (
+        Path(_DIR_INDICE_ENV).expanduser().resolve()
+        if _DIR_INDICE_ENV
+        else Path(__file__).resolve().parent / "chroma_db"
+    )
+    DB_FTS = (
+        Path(_DB_FTS_ENV).expanduser().resolve()
+        if _DB_FTS_ENV
+        else Path(__file__).resolve().parent / "fts_index.db"
+    )
 COLECCION = os.environ.get("ALIADO_COLECCION", "aliado_libre_multilingual_e5_large")
 
 # Los modelos e5 se entrenaron con prefijos que distinguen la consulta del

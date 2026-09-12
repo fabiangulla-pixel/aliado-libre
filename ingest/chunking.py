@@ -10,6 +10,7 @@ Estrategia mejorada:
 
 from __future__ import annotations
 
+import os
 import re
 from dataclasses import dataclass
 
@@ -45,6 +46,37 @@ PATRON_SOLO_CEREMONIAL = re.compile(
 TAMANIO_MAX = 1500
 TAMANIO_MIN = 150
 SOLAPE = 200
+
+# Que hacer DENTRO de un articulo demasiado largo. Es la unica variable que
+# separa el troceo de hoy del que construyo el indice del 7-sep-2026, y el
+# sospechoso de la brecha de recall que quedo abierta el 12-sep:
+#
+#   "parrafos" (actual)  corta por limites de parrafo, sin solape.
+#   "tamanio"  (7-sep)   corta en ventanas de TAMANIO_MAX con SOLAPE.
+#
+# Mismo corpus: 718.388 fragmentos con "tamanio", 1.049.705 con "parrafos"
+# (+46%), o sea fragmentos un ~32% mas cortos y sin solape. Menos contexto por
+# fragmento es la explicacion candidata de por que el recall@5 bajo de 33,5% a
+# 24,5% sin reranker. Se expone como variable para poder reindexar y medir
+# cambiando UNA sola cosa; ver [[feedback_hardware_es_variable_del_experimento]].
+TROCEO_POR_PARRAFOS = "parrafos"
+TROCEO_POR_TAMANIO = "tamanio"
+TROCEOS_VALIDOS = (TROCEO_POR_PARRAFOS, TROCEO_POR_TAMANIO)
+
+
+def _modo_troceo() -> str:
+    """Lee ALIADO_TROCEO en cada llamada: los tests la cambian en caliente."""
+    modo = os.environ.get("ALIADO_TROCEO", TROCEO_POR_PARRAFOS).strip().lower()
+    if modo not in TROCEOS_VALIDOS:
+        raise ValueError(f"ALIADO_TROCEO={modo!r} no es valido. Opciones: {', '.join(TROCEOS_VALIDOS)}.")
+    return modo
+
+
+def _cortar_articulo(texto: str) -> list[str]:
+    """Trocea el interior de un articulo segun el modo activo."""
+    if _modo_troceo() == TROCEO_POR_TAMANIO:
+        return _cortar_por_tamanio(texto)
+    return _cortar_respetando_parrafos(texto)
 
 
 @dataclass
@@ -154,11 +186,11 @@ def fragmentar(doc: Documento) -> list[Fragmento]:
     if len(trozos_articulo) > 1:
         expandidos = []
         for t in trozos_articulo:
-            expandidos.extend(_cortar_respetando_parrafos(t))
+            expandidos.extend(_cortar_articulo(t))
         trozos_articulo = expandidos
     else:
         # Sin estructura de artículos: cortar respetando párrafos
-        trozos_articulo = _cortar_respetando_parrafos(texto_limpio)
+        trozos_articulo = _cortar_articulo(texto_limpio)
 
     # Paso 4: descartar los trozos que no aportan, pero nunca el documento entero
     utiles = []

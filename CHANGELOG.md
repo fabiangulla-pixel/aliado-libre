@@ -1,5 +1,81 @@
 # Changelog
 
+## 2026-09-12 (tarde) — El experimento que no hay que correr: el corpus había cambiado
+
+### La premisa era falsa, y comprobarlo costó cuatro minutos
+
+El plan era reindexar con el troceo anterior al 9-sep (~2 h de GPU) para ver si
+volvían los puntos de recall perdidos frente al 7-sep. Antes de gastarlos se
+corrió el **código de troceo histórico literal** (commit `941ea9c`, el que
+construyó aquel índice) sobre el corpus de hoy: da **1.042.474 fragmentos, no los
+718.388** que tenía el índice del 7-sep.
+
+Con el troceo fijado, la única variable que queda es el corpus, y **no era el
+mismo**: los archivos de `data/raw` están fechados el 9-sep a las 23:32, después
+de aquella medición. De ahí se siguen dos cosas:
+
+- **El 33,5% / 43,5% del 7-sep se retira como línea base.** Nunca fue comparable
+  con lo medido después. La "caída a 24,5%" se calculó contra otra cosa.
+- **El razonamiento de los "fragmentos un 32% más cortos" era erróneo.** Entre el
+  troceo viejo y el actual, sobre el mismo corpus, la diferencia real es del 1%
+  en número de fragmentos y del 6% en longitud media. El experimento habría
+  comparado dos troceos casi idénticos y devuelto "sin diferencia" por una razón
+  que no era la del experimento.
+
+Se sospechó también que cambiar el troceo invalidaba la métrica, porque
+`documento::fragN` pasa a contener otro texto — y en efecto **10 de las 25 anclas
+del banco tienen texto distinto entre los dos índices**, 9 de ellas muy distinto.
+Pero `medir_recuperacion.py` ya cuenta acierto por `documento_id`, así que lo
+absorbe. La métrica está sana; lo que estaba suelto era el corpus.
+
+### El arreglo: el corpus y el troceo se graban dentro del índice
+
+La causa raíz no era el troceo, sino que nada registraba **con qué corpus y con
+qué troceo** se había construido un índice, de modo que dos recalls se podían
+comparar sin que nadie notara que medían cosas distintas. El indexador graba
+ahora `corpus` (huella sha256 de ids + longitudes), `documentos` y `troceo` en
+los metadatos de la colección, y se niega a reanudar un índice cuya marca no
+coincida. Los dos índices en disco quedaron marcados con `e422ffbae7186cb8`
+(145.560 documentos).
+
+Cuatro guardas nuevas, cada una con su prueba negativa que demuestra que **sí**
+bloquea —una guarda que no puede negarse es falsa seguridad—:
+
+- reanudar un índice construido con el otro troceo. Es la más traicionera: los
+  ids de fragmento son `documento::fragN` en los dos modos, así que el filtro de
+  "ya indexados" los daba por hechos y se saltaba casi todo, dejando un índice
+  mitad de un troceo y mitad del otro, con el conteo cuadrando y sin un error;
+- reanudar un índice poblado que no dice con qué troceo se hizo;
+- reanudar con un corpus distinto del que lo construyó;
+- pedir `ALIADO_DB_FTS` sin `ALIADO_DIR_INDICE`, que mediría el FTS5 de un índice
+  contra el Chroma de otro.
+
+`reindexar_con_gpu.py` deja además de redeclarar las rutas del índice y las
+importa de `index/buscar.py`: tener dos copias es exactamente cómo indexador y
+buscador acabaron apuntando a sitios distintos el 9-sep.
+
+### Variables nuevas
+
+- `ALIADO_TROCEO` = `parrafos` (por defecto) | `tamanio`, para que el troceo sea
+  una variable elegible del experimento y no un cambio de código.
+- `ALIADO_DIR_INDICE` / `ALIADO_DB_FTS`, para construir y medir un índice
+  alternativo al lado del de producción sin quedarse sin búsqueda entretanto.
+
+### Deuda documental saldada
+
+- **`docs/MEDICIONES.md` existe por fin.** Se citaba desde el 6-sep en cinco
+  sitios sin existir. Recoge las mediciones dispersas y abre con la regla de
+  comparación. No se versiona (`.gitignore:27`): guarda cifras sin revisión
+  humana.
+- **Hosting remedido sobre el índice definitivo**: 6,43 GB de RAM y **17,2 GB**
+  de disco (15,0 Chroma + 2,2 FTS). El documento seguía recomendando planes con
+  la cifra de 5,12 GB del 7-sep en el cuerpo y en la conclusión.
+- `PROJECT_STATE.md` seguía anunciando en rojo, dos días después, que el índice
+  no servía.
+
+368 pruebas (355 + 13), lint y formato limpios. Informe:
+`_run/INFORME_12sep_tarde.md`.
+
 ## 2026-09-09 (tarde) — Reordenar llega al escritorio, y el bug del cuerpo no drenado reaparece en la GUI
 
 ### El reranker llega al escritorio, que era donde no estaba
