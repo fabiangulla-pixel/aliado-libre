@@ -103,8 +103,7 @@ def cachear() -> None:
             fts = [
                 f[0]
                 for f in ix._fts.execute(
-                    "SELECT id FROM fragmentos_fts WHERE fragmentos_fts MATCH ? "
-                    "ORDER BY rank LIMIT ?",
+                    "SELECT id FROM fragmentos_fts WHERE fragmentos_fts MATCH ? ORDER BY rank LIMIT ?",
                     (match, N_CANDIDATOS),
                 ).fetchall()
             ]
@@ -178,7 +177,6 @@ def barrer_pesos() -> None:
         else:
             cfg = lambda d, p=peso: fusionar(d["vectorial"], d["fts"], p)  # noqa: E731
         imprimir(nombre, evaluar(cache, casos, cfg, "dev"))
-
 
 
 def cachear_puente() -> None:
