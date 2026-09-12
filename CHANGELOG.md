@@ -1,5 +1,70 @@
 # Changelog
 
+## 2026-09-12 (cierre) — Demanda real: la primera cifra del proyecto que no es una suposición
+
+### Se cosecharon 1.276 consultas reales de colombianos
+
+`finetune/recolectar_consultas_reales.py` trae frases del autocompletar de
+Google en Colombia: 51 semillas en lenguaje llano por 12 arranques de frase
+(«me pueden», «qué pasa si», «cuánto me»), más un nivel de profundización.
+822 peticiones, sin coste. Son agregados públicos, no consultas de personas.
+
+Hacía falta porque **todo lo medido hasta hoy usaba consultas inventadas**: el
+banco viejo las derivó de los fragmentos que debían recuperar y el banco piloto
+las escribió una IA imitando a ocho perfiles. Las dos cosas son suposiciones
+sobre la demanda.
+
+### Cobertura medida contra demanda observada: 571 de 1.276 (44,7%)
+
+`finetune/medir_demanda_real.py` pasa cada consulta por el índice y le pregunta
+al enrutador —el mismo que ve el usuario— si hay con qué responder. Es
+cobertura, no acierto: dice si hay algo, no si la respuesta sería buena.
+
+El reparto vale más que el total, porque dice qué ingerir:
+
+| mejor cubierto | | peor cubierto | |
+|---|---|---|---|
+| divorcio | 92% | me cortaron la luz | **0/37** |
+| SAS | 86% | me deben la liquidación | **0/26** |
+| contrato de arriendo | 85% | me estafaron por internet | **0/17** |
+| horas extras | 79% | unión libre derechos | 0/9 |
+| licencia de paternidad | 73% | tarjeta de crédito cobros | 1/11 |
+
+**El corpus responde lo que se pregunta con nombre jurídico y no responde lo que
+se pregunta contando un problema.** Servicios públicos domiciliarios y consumo
+financiero son los huecos más grandes, y son los más cotidianos.
+
+### Tres fallos que salieron de una consulta real en la GUI
+
+Fabián preguntó «puedo tener mi herencia antes de que mueran mis padres» y
+aparecieron tres, todos generales y ninguno propio del tema:
+
+1. **El reordenador le quitó la respuesta.** Sin él, la fusión devuelve primero
+   la LEY-84-1873 (Código Civil, donde está la respuesta) con puntaje 0,0284.
+   Con él, el Código Civil sale del top-5 y entra el DECRETO-475-1938 sobre la
+   Caja de Auxilios de la Policía Nacional. Concuerda con lo medido sobre 44
+   consultas: 27% sin reordenar, 23% con ventana 40, 20% con ventana 120. Queda
+   **apagado por defecto**; `ALIADO_RERANKER_ACTIVO=1` lo enciende.
+2. **La GUI nunca consultaba la abstención.** `index/enrutador.py` dictaminaba
+   «ningún documento se acerca lo suficiente» y la pantalla mostraba el decreto
+   de 1938 como si fuera la respuesta: la regla 1 del proyecto incumplida justo
+   donde se ve. `/api/buscar` devuelve ahora `hay_respaldo` y `aviso_cobertura`.
+3. **Se ofrecía redactar con un modelo que no está.** `/api/estado` informa si
+   el `.gguf` existe y la interfaz deshabilita la casilla con una explicación.
+
+### Lo que se descartó con datos, para no volver a intentarlo
+
+- Peso de la fusión RRF: plano entre 0 y 1,5 (25-29,5%). No es la palanca.
+- Puente de vocabulario, en sus tres formas (léxica, vectorial, ambas): +1 caso.
+- Reescritura de la consulta al registro jurídico: sustituyendo, 27% -> 14%;
+  sumada como tercera lista, neutra. Eso sí, mete el documento en el grupo de
+  candidatos justo en los perfiles donde no entraba.
+- Diagnóstico que queda: el documento correcto está entre los 120 candidatos el
+  69% de las veces y solo llega al top-5 el 29%. El margen existe; ninguna de
+  las técnicas probadas lo cobra.
+
+375 pruebas, lint y formato limpios.
+
 ## 2026-09-12 (tarde-2) — Piloto de 100 consultas: el sistema falla justo con quien fue hecho
 
 ### El resultado que importa: recuperación por perfil de usuario

@@ -171,6 +171,12 @@ Comandos de uso:
 ./.venv/Scripts/python.exe index/buscar.py "consulta"  # probar búsqueda por CLI
 ./.venv/Scripts/python.exe mcp_server/server.py      # levantar servidor MCP
 ./.venv/Scripts/python.exe gui/server.py             # GUI web local (abre navegador solo)
+
+# Medición sobre demanda real (gratis, sin API)
+./.venv/Scripts/python.exe finetune/recolectar_consultas_reales.py   # cosecha consultas reales
+./.venv/Scripts/python.exe finetune/medir_demanda_real.py            # cobertura frente a ellas
+./.venv/Scripts/python.exe finetune/eval/validar_banco_piloto.py     # integridad del banco
+./.venv/Scripts/python.exe finetune/eval/correr_piloto.py            # estima; --ejecutar gasta
 ```
 
 La GUI (`gui/server.py`) es la forma recomendada de uso diario: búsqueda
