@@ -1,5 +1,71 @@
 # Changelog
 
+## 2026-09-12 (tarde-2) — Piloto de 100 consultas: el sistema falla justo con quien fue hecho
+
+### El resultado que importa: recuperación por perfil de usuario
+
+Banco nuevo de 100 consultas escritas sobre el texto real del corpus, en las
+palabras del usuario, repartidas en los ocho perfiles. **100 anclas
+independientes**, no 25 reformuladas ocho veces como el banco anterior. Las
+preguntas evitan a propósito el vocabulario del artículo: redactarlas copiando
+el texto legal hace que la búsqueda acierte por coincidencia léxica.
+
+| perfil | recuperación@5 |
+|---|---|
+| abogado_junior | 60,9% |
+| mensaje_telegrafico | 40,0% |
+| semi_tecnico_impreciso | 36,4% |
+| ciudadano_medio | 23,5% |
+| con_ruido_irrelevante | 20,0% |
+| comerciante_practico | 7,1% |
+| **adulto_mayor_informal** | **0,0%** |
+| **baja_alfabetizacion** | **0,0%** |
+
+Global 29,9% (26/87 anclados) frente al 36,5% del banco sintético. **Cero
+aciertos en quince intentos** para las dos poblaciones que el proyecto dice
+servir. La media global lo tapaba, y el banco anterior también: sus consultas
+nacían del fragmento que debían recuperar.
+
+### Se retira una afirmación: la cobertura no era el problema
+
+Durante esta misma sesión se sostuvo que el corpus no tenía las leyes más
+consultadas. **Era falso**, y salió de generalizar unos sondeos que devolvían
+jurisprudencia. El conteo real por documento: Código Sustantivo del Trabajo
+(Decreto 2663 de 1950) 218 fragmentos, Código de Comercio 629, CPACA 294,
+Ley 100 de 1993 274, Ley 769 de 2002 175, Ley 1098 de 2006 167, Ley 1480 de
+2011 96, Ley 675 de 2001 68, Ley 1266 de 2008 40, Ley 820 de 2003 36,
+Decreto 2591 de 1991 23.
+
+Prueba directa sobre nueve consultas típicas: la búsqueda trae la norma
+correcta **4 de 9 veces, estando las nueve indexadas**. El hueco está en la
+recuperación, no en el corpus, y eso cambia el plan: no hay que ingerir más.
+
+Por eso el banco distingue `no_cubierto` (4 casos reales) de
+**`responde_no_recuperado` (8 casos: el índice tiene la respuesta y la búsqueda
+no la trae)**. Sin esa distinción el diagnóstico apunta al sitio equivocado, y
+un banco que afirma ausencias falsas castiga a la aplicación por acertar.
+
+### El banco se valida antes de medir con él
+
+`validar_banco_piloto.py` comprueba que cada ancla exista y que cada cita esté
+LITERALMENTE en su fragmento: 95 anclas y 74 citas verificadas. Encontró un id
+mal transcrito. Un banco de evaluación es una afirmación sobre el corpus, y si
+la afirmación es falsa toda medición que salga de él es basura.
+
+`correr_piloto.py` mide casi todo de forma determinista, sin juez: recuperación
+por `documento_id`, y si lo que la respuesta pone entre comillas angulares
+aparece de verdad en los fragmentos que recibió — que es la prueba de
+alucinación más barata que hay. Sin `--ejecutar` no llama a ninguna API.
+
+### El formato de respuesta que pidió el usuario
+
+`PROMPT_SISTEMA` pasa a tres partes obligatorias: qué norma revisar, la cita
+literal entre «», y qué significa para el caso de la persona. La cita literal
+es además verificable por programa, así que el formato nuevo abarata la
+evaluación además de servir mejor a quien consulta.
+
+370 pruebas, lint y formato limpios.
+
 ## 2026-09-12 (tarde) — El experimento que no hay que correr: el corpus había cambiado
 
 ### La premisa era falsa, y comprobarlo costó cuatro minutos
