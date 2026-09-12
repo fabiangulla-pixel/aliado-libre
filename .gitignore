@@ -15,7 +15,13 @@ finetune/modelo_lora*/
 finetune/llama.cpp/
 finetune/salida/
 finetune/fusionados/
-finetune/eval/
+# Los DATOS de evaluacion no se versionan (particion apartada), pero los
+# scripts que los producen y validan SI: excluir la carpeta entera dejaba fuera
+# del repo la herramienta, no solo el dato. Ojo: hay que excluir el contenido
+# (`dir/*`) y no la carpeta (`dir/`), porque git no desciende a un directorio
+# excluido y la negacion nunca llegaria a aplicarse.
+finetune/eval/*
+!finetune/eval/*.py
 finetune/respuestas_gpu/
 finetune/data/*.bak_*
 index/fts_index.db
