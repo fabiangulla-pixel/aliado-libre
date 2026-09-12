@@ -67,16 +67,39 @@ def _limpiar(texto: str) -> str:
     return texto
 
 
+def _acepta_temperatura(metodo) -> bool:
+    """¿Este SDK todavía recibe `temperature` en messages.create?
+
+    El SDK de Anthropic lo retiró de la firma (verificado con 1.3.0, que en su
+    lugar expone `output_config` con `effort` y `format`). Pasarlo levanta
+    TypeError y **toda** la ruta de respuesta por nube queda caída, que es como
+    estaba el 12-sep-2026: las 100 consultas del piloto fallaron con
+    "Messages.create() got an unexpected keyword argument 'temperature'".
+    Se consulta la firma en vez de fijar una versión, para que el programa
+    funcione con el SDK que el usuario tenga instalado.
+    """
+    import inspect
+
+    try:
+        parametros = inspect.signature(metodo).parameters
+    except (TypeError, ValueError):
+        return False
+    if any(p.kind is inspect.Parameter.VAR_KEYWORD for p in parametros.values()):
+        return True
+    return "temperature" in parametros
+
+
 def _claude(prompt: str, sistema: str, clave: str, modelo: str) -> RespuestaProveedor:
     import anthropic
 
     cliente = anthropic.Anthropic(api_key=clave)
+    extra = {"temperature": TEMPERATURA} if _acepta_temperatura(cliente.messages.create) else {}
     msg = cliente.messages.create(
         model=modelo,
         max_tokens=MAX_TOKENS,
-        temperature=TEMPERATURA,
         system=sistema,
         messages=[{"role": "user", "content": prompt}],
+        **extra,
     )
     # Con thinking adaptativo el primer bloque puede no ser texto: hay que
     # buscar el bloque de tipo "text" en vez de asumir content[0].

@@ -53,6 +53,8 @@ BANCO = RAIZ / "finetune" / "eval" / "banco_piloto_100.json"
 SALIDA = RAIZ / "finetune" / "eval" / "resultado_piloto.json"
 
 TOPE = 5
+# Cuántos fallos seguidos desde el arranque bastan para dar la corrida por rota.
+UMBRAL_ABORTO = 5
 PATRON_CITA = re.compile(r"«([^»]{15,})»")
 PATRON_NORMA = re.compile(
     r"(?i)\b(?:ley|decreto|resoluci[oó]n|circular|oficio|concepto|sentencia|auto|art[ií]culo)\b"
@@ -180,6 +182,8 @@ def main() -> int:
 
     filas = []
     usd_real = 0.0
+    fallos = 0
+    primer_fallo = ""
     for i, (c, res, prompt) in enumerate(recuperado, 1):
         try:
             r = generar(prompt, PROMPT_SISTEMA, args.proveedor, clave, modelo)
@@ -187,7 +191,23 @@ def main() -> int:
             usd_real += costos.liquidar(r.usage, modelo).usd
         except Exception as e:  # noqa: BLE001
             texto = ""
+            fallos += 1
+            if not primer_fallo:
+                primer_fallo = f"{type(e).__name__}: {e}"
             print(f"  [{c['id']}] fallo: {type(e).__name__}")
+            # Una respuesta vacía puntúa 0 en formato, 0 en citas y 0 en
+            # abstención, así que una corrida que falla entera IMPRIME UN
+            # INFORME DE CEROS QUE PARECE UNA MEDICIÓN. Pasó el 12-sep-2026:
+            # las 100 llamadas murieron por un argumento que el SDK ya no
+            # acepta y el informe dijo "formato 0%, abstención 0%" como si se
+            # hubiera medido algo. Si falla el arranque entero, se aborta.
+            if fallos >= UMBRAL_ABORTO and fallos == i:
+                print(
+                    f"\nABORTADO: las {fallos} primeras llamadas fallaron.\n"
+                    f"  Primer error: {primer_fallo}\n"
+                    "  No se publica un informe: un informe de ceros no es una medición."
+                )
+                return 1
         buenas, citas = cita_esta_en_los_fragmentos(texto, res)
         filas.append(
             {

@@ -249,3 +249,56 @@ def test_los_precios_declaran_cuando_se_verificaron():
     assert set(proveedores.MODELOS_POR_DEFECTO.values()) <= set(costos.PRECIOS), (
         "hay un modelo por defecto sin precio declarado"
     )
+
+
+def test_no_manda_temperature_si_el_sdk_no_la_acepta():
+    """El SDK de Anthropic retiro `temperature` y eso dejo la nube caida.
+
+    Verificado el 12-sep-2026 con anthropic 1.3.0: `messages.create` ya no
+    tiene ese parametro y pasarlo levanta TypeError, asi que TODAS las
+    respuestas por nube fallaban. Se comprueba contra la firma en vez de fijar
+    una version, para que funcione con el SDK que el usuario tenga.
+    """
+    from index.proveedores import _acepta_temperatura
+
+    def sin_temperatura(*, model, max_tokens, messages, system=None):
+        pass
+
+    def con_temperatura(*, model, max_tokens, messages, system=None, temperature=None):
+        pass
+
+    def con_kwargs(*, model, **kwargs):
+        pass
+
+    assert _acepta_temperatura(sin_temperatura) is False
+    assert _acepta_temperatura(con_temperatura) is True
+    # Un SDK que acepta **kwargs no se rompe al recibirla.
+    assert _acepta_temperatura(con_kwargs) is True
+
+
+def test_claude_no_revienta_con_un_sdk_sin_temperature(monkeypatch):
+    """Prueba negativa: con el SDK real de hoy, la llamada debe armarse bien."""
+    import sys
+    import types
+
+    registrado = {}
+
+    class _Msgs:
+        def create(self, *, model, max_tokens, messages, system=None):
+            registrado.update(model=model, system=system)
+            bloque = types.SimpleNamespace(type="text", text="ok")
+            return types.SimpleNamespace(content=[bloque], usage=None, stop_reason="end_turn")
+
+    class _Cliente:
+        def __init__(self, api_key):
+            self.messages = _Msgs()
+
+    falso = types.ModuleType("anthropic")
+    falso.Anthropic = _Cliente
+    monkeypatch.setitem(sys.modules, "anthropic", falso)
+
+    from index.proveedores import _claude
+
+    r = _claude("hola", "sistema", "sk-x", "claude-haiku-4-5")
+    assert r.texto == "ok"
+    assert registrado["model"] == "claude-haiku-4-5"

@@ -33,7 +33,7 @@ RAIZ = Path(__file__).resolve().parent.parent.parent
 BANCO = RAIZ / "finetune" / "eval" / "banco_piloto_100.json"
 DB_FTS = RAIZ / "index" / "fts_index.db"
 
-TIPOS_CON_ANCLA = {"responde", "solo_referencia", "trampa_derogada"}
+TIPOS_CON_ANCLA = {"responde", "solo_referencia", "trampa_derogada", "responde_no_recuperado"}
 TIPOS_SIN_ANCLA = {"no_cubierto", "trampa_ambito"}
 
 
