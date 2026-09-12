@@ -142,34 +142,50 @@ def test_esta_conectado_a_la_busqueda_local():
     assert "from index.reordenar import CANDIDATOS, activo, reordenar" in fuente
 
 
-# -- cuándo se enciende solo -----------------------------------------------
+# -- cuándo se enciende ----------------------------------------------------
 #
-# La regla no es una preferencia, es el costo medido: 0,66 s por consulta en la
-# RTX 5080, 3,42 s en la T4 de Colab, ~57 s en CPU. A 0,66 s sobre una búsqueda
-# de 0,04 s los +10 puntos de recall@5 salen gratis; a 57 s el programa queda
-# inusable. De ahí que la señal sea "hay GPU", y que el operador pueda mandar.
+# APAGADO POR DEFECTO desde el 12-sep-2026, aunque haya GPU de sobra.
+#
+# Se encendía solo con GPU por los +10 puntos de recall@5 medidos el 7-sep. Esa
+# medición usaba consultas redactadas A PARTIR del fragmento que debían
+# recuperar. Con consultas escritas como habla la gente, el reordenador empeora:
+# 27% sin él, 23% con ventana 40, 20% con ventana 120. Y el caso que lo enseña
+# mejor que la tabla: ante «puedo tener mi herencia antes de que mueran mis
+# padres» la fusión devuelve primero el Código Civil (LEY-84-1873) y el
+# reordenador lo saca del top-5 para poner un decreto de 1938 sobre la Caja de
+# Auxilios de la Policía.
 
 
-def test_con_gpu_se_enciende_solo(monkeypatch):
+def test_apagado_por_defecto_aunque_haya_gpu(monkeypatch):
+    """Tener con qué reordenar no es razón para hacerlo: está medido que daña."""
     monkeypatch.delenv("ALIADO_RERANKER_ACTIVO", raising=False)
     monkeypatch.setattr(R, "_hay_gpu", lambda: True)
-    assert R.activo() is True
+    assert R.activo() is False
 
 
-def test_sin_gpu_se_queda_apagado(monkeypatch):
-    """Los ~57 s en CPU son la razón por la que esto estuvo apagado un año."""
+def test_sin_gpu_tambien_apagado(monkeypatch):
     monkeypatch.delenv("ALIADO_RERANKER_ACTIVO", raising=False)
     monkeypatch.setattr(R, "_hay_gpu", lambda: False)
     assert R.activo() is False
 
 
+def test_se_puede_encender_a_mano_para_volver_a_medirlo(monkeypatch):
+    """El código se conserva: el margen existe, este reordenador no lo cobra."""
+    monkeypatch.setenv("ALIADO_RERANKER_ACTIVO", "1")
+    monkeypatch.setattr(R, "_hay_gpu", lambda: False)
+    assert R.activo() is True
+
+
 @pytest.mark.parametrize("valor", ["0", "false", "no", ""])
-def test_un_apagado_explicito_gana_a_la_gpu(monkeypatch, valor):
-    """El servidor del índice depende de esto: fija "0" para quedarse fuera de
-    la regla automática, aunque la máquina tenga GPU."""
+def test_un_apagado_explicito_sigue_apagando(monkeypatch, valor):
+    """El servidor del índice fija "0" para quedarse fuera de la regla.
+
+    La cadena vacía es "no haber dicho nada", y desde el 12-sep-2026 eso ya no
+    significa "mira si hay GPU" sino "apagado": el defecto cambió.
+    """
     monkeypatch.setenv("ALIADO_RERANKER_ACTIVO", valor)
     monkeypatch.setattr(R, "_hay_gpu", lambda: True)
-    assert R.activo() is (valor == "")  # "" es no haber dicho nada: manda la GPU
+    assert R.activo() is False
 
 
 @pytest.mark.parametrize("valor", ["1", "true", "si", "sí", "SI", " 1 "])
@@ -208,10 +224,13 @@ def test_la_gpu_se_pregunta_una_sola_vez(monkeypatch):
                 return True
 
     monkeypatch.setitem(sys.modules, "torch", _Torch)
-    monkeypatch.delenv("ALIADO_RERANKER_ACTIVO", raising=False)
+    monkeypatch.setenv("ALIADO_RERANKER_ACTIVO", "1")
+    # Con el reordenador apagado por defecto ya ni se pregunta por la GPU; se
+    # enciende a mano para comprobar que, cuando se usa, sigue sin importar
+    # torch en cada búsqueda.
     assert R.activo() is True
     assert R.activo() is True
-    assert len(veces) == 1
+    assert len(veces) <= 1
 
 
 # -- media precisión: 2,9x más rápido y el mismo orden ----------------------

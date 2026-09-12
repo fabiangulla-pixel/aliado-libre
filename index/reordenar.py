@@ -98,23 +98,36 @@ def disponible() -> bool:
 
 
 def activo() -> bool:
-    """Decide si reordenar, cuando quien llama no lo dice explícitamente.
+    """Decide si reordenar. **Apagado por defecto desde el 12-sep-2026.**
 
-    La regla es el costo medido, no una preferencia: reordenar 40 candidatos
-    cuesta 0,66 s en la RTX 5080, 3,42 s en la T4 de Colab y ~57 s en CPU. A
-    0,66 s sobre una búsqueda de 0,04 s, los +10 puntos de recall@5 salen
-    prácticamente gratis; a 57 s el programa queda inusable. Así que se enciende
-    donde hay GPU y se apaga donde no, y el equipo del usuario decide solo.
+    Se adoptó por +10 puntos de recall@5 (33,5% -> 43,5%) medidos el 7-sep-2026.
+    Esa medición se hizo sobre un banco cuyas consultas se habían redactado A
+    PARTIR del fragmento que debían recuperar, así que compartían su vocabulario.
+    Con consultas escritas como las escribe la gente, **empeora**:
 
-    `ALIADO_RERANKER_ACTIVO` manda por encima de todo, en ambos sentidos: un 0
-    explícito lo apaga aunque haya GPU. El servidor del índice lo usa para
-    quedarse fuera de esta regla, porque allí cada segundo es una factura y esa
-    decisión se toma a sabiendas (ver servidor_indice/server.py).
+        sin reordenar   27%      (44 consultas del conjunto de desarrollo)
+        ventana 40      23%
+        ventana 120     20%
+
+    Y hay un caso real que lo enseña mejor que la tabla. Ante «puedo tener mi
+    herencia antes de que mueran mis padres», la fusión devuelve primero la
+    LEY-84-1873 —el Código Civil, que es donde está la respuesta— con puntaje
+    0,0284. El reordenador la saca del top-5 y pone en su lugar el DECRETO-475-1938,
+    sobre la Caja de Auxilios de la Policía Nacional. Le quitó al usuario la
+    respuesta correcta y le dejó un decreto de 1938.
+
+    No se borra el código: sigue siendo la herramienta adecuada para un problema
+    de ordenamiento, y el diagnóstico dice que hay margen (el documento correcto
+    está entre los 120 candidatos el 69% de las veces y solo llega al top-5 el
+    29%). Lo que está medido es que ESTE reordenador, con ESTE corpus y consultas
+    en lenguaje llano, no cobra ese margen sino que lo destruye.
+
+    `ALIADO_RERANKER_ACTIVO=1` lo enciende para quien quiera volver a medirlo.
     """
     crudo = os.environ.get("ALIADO_RERANKER_ACTIVO", "").strip().lower()
     if crudo:
         return crudo in VERDADEROS
-    return _hay_gpu()
+    return False
 
 
 def reordenar(consulta: str, resultados: list[dict], k: int | None = None) -> list[dict]:

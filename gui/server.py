@@ -114,7 +114,19 @@ class Handler(BaseHTTPRequestHandler):
             return
 
         if ruta.path == "/api/estado":
-            self._responder_json({"cargado": _indice is not None})
+            # Se informa si el modelo local existe DE VERDAD. La casilla
+            # "redactar con el modelo propio" se ofrecia siempre, y cuando el
+            # .gguf no estaba en su sitio el usuario pulsaba, esperaba, y
+            # recibia un error tecnico sobre un archivo que le faltaba. Ofrecer
+            # lo que no se tiene es la version pequena de inventar cobertura.
+            from index.responder import ruta_modelo
+
+            self._responder_json(
+                {
+                    "cargado": _indice is not None,
+                    "modelo_local": ruta_modelo().is_file(),
+                }
+            )
             return
 
         if ruta.path == "/api/fuentes":
@@ -251,7 +263,29 @@ class Handler(BaseHTTPRequestHandler):
             self._responder_json({"error": str(e)}, status=500)
             return
 
-        salida = {"resultados": resultados, "fuentes_aplicadas": fuentes or []}
+        # El índice sabe cuándo no tiene la respuesta, y hasta hoy no se lo
+        # decía a nadie. `index/enrutador.py` calcula la abstención con un
+        # umbral calibrado y la GUI no lo consultaba: ante «puedo tener mi
+        # herencia antes de que mueran mis padres» el enrutador dictaminaba
+        # "ningún documento se acerca lo suficiente" y la pantalla mostraba,
+        # con toda seriedad, un decreto de 1938 sobre la Caja de Auxilios de la
+        # Policía Nacional. Es justo lo que la regla 1 del proyecto prohíbe:
+        # los huecos del índice se dicen, no se disimulan.
+        from index.enrutador import decidir
+
+        decision = decidir(resultados, hay_clave_externa=True)
+        salida = {
+            "resultados": resultados,
+            "fuentes_aplicadas": fuentes or [],
+            "hay_respaldo": decision.responde,
+            "aviso_cobertura": None if decision.responde else decision.motivo,
+        }
+        if quiere_respuesta and not decision.responde:
+            # Redactar sobre fragmentos que no responden es la forma más cara de
+            # inventar cobertura: sale una respuesta con aspecto de buena.
+            salida["respuesta"] = None
+            self._responder_json(salida)
+            return
         if quiere_respuesta:
             from index.responder import responder
 

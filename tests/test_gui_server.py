@@ -59,7 +59,7 @@ def test_buscar_sin_conversacional_no_incluye_respuesta(servidor):
         r = urllib.request.urlopen(servidor + "/api/buscar?q=algo")
         datos = json.loads(r.read())
     assert "respuesta" not in datos
-    assert datos["resultados"] == [{"texto": "x"}]
+    assert datos["resultados"] == [{"texto": "x", "puntaje": 0.09}]
 
 
 def test_buscar_con_conversacional_incluye_respuesta(servidor):
@@ -81,13 +81,22 @@ def test_buscar_con_conversacional_degrada_si_ollama_falla(servidor):
         datos = json.loads(r.read())
     assert datos["respuesta"] is None
     assert "Ollama caído" in datos["aviso_respuesta"]
-    assert datos["resultados"] == [{"texto": "x"}]  # los resultados crudos igual llegan
+    assert datos["resultados"] == [{"texto": "x", "puntaje": 0.09}]  # los resultados crudos igual llegan
 
 
-def _indice_falso():
+def _indice_falso(puntaje: float = 0.09):
+    """Indice de mentira con un puntaje POR ENCIMA del umbral de abstencion.
+
+    Antes devolvia un resultado sin puntaje, y daba igual porque la GUI no
+    consultaba al enrutador. Desde el 12-sep-2026 si lo consulta, y un
+    resultado sin puntaje es —con razon— un resultado sin respaldo. Para
+    probar el camino en que la aplicacion SI responde hay que darle algo que
+    de verdad se parezca a la consulta.
+    """
+
     class IndiceFalso:
         def buscar(self, consulta, k, fuentes=None):
-            return [{"texto": "x"}]
+            return [{"texto": "x", "puntaje": puntaje}]
 
     return IndiceFalso()
 
@@ -98,3 +107,54 @@ def test_no_permite_escapar_con_ruta_urlencodeada(servidor):
     conn = http.client.HTTPConnection("127.0.0.1", int(servidor.rsplit(":", 1)[1]))
     conn.request("GET", "/%2e%2e/server.py")
     assert conn.getresponse().status == 404
+
+
+# -- la aplicacion dice cuando no tiene la respuesta ------------------------
+#
+# Regla 1 del proyecto: los huecos del indice se dicen, no se disimulan. La
+# logica estaba escrita y calibrada en index/enrutador.py desde hacia dias, y
+# la GUI no la llamaba: ante "puedo tener mi herencia antes de que mueran mis
+# padres" el enrutador dictaminaba "ningun documento se acerca lo suficiente" y
+# la pantalla mostraba un decreto de 1938 sobre la Caja de Auxilios de la
+# Policia Nacional como si fuera la respuesta.
+
+
+def test_sin_respaldo_la_busqueda_lo_dice(servidor):
+    """Prueba negativa: con puntajes bajos la GUI tiene que avisar."""
+    with patch.object(servidor_modulo, "_obtener_indice", return_value=_indice_falso(0.001)):
+        r = urllib.request.urlopen(servidor + "/api/buscar?q=algo")
+        datos = json.loads(r.read())
+    assert datos["hay_respaldo"] is False
+    assert datos["aviso_cobertura"]
+    # Los fragmentos se siguen mandando: pueden servir de pista, pero van
+    # encabezados por el aviso, no presentados como respuesta.
+    assert datos["resultados"]
+
+
+def test_sin_respaldo_no_se_redacta_respuesta(servidor):
+    """Redactar sobre fragmentos que no responden es inventar cobertura cara."""
+    with (
+        patch.object(servidor_modulo, "_obtener_indice", return_value=_indice_falso(0.001)),
+        patch("index.responder.responder", return_value="Respuesta inventada."),
+    ):
+        r = urllib.request.urlopen(servidor + "/api/buscar?q=algo&conversacional=1")
+        datos = json.loads(r.read())
+    assert datos["hay_respaldo"] is False
+    assert datos["respuesta"] is None
+
+
+def test_con_respaldo_si_responde(servidor):
+    """La guarda tiene que dejar pasar lo bueno, o solo seria un apagon."""
+    with patch.object(servidor_modulo, "_obtener_indice", return_value=_indice_falso(0.09)):
+        r = urllib.request.urlopen(servidor + "/api/buscar?q=algo")
+        datos = json.loads(r.read())
+    assert datos["hay_respaldo"] is True
+    assert datos["aviso_cobertura"] is None
+
+
+def test_estado_dice_si_el_modelo_local_existe(servidor):
+    """La casilla de redactar en local no debe ofrecer lo que no esta."""
+    r = urllib.request.urlopen(servidor + "/api/estado")
+    datos = json.loads(r.read())
+    assert "modelo_local" in datos
+    assert isinstance(datos["modelo_local"], bool)

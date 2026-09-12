@@ -212,6 +212,31 @@
     background: var(--acento-suave);
   }
 
+  /* Usa las variables del tema: con colores fijos este aviso quedaba
+     ilegible en modo oscuro, que es justo cuando mas se nota un panel claro. */
+  .aviso-cobertura {
+    background: var(--panel);
+    border: 1px solid var(--dorado);
+    border-left: 4px solid var(--dorado);
+    border-radius: 14px;
+    padding: 1.2rem 1.5rem;
+    margin-bottom: 1.6rem;
+    box-shadow: var(--sombra);
+    font-family: ui-sans-serif, system-ui, sans-serif;
+  }
+  .aviso-cobertura strong {
+    display: block;
+    margin-bottom: 0.5rem;
+    color: var(--dorado);
+    font-size: 0.95rem;
+  }
+  .aviso-cobertura p {
+    margin: 0;
+    font-size: 0.9rem;
+    line-height: 1.6;
+    color: var(--texto-suave);
+  }
+
   .vacio, .error {
     text-align: center;
     font-family: ui-sans-serif, system-ui, sans-serif;
@@ -554,6 +579,24 @@ const boton = document.getElementById('botonBuscar');
 const contenedor = document.getElementById('resultados');
 const casillaConversacional = document.getElementById('conversacional');
 
+/* Si el modelo local no esta instalado, no se ofrece redactar con el. Antes la
+   casilla se mostraba siempre y quien la marcaba esperaba un rato para recibir
+   un error tecnico sobre un .gguf que le faltaba: ofrecer lo que no se tiene es
+   la version pequena de inventar cobertura. */
+fetch('/api/estado').then(r => r.json()).then(estado => {
+  if (estado && estado.modelo_local === false) {
+    casillaConversacional.checked = false;
+    casillaConversacional.disabled = true;
+    const etiqueta = casillaConversacional.closest('label');
+    if (etiqueta) {
+      etiqueta.style.opacity = '0.6';
+      etiqueta.lastChild.textContent =
+        ' Redactar con el modelo propio (local) — no disponible: falta el modelo en este equipo. ' +
+        'Puedes usar una IA externa con tu clave, o leer los fragmentos.';
+    }
+  }
+}).catch(() => {});
+
 /* Un proxy, un tiempo de espera agotado o un error del servidor devuelven HTML,
    no JSON. Sin esta comprobacion, JSON.parse revienta y el usuario ve
    "Unexpected token '<'", que no le dice nada. Paso de verdad: Cloudflare corto
@@ -618,8 +661,27 @@ async function buscar() {
       return;
     }
 
+    /* El indice sabe cuando lo que trajo no responde, y hasta el 12-sep-2026
+       se lo callaba: ante "puedo tener mi herencia antes de que mueran mis
+       padres" mostraba un decreto de 1938 sobre la Caja de Auxilios de la
+       Policia como si fuera la respuesta. Los fragmentos se siguen mostrando
+       —pueden servir de pista— pero encabezados por lo que son. */
+    let bloqueCobertura = '';
+    if (datos.hay_respaldo === false) {
+      bloqueCobertura = `
+        <div class="aviso-cobertura">
+          <strong>No encontré en el índice una norma que responda esto.</strong>
+          <p>${escaparHtml(datos.aviso_cobertura || '')}
+          Abajo están los fragmentos más cercanos que hay, pero <em>no</em> los
+          propongo como respuesta: revísalos solo como pista, o consulta la
+          norma directamente.</p>
+        </div>`;
+    }
+
     let bloqueRespuesta = '';
-    if (quiereRespuesta) {
+    if (quiereRespuesta && datos.hay_respaldo === false) {
+      bloqueRespuesta = '';
+    } else if (quiereRespuesta) {
       if (datos.respuesta) {
         // Un dato que la comprobación no encontró en las fuentes se muestra
         // señalado, nunca borrado en silencio: ver la marca enseña a
@@ -643,7 +705,7 @@ async function buscar() {
       }
     }
 
-    contenedor.innerHTML = bloqueRespuesta + datos.resultados.map(r => {
+    contenedor.innerHTML = bloqueCobertura + bloqueRespuesta + datos.resultados.map(r => {
       const textoCompleto = r.texto || '';
       const preview = textoCompleto.slice(0, 400);
       const tieneExtension = textoCompleto.length > 400;
