@@ -78,6 +78,18 @@ MARCAS_VIGENCIA = (
     "caduc",
 )
 
+# Decir hasta cuándo rigió una regla ES advertir de su vigencia, aunque no se
+# use ninguna de las palabras de arriba. La aplicación respondió sobre la
+# tarifa de IVA de publicidad que era «del 10% hasta el año 2000 y a partir del
+# 2001 a la tarifa general», que es exactamente lo correcto, y el marcador
+# inicial lo conto como fallo por no encontrar "derogado". Buscar sinónimos
+# uno a uno es perseguir el vocabulario del evaluador; esto busca la forma.
+PATRON_LIMITE_TEMPORAL = re.compile(
+    r"(?i)\b(?:hasta\s+(?:el\s+a[ñn]o\s+|finales\s+de\s+|)\d{4}"
+    r"|a\s+partir\s+del?\s+(?:a[ñn]o\s+)?\d{4}"
+    r"|rigi[óo]\s+hasta|estuvo\s+vigente\s+hasta)\b"
+)
+
 
 def normalizar(t: str) -> str:
     t = unicodedata.normalize("NFKD", t)
@@ -100,9 +112,16 @@ def cita_esta_en_los_fragmentos(respuesta: str, fragmentos: list[dict]) -> tuple
         return 0, 0
     buenas = 0
     for c in citas:
-        n = normalizar(c)
-        # los recortes con [...] se verifican por trozos
-        trozos = [t.strip() for t in n.split("[...]") if len(t.strip()) >= 15]
+        # Una cita recortada se verifica por trozos. La primera versión solo
+        # partía por "[...]" y contaba como inventada toda cita que usara los
+        # puntos suspensivos sueltos, que es como recorta la aplicación la
+        # mitad de las veces: el 14% de alucinación que salió al principio
+        # era en buena parte eso. Elidir texto no es inventarlo.
+        trozos = [
+            t.strip()
+            for t in re.split(r"\[\s*\.\.\.\s*\]|\[…\]|\.\.\.|…", normalizar(c))
+            if len(t.strip()) >= 15
+        ]
         if trozos and all(t in contexto for t in trozos):
             buenas += 1
     return buenas, len(citas)
@@ -119,8 +138,43 @@ def se_abstuvo(respuesta: str) -> bool:
 
 
 def advirtio_vigencia(respuesta: str) -> bool:
-    n = normalizar(respuesta or "")
-    return any(normalizar(m) in n for m in MARCAS_VIGENCIA)
+    r = respuesta or ""
+    n = normalizar(r)
+    if any(normalizar(m) in n for m in MARCAS_VIGENCIA):
+        return True
+    return bool(PATRON_LIMITE_TEMPORAL.search(r))
+
+
+def _identificador_norma(norma_esperada: str) -> str:
+    """«Decreto 150 de 1997, artículo 9 — INEXEQUIBLE» -> «decreto 150 de 1997»."""
+    m = re.search(
+        r"(?i)\b(ley|decreto|decreto ley|resoluci[oó]n|circular)\s+([\d.]+)\s+de\s+(\d{4})",
+        norma_esperada or "",
+    )
+    return normalizar(f"{m.group(1)} {m.group(2)} de {m.group(3)}") if m else ""
+
+
+def cayo_en_la_trampa(respuesta: str, norma_trampa: str) -> bool:  # noqa: D401
+    """¿Presentó la norma derogada/inexequible como si fuera derecho vigente?
+
+    La primera versión de esta comprobación buscaba palabras como "derogado" y
+    marcaba fallo si no aparecían. Daba 1 de 5, y era falso: en dos casos la
+    aplicación había respondido con la norma VIGENTE en vez de la trampa (la
+    Ley 769 de 2002 en lugar del código de tránsito de 1986, el Decreto 1165 de
+    2019 en lugar del derogado 1740 de 1994), y en otro explicó con sus propias
+    palabras que la tarifa había caducado en el año 2000 sin usar ninguna de
+    las palabras buscadas. Castigar eso es medir el vocabulario del evaluador,
+    no el comportamiento del sistema.
+
+    Lo que de verdad hace daño a un usuario es UNA cosa: que le den la norma
+    caducada como si rigiera. Eso es lo que se mide aquí.
+    """
+    if se_abstuvo(respuesta) or advirtio_vigencia(respuesta):
+        return False
+    ident = _identificador_norma(norma_trampa)
+    if not ident:
+        return False
+    return ident in normalizar(respuesta or "")
 
 
 def main() -> int:
@@ -223,6 +277,11 @@ def main() -> int:
                 "formato_ok": tiene_formato(texto),
                 "se_abstuvo": se_abstuvo(texto),
                 "advirtio_vigencia": advirtio_vigencia(texto),
+                "cayo_en_la_trampa": (
+                    cayo_en_la_trampa(texto, c.get("norma_trampa", ""))
+                    if c["tipo"].startswith("trampa")
+                    else False
+                ),
             }
         )
         if i % 10 == 0:
@@ -287,7 +346,7 @@ def informe(filas: list[dict], usd: float) -> None:
 
     trampas = [f for f in filas if f["tipo"] in ("trampa_derogada", "trampa_ambito")]
     if trampas:
-        ok = sum(1 for f in trampas if f["advirtio_vigencia"] or f["se_abstuvo"])
+        ok = sum(1 for f in trampas if not f.get("cayo_en_la_trampa"))
         print(
             f"Trampas sorteadas : {ok}/{len(trampas)} = {ok / len(trampas) * 100:.1f}% "
             f"(norma derogada, inexequible o de otro ámbito)"
