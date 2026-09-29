@@ -70,11 +70,46 @@ def huella_corpus(documentos: list[Documento]) -> str:
     return h.hexdigest()[:16]
 
 
-def anotar_corpus(coleccion, documentos: list[Documento]) -> None:
-    """Graba la huella, o avisa si el indice se esta ampliando con otro corpus."""
+CLAVE_CORPUS_ANTERIOR = "corpus_anterior"
+
+
+def anotar_corpus(
+    coleccion,
+    documentos: list[Documento],
+    ampliar: bool = False,
+    documentos_indexados: set[str] | None = None,
+) -> None:
+    """Graba la huella, o avisa si el indice se esta ampliando con otro corpus.
+
+    `ampliar=True` es la unica forma legitima de cambiar el corpus de un indice:
+    anadir documentos (p. ej. las leyes recientes del Gestor, 29-sep). Se exige
+    que sea un SUPERCONJUNTO — ningun documento ya indexado puede faltar en
+    data/raw —, porque quitar o sustituir documentos dejaria fragmentos
+    huerfanos con el conteo cuadrando. La huella vieja queda en
+    `corpus_anterior`: las cifras medidas con ella no son comparables con las
+    nuevas y el indice lo dice.
+    """
     huella = huella_corpus(documentos)
     metadatos = dict(coleccion.metadata or {})
     anotada = metadatos.get(CLAVE_CORPUS)
+    if anotada and anotada != huella and ampliar:
+        actuales = {d.id for d in documentos}
+        perdidos = sorted((documentos_indexados or set()) - actuales)
+        if perdidos:
+            raise SystemExit(
+                f"--ampliar exige un superconjunto y faltan {len(perdidos)} documentos que el "
+                f"indice ya tiene (p. ej. {perdidos[:3]}). No se toca nada."
+            )
+        coleccion.modify(
+            metadata={
+                **metadatos,
+                CLAVE_CORPUS: huella,
+                CLAVE_DOCUMENTOS: len(documentos),
+                CLAVE_CORPUS_ANTERIOR: anotada,
+            }
+        )
+        print(f"Corpus AMPLIADO {anotada} -> {huella} ({len(documentos)} documentos)")
+        return
     if anotada and anotada != huella:
         raise SystemExit(
             f"Este indice se construyo con el corpus {anotada} "
@@ -130,7 +165,7 @@ def cargar_documentos(dir_raw: Path) -> list[Documento]:
     return documentos
 
 
-def reindexar(dir_raw: Path) -> None:
+def reindexar(dir_raw: Path, ampliar: bool = False) -> None:
     documentos = cargar_documentos(dir_raw)
     if not documentos:
         print(f"No hay documentos en {dir_raw}")
@@ -161,7 +196,6 @@ def reindexar(dir_raw: Path) -> None:
     cliente = chromadb.PersistentClient(path=str(DIR_INDICE))
     coleccion = cliente.get_or_create_collection(COLECCION)
     comprobar_troceo_compatible(coleccion)
-    anotar_corpus(coleccion, documentos)
 
     # Reanudar: lo que ya está indexado no se vuelve a codificar. Sin esto, una
     # corrida de horas que se cae obliga a empezar de cero.
@@ -175,6 +209,12 @@ def reindexar(dir_raw: Path) -> None:
             ya_estan.update(pagina["ids"])
             desplazamiento += len(pagina["ids"])
         print(f"Ya indexados: {len(ya_estan)} fragmentos; se reanuda sobre ellos")
+    anotar_corpus(
+        coleccion,
+        documentos,
+        ampliar=ampliar,
+        documentos_indexados={i.split("::", 1)[0] for i in ya_estan},
+    )
     pendientes = [f for f in fragmentos if f.id not in ya_estan]
     print(f"Pendientes de indexar: {len(pendientes)}")
 
@@ -229,5 +269,6 @@ def reindexar(dir_raw: Path) -> None:
 
 if __name__ == "__main__":
     dir_por_defecto = Path(__file__).resolve().parent / "data" / "raw"
-    dir_raw = Path(sys.argv[1]) if len(sys.argv) > 1 else dir_por_defecto
-    reindexar(dir_raw)
+    args = [a for a in sys.argv[1:] if a != "--ampliar"]
+    dir_raw = Path(args[0]) if args else dir_por_defecto
+    reindexar(dir_raw, ampliar="--ampliar" in sys.argv[1:])

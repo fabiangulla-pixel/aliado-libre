@@ -8,6 +8,8 @@ import sys
 import textwrap
 from pathlib import Path
 
+import pytest
+
 RAIZ = Path(__file__).resolve().parent.parent
 
 
@@ -154,3 +156,26 @@ def test_el_mismo_corpus_se_reanuda_sin_estorbar():
     r.anotar_corpus(coleccion, docs)
     r.anotar_corpus(coleccion, docs)  # segunda pasada: no debe quejarse
     assert coleccion.metadata["documentos"] == 10
+
+
+def test_ampliar_acepta_superconjunto_y_guarda_la_huella_anterior():
+    import reindexar_con_gpu as r
+
+    viejos = _docs(10)
+    coleccion = _ColeccionFalsa(metadata=None, n=0)
+    r.anotar_corpus(coleccion, viejos)
+    huella_vieja = coleccion.metadata["corpus"]
+    nuevos = _docs(12)
+    r.anotar_corpus(coleccion, nuevos, ampliar=True, documentos_indexados={d.id for d in viejos})
+    assert coleccion.metadata["corpus"] == r.huella_corpus(nuevos)
+    assert coleccion.metadata["corpus_anterior"] == huella_vieja
+
+
+def test_ampliar_rechaza_si_desaparece_un_documento_indexado():
+    """Sustituir documentos no es ampliar: dejaria fragmentos huerfanos."""
+    import reindexar_con_gpu as r
+
+    coleccion = _ColeccionFalsa(metadata={"corpus": "deadbeefdeadbeef", "documentos": 10}, n=50)
+    with pytest.raises(SystemExit, match="superconjunto"):
+        r.anotar_corpus(coleccion, _docs(5), ampliar=True, documentos_indexados={"no:existe"})
+    assert coleccion.metadata["corpus"] == "deadbeefdeadbeef"
