@@ -213,7 +213,7 @@ def reindexar(dir_raw: Path, ampliar: bool = False) -> None:
         coleccion,
         documentos,
         ampliar=ampliar,
-        documentos_indexados={i.split("::", 1)[0] for i in ya_estan},
+        documentos_indexados={i.rsplit("::", 1)[0] for i in ya_estan},
     )
     pendientes = [f for f in fragmentos if f.id not in ya_estan]
     print(f"Pendientes de indexar: {len(pendientes)}")

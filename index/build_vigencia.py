@@ -37,7 +37,7 @@ def main() -> None:
     else:
         print(f"AVISO: sin {RUTA_SUIN}; solo se leen las notas del texto.")
     tabla = construir_tabla(filas, suin)
-    documentos = len({i.split("::", 1)[0] for (i,) in conexion.execute("SELECT id FROM fragmentos_fts")})
+    documentos = len({i.rsplit("::", 1)[0] for (i,) in conexion.execute("SELECT id FROM fragmentos_fts")})
     salida = {
         "construida": date.today().isoformat(),
         "fragmentos_leidos": total,

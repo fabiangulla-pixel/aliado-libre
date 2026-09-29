@@ -8,11 +8,15 @@ externas está en `docs/RECOMENDACIONES_TRIAGE.md`.
 1. **Elegir licencia.** No hay `LICENSE`: hoy el código es legalmente de todos
    los derechos reservados. AGPL-3.0 si se quiere impedir que alguien lo cierre
    como servicio de pago; MIT/Apache-2.0 si se prefiere la máxima adopción.
-2. **Revisión humana de 20 casos** (`finetune/eval/revision_humana.html`),
+2. **Revisar las 47 abstenciones** (`finetune/eval/revision_abstenciones.html`,
+   se regenera con `revisar_abstenciones.py`). Decide el umbral de abstención,
+   que hoy mide coincidencia léxica y no relevancia. **Es lo que más mueve la
+   cobertura**: el corpus ya tiene la respuesta en casos donde la app calla.
+3. **Revisión humana de 20 casos** (`finetune/eval/revision_humana.html`),
    pendiente desde el 7-sep.
-3. **CSV del Planificador de Palabras Clave de Google Ads** (interfaz web,
+4. **CSV del Planificador de Palabras Clave de Google Ads** (interfaz web,
    ubicación Colombia) con las 1.276 consultas cosechadas.
-4. **Autorizar el push** de los commits locales.
+5. **Autorizar el push** de los commits locales.
 
 ## Siguiente tarea técnica
 
@@ -20,11 +24,13 @@ externas está en `docs/RECOMENDACIONES_TRIAGE.md`.
    consultas con `correr_piloto.py --ejecutar` (~0,43 USD con Haiku 4.5; pedir
    confirmación). El prompt cambió el 29-sep (línea de vigencia y delimitadores
    `<documento>`): las cifras del 12-sep ya no describen el sistema.
-2. **Ingerir por demanda**: servicios públicos domiciliarios (0/37) y consumo
-   financiero (1/11).
+2. ~~Ingerir por demanda~~: la Ley 142 de 1994 y la 1328 de 2009 YA estaban;
+   el 0/37 es recuperación + umbral. Hecho en cambio: 273 leyes recientes
+   (29-sep). Corpus vigente `1199645cc8a5a1ce`.
 3. **Troceo por artículo** como experimento de una sola variable, sobre el
    corpus `e422ffbae7186cb8`.
-4. **Recompilar el .exe**: lleva `index/vigencia_documentos.json` desde el 29-sep.
+4. ~~Recompilar el .exe~~: hecho el 29-sep, verificado abriendo el PYZ.
+5. **Publicar el índice ampliado** en HF si se va a desplegar el servidor.
 
 ## Mantenimiento
 

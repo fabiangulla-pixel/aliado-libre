@@ -1,5 +1,47 @@
 # Changelog
 
+## 2026-09-29 (tarde) — 273 leyes recientes, y el umbral de abstención no mide lo que dice
+
+### El hueco del corpus no era el que creíamos
+
+«Me cortaron la luz» (0/37) parecía un hueco de corpus. **La Ley 142 de 1994
+está indexada** (282 fragmentos, en el Gestor con id numérico): es otra vez
+recuperación. El hueco real eran las **leyes posteriores a ~2015**: el BFS del
+Gestor se cerró sobre su propio grafo y legalize-co no las trae.
+
+`scripts/ampliar_leyes_gestor.py` recorre el buscador del Gestor **por número
+de ley** (la paginación por año se corta sola: daba 37 leyes de 2023) con
+reintentos, tope de lectura y caché del descubrimiento — la primera corrida se
+colgó sin error en la ley 1750. **273 leyes nuevas**, entre ellas la 1755 de
+2015 (derecho de petición), 2101 de 2021 (jornada), 2157 de 2021 (habeas
+data), 2300 de 2023 (cobranzas), 2381 de 2024 (reforma pensional) y 2466 de
+2025 (reforma laboral). 424 números de ley no están en el Gestor.
+
+### `reindexar_con_gpu.py --ampliar`
+
+La única forma legítima de cambiar el corpus de un índice: exige superconjunto
+y guarda la huella anterior. **Su primera corrida la rechazó por un error mío**:
+hay ids de documento que terminan en «:» (`…ahorros:::frag0`) y cortar por el
+primer `::` perdía el «:». Mismo defecto en `vigencia.documento_de`, el MCP y
+dos scripts; todos pasan a `rsplit`. Con eso: corpus `e422ffbae7186cb8` →
+**`1199645cc8a5a1ce`**, 145.833 documentos, 1.058.654 fragmentos (Chroma y
+FTS5 cuadran).
+
+Línea base remedida sobre el corpus nuevo: recall@5 27,4%, MRR@10 0,196 (antes
+0,197): sin regresión. Cobertura frente a demanda real: 571 → 577 de 1.276.
+
+### ⭐ El umbral de abstención mide coincidencia léxica, no relevancia
+
+El puntaje del mejor resultado es casi binario: **0,0167** si lo encontró un
+solo motor (1/60 del RRF) o **≥0,026** si coinciden los dos. Con
+`UMBRAL_ABSTENCION = 0,020`, la app se abstiene siempre que la búsqueda léxica no
+coincide con la semántica: **47 de 100** en el piloto, y en lenguaje llano
+casi nunca coinciden. Ejemplo: «a qué horas me pueden llamar los cobradores»
+trae la Ley 2300 de 2023 **primera** y la app se abstiene.
+
+No se cambia a ciegas: `finetune/eval/revisar_abstenciones.py` genera la hoja
+para que una persona decida en cuántas de las 47 había respuesta.
+
 ## 2026-09-29 — La vigencia pasa de texto a dato
 
 El 12-sep la app presentó como vigente la tarifa de un decreto inexequible

@@ -249,3 +249,10 @@ def test_nota_del_texto_y_suin_manda_la_mas_grave():
     suin = vig.indexar_suin([{"tipo": "DECRETO", "n_mero": "150", "a_o": "1997", "vigencia": "Derogado"}])
     tabla = construir_tabla([("dian:tributario:decreto_0150_1997::frag2", "<Decreto INEXEQUIBLE>")], suin)
     assert tabla["dian:tributario:decreto_0150_1997"]["estado"] == INEXEQUIBLE
+
+
+def test_documento_de_con_id_que_termina_en_dos_puntos():
+    """superfinanciera:122:Contrato…ahorros: -> fragmento "…ahorros:::frag0".
+    Cortar por el PRIMER "::" pierde el ":" final (lo destapó --ampliar)."""
+    doc = "superfinanciera:122:Contrato de cuenta de ahorros:"
+    assert vig.documento_de(doc + "::frag0") == doc

@@ -88,7 +88,7 @@ def verificar_vigencia(documento_id: str) -> str:
         return "Identificador inválido."
     from index.vigencia import tabla
 
-    fila = tabla().get(documento_id.split("::", 1)[0])
+    fila = tabla().get(documento_id.rsplit("::", 1)[0])
     if not fila:
         return (
             f"{documento_id}: sin nota de vigencia de alcance documental en el índice. "

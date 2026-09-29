@@ -82,7 +82,7 @@ def leyes_en_indice() -> set[tuple[str, str]]:
     con = sqlite3.connect(f"file:{DB_FTS}?mode=ro", uri=True)
     patron = re.compile(r"(?:^|:)ley[-_](\d+)[-_](\d{4})$", re.IGNORECASE)
     for (fid,) in con.execute("SELECT id FROM fragmentos_fts"):
-        if m := patron.search(fid.split("::", 1)[0]):
+        if m := patron.search(fid.rsplit("::", 1)[0]):
             presentes.add((m.group(1).lstrip("0"), m.group(2)))
     for d in json.loads(RAW.read_text(encoding="utf-8")):
         if m := re.match(r"Ley (\d+) de (\d{4})", d.get("titulo") or ""):

@@ -138,7 +138,8 @@ def estado_de_notas(notas: list[Nota], alcance: str) -> Nota | None:
 
 
 def documento_de(fragmento_id: str) -> str:
-    return fragmento_id.split("::", 1)[0]
+    # rsplit: hay ids de documento que terminan en ":" ("…ahorros:" -> "…ahorros:::frag0").
+    return fragmento_id.rsplit("::", 1)[0]
 
 
 _NUMERADA = re.compile(r"^\S+\s+(?P<num>\d[\d.]*)\s+de\s+(?P<anio>\d{4})")
