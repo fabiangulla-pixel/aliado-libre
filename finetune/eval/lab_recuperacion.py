@@ -128,29 +128,65 @@ def fusionar(vec: list[str], fts: list[str], peso_bm25: float, peso_vec: float =
     return [d for d, _ in sorted(puntaje.items(), key=lambda x: -x[1])]
 
 
+def rango_documento(orden: list[str], documento_id: str) -> int | None:
+    """Posición (1 = primero) del primer fragmento del documento correcto."""
+    for i, frag in enumerate(orden, start=1):
+        if documento_de(frag) == documento_id:
+            return i
+    return None
+
+
+def metricas_rango(rangos: list[int | None]) -> dict[str, float]:
+    """Recall@1/@5/@10 y MRR@10 a partir de la posición del documento correcto.
+
+    recall@5 solo dice si entró en la ventana; MRR distingue "llegó primero" de
+    "llegó quinto", que para quien lee solo el primer resultado es la
+    diferencia entre tener la respuesta y no tenerla.
+    """
+    n = len(rangos)
+    if not n:
+        return {}
+
+    def en(k: int) -> float:
+        return sum(1 for r in rangos if r is not None and r <= k) / n
+
+    return {
+        "recall@1": en(1),
+        "recall@5": en(5),
+        "recall@10": en(10),
+        "mrr@10": sum(1 / r for r in rangos if r is not None and r <= 10) / n,
+    }
+
+
 def evaluar(cache, casos, config, subconjunto=None) -> dict:
-    """Recall@5 global y por perfil para una configuración de fusión."""
+    """Recall@5 global y por perfil para una configuración de fusión, más
+    recall@1/@10 y MRR@10 globales."""
     reparto = particion()
     aciertos: dict[str, list[bool]] = defaultdict(list)
+    rangos: list[int | None] = []
     for c in casos:
         if subconjunto and reparto.get(c["documento_id"]) != subconjunto:
             continue
         d = cache.get(c["id"])
         if not d:
             continue
-        orden = config(d)
-        docs = [documento_de(x) for x in orden[:TOPE]]
-        aciertos[c["perfil"]].append(c["documento_id"] in docs)
+        rango = rango_documento(config(d), c["documento_id"])
+        rangos.append(rango)
+        aciertos[c["perfil"]].append(rango is not None and rango <= TOPE)
     todos = [a for v in aciertos.values() for a in v]
     return {
         "global": (sum(todos), len(todos)),
         "por_perfil": {p: (sum(v), len(v)) for p, v in aciertos.items()},
+        "metricas": metricas_rango(rangos),
     }
 
 
 def imprimir(nombre: str, r: dict) -> None:
     a, n = r["global"]
     print(f"\n{nombre}: {a}/{n} = {a / n * 100:.1f}%" if n else f"\n{nombre}: sin casos")
+    if m := r.get("metricas"):
+        partes = [f"{k} {v:.3f}" if k.startswith("mrr") else f"{k} {v * 100:.1f}%" for k, v in m.items()]
+        print("    " + "  ".join(partes))
     for p, (pa, pn) in sorted(r["por_perfil"].items(), key=lambda x: -x[1][1]):
         print(f"    {p:24} {pa:>2}/{pn:<2} = {pa / pn * 100:5.1f}%")
 
@@ -263,8 +299,22 @@ def comparar_puente() -> None:
         imprimir(nombre, evaluar(cache, casos, cfg, "dev"))
 
 
+def linea_base() -> None:
+    """La configuración de producción (RRF, BM25 0,8, sin reordenar) con todas
+    las métricas, en dev, en test y en total. Solo informa: aquí no se ajusta."""
+    cache = pickle.loads(CACHE.read_bytes())
+    casos = casos_anclados()
+
+    def cfg(d):
+        return fusionar(d["vectorial"], d["fts"], 0.8)
+
+    for sub in ("dev", "test", None):
+        imprimir(f"línea base — {sub or 'todo'}", evaluar(cache, casos, cfg, sub))
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument("--linea-base", action="store_true")
     ap.add_argument("--cachear", action="store_true")
     ap.add_argument("--barrer-pesos", action="store_true")
     ap.add_argument("--cachear-puente", action="store_true")
@@ -281,7 +331,9 @@ def main() -> int:
         cachear_puente()
     if a.comparar_puente:
         comparar_puente()
-    if not (a.cachear or a.barrer_pesos or a.cachear_puente or a.comparar_puente):
+    if a.linea_base:
+        linea_base()
+    if not (a.cachear or a.barrer_pesos or a.cachear_puente or a.comparar_puente or a.linea_base):
         ap.print_help()
     return 0
 

@@ -18,8 +18,9 @@ hicieron, y alguna se probó y **empeoraba** el resultado. Cuatro estados:
 - ✅ **Filtro de vigencia** como etapa entre la recuperación y la generación
   (`index/vigencia.py`). No filtra, **etiqueta y decide**: una norma derogada puede ser
   la respuesta correcta a "¿qué decía…?", así que se muestra marcada en vez de ocultarse.
-- ⏳ Extracción de entidades jurídicas de la consulta (ley N de AAAA, artículo) para
-  forzarlas en la parte léxica. Barata y determinista. Claude.
+- ⛔ Extracción de entidades jurídicas de la consulta (ley N de AAAA, artículo):
+  **7 de 1.276 consultas reales (0,5%)** y 6 de 100 del piloto citan una norma por
+  número. Mejoraría a quien ya acierta (abogado_junior, 67%), no a quien falla.
 
 ## P2 — Modelo normativo y vigencia
 
@@ -51,7 +52,12 @@ hicieron, y alguna se probó y **empeoraba** el resultado. Cuatro estados:
 
 - ☑ Banco piloto de 100 anclas independientes con tipos (responde, trampa_derogada,
   no_cubierto…), validado antes de medir; 1.276 consultas reales para cobertura.
-- ⏳ Recall@1/@10, MRR y nDCG: triviales de añadir a `lab_recuperacion.py`. Claude.
+- ✅ Recall@1/@10 y MRR@10 en `lab_recuperacion.py --linea-base`. **Línea base del
+  29-sep** (producción: RRF, BM25 0,8, sin reordenar; 95 anclas): recall@1 13,7%,
+  @5 27,4%, @10 31,6%, MRR@10 0,197. Dev y test coinciden (27,3 / 27,5%).
+  Que @10 casi no supere a @5 dice que ensanchar la ventana no es la palanca: cuando
+  el documento no está entre los cinco primeros, casi nunca está entre los diez.
+  nDCG no aporta con una sola ancla por consulta (se reduce a MRR con otro descuento).
 - ⏳ **Revisión humana de 20 casos** (`finetune/eval/revision_humana.html`), pendiente
   desde el 7-sep. **Fabián.** Sin ella no hay cifra de utilidad publicable.
 
