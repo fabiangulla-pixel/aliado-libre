@@ -43,10 +43,13 @@ hicieron, y alguna se probó y **empeoraba** el resultado. Cuatro estados:
 
 ## P4 — Troceo por artículo
 
-- ⏳ Un experimento, **una variable**, sobre el corpus congelado `e422ffbae7186cb8`.
-  Coste: ~2 h de GPU por troceo. La guarda de huella impide mezclar índices. Claude.
-- Nota: el troceo del 12-sep por párrafos y el anterior por tamaño dieron fragmentos
-  casi idénticos (1% y 6% de diferencia). El troceo por artículo sí sería distinto.
+- ☑ **Ya es el troceo de producción**: `ingest/chunking.py::fragmentar` corta primero
+  por `ARTÍCULO N` y solo parte por párrafos los artículos que pasan de 1.500 caracteres.
+- ⏳ La variante que sí sería nueva: **encabezado contextual** (anteponer el título de la
+  norma al fragmento antes de codificarlo, para que el "ARTÍCULO 130" de la Ley 142 diga
+  de qué trata). Una sola variable, sobre el corpus `1199645cc8a5a1ce`. Coste medido el
+  29-sep: ~9.000 fragmentos en ~10 min de RTX 5080 → **~15-20 h** para 1.058.654.
+  Decisión de Fabián por el tiempo de máquina.
 
 ## P5 — Banco de evaluación
 
@@ -58,6 +61,9 @@ hicieron, y alguna se probó y **empeoraba** el resultado. Cuatro estados:
   Que @10 casi no supere a @5 dice que ensanchar la ventana no es la palanca: cuando
   el documento no está entre los cinco primeros, casi nunca está entre los diez.
   nDCG no aporta con una sola ancla por consulta (se reduce a MRR con otro descuento).
+- ⏳ **Revisión de las 47 abstenciones** (`revision_abstenciones.html`): el umbral de
+  abstención mide coincidencia léxica (puntaje casi binario 0,0167 / ≥0,026), no
+  relevancia. **Fabián.** Es lo que más mueve la cobertura real.
 - ⏳ **Revisión humana de 20 casos** (`finetune/eval/revision_humana.html`), pendiente
   desde el 7-sep. **Fabián.** Sin ella no hay cifra de utilidad publicable.
 
@@ -118,5 +124,7 @@ hicieron, y alguna se probó y **empeoraba** el resultado. Cuatro estados:
 2. El 81% de los "fallos" de recall@5 respondían bien con otra norma que cita lo mismo:
    la métrica por ancla subestima. La propuesta del 12-sep (¿dio una norma con cita
    literal que existe en el contexto?) está en 80/100.
-3. El hueco más grande no es técnico: servicios públicos y consumo financiero están en
-   0/37 y 1/11 frente a la demanda real. Es corpus, no algoritmo.
+3. ~~El hueco más grande es corpus~~ — **retirado el 29-sep**: la Ley 142 de 1994 y la
+   1328 de 2009 ya estaban indexadas. El 0/37 de "me cortaron la luz" es recuperación
+   más un umbral de abstención que calla cuando los dos motores no coinciden. Lo que sí
+   faltaba era corpus reciente: 273 leyes posteriores a 2015, ya ingeridas.
