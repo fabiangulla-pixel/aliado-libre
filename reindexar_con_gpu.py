@@ -46,6 +46,52 @@ from index.buscar import (  # noqa: E402
 )
 
 CLAVE_TROCEO = "troceo"
+CLAVE_ENCABEZADO = "encabezado"
+
+# Qué se codifica además del texto del fragmento. "titulo" antepone el título de
+# la norma: el "ARTÍCULO 130" de la Ley 142 no dice que trata de servicios
+# públicos, y su vector tampoco. El texto GUARDADO no cambia (lo que se cita y
+# se muestra es el mismo); solo cambia el vector. Una sola variable frente al
+# índice de producción, que se construyó sin encabezado.
+ENCABEZADO_NINGUNO = "ninguno"
+ENCABEZADO_TITULO = "titulo"
+ENCABEZADOS_VALIDOS = (ENCABEZADO_NINGUNO, ENCABEZADO_TITULO)
+
+
+def modo_encabezado() -> str:
+    modo = os.environ.get("ALIADO_ENCABEZADO", ENCABEZADO_NINGUNO).strip().lower()
+    if modo not in ENCABEZADOS_VALIDOS:
+        raise ValueError(f"ALIADO_ENCABEZADO={modo!r} no es valido: {', '.join(ENCABEZADOS_VALIDOS)}.")
+    return modo
+
+
+def texto_a_codificar(fragmento) -> str:
+    """Lo que ve el modelo de embeddings (sin el prefijo `passage: `)."""
+    if modo_encabezado() == ENCABEZADO_TITULO and fragmento.titulo_documento:
+        return f"{fragmento.titulo_documento}\n{fragmento.texto}"
+    return fragmento.texto
+
+
+def comprobar_encabezado_compatible(coleccion) -> None:
+    """Mismo peligro que el troceo: los ids no cambian con el encabezado, así
+    que reanudar con otro modo dejaría vectores de dos clases en un índice que
+    cuadra en el conteo. Un índice sin marca se construyó sin encabezado (todos
+    los anteriores al 29-sep-2026)."""
+    modo = modo_encabezado()
+    metadatos = dict(coleccion.metadata or {})
+    anotado = metadatos.get(CLAVE_ENCABEZADO, ENCABEZADO_NINGUNO if coleccion.count() else None)
+    if anotado is None:
+        coleccion.modify(metadata={**metadatos, CLAVE_ENCABEZADO: modo})
+        return
+    if anotado != modo:
+        raise SystemExit(
+            f"Este indice se construyo con ALIADO_ENCABEZADO={anotado} y ahora se pide {modo}. "
+            "Reanudar mezclaria vectores de dos clases. Usar ALIADO_DIR_INDICE para indexar aparte."
+        )
+    if CLAVE_ENCABEZADO not in metadatos:
+        coleccion.modify(metadata={**metadatos, CLAVE_ENCABEZADO: modo})
+
+
 CLAVE_CORPUS = "corpus"
 CLAVE_DOCUMENTOS = "documentos"
 
@@ -196,6 +242,7 @@ def reindexar(dir_raw: Path, ampliar: bool = False) -> None:
     cliente = chromadb.PersistentClient(path=str(DIR_INDICE))
     coleccion = cliente.get_or_create_collection(COLECCION)
     comprobar_troceo_compatible(coleccion)
+    comprobar_encabezado_compatible(coleccion)
 
     # Reanudar: lo que ya está indexado no se vuelve a codificar. Sin esto, una
     # corrida de horas que se cae obliga a empezar de cero.
@@ -224,11 +271,12 @@ def reindexar(dir_raw: Path, ampliar: bool = False) -> None:
     for inicio in range(0, total, tamanio_lote):
         lote = pendientes[inicio : inicio + tamanio_lote]
         textos = [f.texto for f in lote]
+        a_codificar = [texto_a_codificar(f) for f in lote]
 
         # batch_size > 1 usa más memoria pero aprovecha mejor la GPU
         print(f"  Codificando fragmentos {inicio}-{min(inicio + tamanio_lote, total)}/{total}...")
         embeddings = modelo.encode(
-            [PREFIJO_PASAJE + t for t in textos], batch_size=64, show_progress_bar=True
+            [PREFIJO_PASAJE + t for t in a_codificar], batch_size=64, show_progress_bar=True
         ).tolist()
 
         ids = [f.id for f in lote]

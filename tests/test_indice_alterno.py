@@ -179,3 +179,44 @@ def test_ampliar_rechaza_si_desaparece_un_documento_indexado():
     with pytest.raises(SystemExit, match="superconjunto"):
         r.anotar_corpus(coleccion, _docs(5), ampliar=True, documentos_indexados={"no:existe"})
     assert coleccion.metadata["corpus"] == "deadbeefdeadbeef"
+
+
+def test_indice_sin_marca_de_encabezado_es_ninguno_y_rechaza_titulo(monkeypatch):
+    """Todos los índices anteriores al 29-sep se construyeron sin encabezado:
+    reanudar uno con ALIADO_ENCABEZADO=titulo mezclaría vectores de dos clases."""
+    import reindexar_con_gpu as r
+
+    monkeypatch.setenv("ALIADO_ENCABEZADO", "titulo")
+    coleccion = _ColeccionFalsa(metadata={"troceo": "parrafos"}, n=1000)
+    with pytest.raises(SystemExit, match="ALIADO_ENCABEZADO=ninguno"):
+        r.comprobar_encabezado_compatible(coleccion)
+
+
+def test_indice_nuevo_anota_el_encabezado(monkeypatch):
+    import reindexar_con_gpu as r
+
+    monkeypatch.setenv("ALIADO_ENCABEZADO", "titulo")
+    coleccion = _ColeccionFalsa(metadata=None, n=0)
+    r.comprobar_encabezado_compatible(coleccion)
+    assert coleccion.metadata["encabezado"] == "titulo"
+
+
+def test_texto_a_codificar_antepone_titulo_solo_en_modo_titulo(monkeypatch):
+    import reindexar_con_gpu as r
+    from ingest.chunking import Fragmento
+
+    f = Fragmento(
+        id="d::frag0",
+        documento_id="d",
+        fuente="gestor_normativo",
+        identificador_documento="Ley 142 de 1994",
+        titulo_documento="Ley 142 de 1994 - servicios públicos domiciliarios",
+        texto="ARTÍCULO 130. Partes del contrato.",
+        url_original="",
+        orden=0,
+    )
+    monkeypatch.setenv("ALIADO_ENCABEZADO", "ninguno")
+    assert r.texto_a_codificar(f) == f.texto
+    monkeypatch.setenv("ALIADO_ENCABEZADO", "titulo")
+    assert r.texto_a_codificar(f).startswith("Ley 142 de 1994 - servicios")
+    assert r.texto_a_codificar(f).endswith(f.texto)

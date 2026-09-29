@@ -256,3 +256,10 @@ def test_documento_de_con_id_que_termina_en_dos_puntos():
     Cortar por el PRIMER "::" pierde el ":" final (lo destapó --ampliar)."""
     doc = "superfinanciera:122:Contrato de cuenta de ahorros:"
     assert vig.documento_de(doc + "::frag0") == doc
+
+
+def test_sin_nota_no_se_anuncia_en_el_prompt():
+    """Una duda repetida en cada fragmento vuelve al modelo abstencionista
+    (piloto 29-sep: de ~10 a 23 abstenciones). Solo se anuncia lo que hay."""
+    contexto = _formatear_fragmentos(anotar([_r("ARTÍCULO 1. Texto sin nota.")]))
+    assert "Vigencia:" not in contexto
