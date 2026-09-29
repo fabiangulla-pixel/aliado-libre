@@ -44,3 +44,7 @@ index/chroma_db.*/
 _run/.conteo*
 # catálogo SUIN-Juriscol descargado (scripts/descargar_suin_vigencias.py)
 data/suin_vigencias.json
+
+# indices experimentales (ALIADO_DIR_INDICE)
+index/chroma_db*/
+index/*_fts.db
