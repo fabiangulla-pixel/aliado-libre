@@ -214,6 +214,9 @@
 
   /* Usa las variables del tema: con colores fijos este aviso quedaba
      ilegible en modo oscuro, que es justo cuando mas se nota un panel claro. */
+  .vigencia { margin-left: 0.6rem; padding: 0.1rem 0.5rem; border-radius: 4px; font-size: 0.8rem; font-weight: 600; }
+  .vigencia.no-rige { background: #b3261e; color: #fff; }
+  .vigencia.parcial, .vigencia.incierta { background: #f2c94c; color: #3a2e00; }
   .aviso-cobertura {
     background: var(--panel);
     border: 1px solid var(--dorado);
@@ -618,6 +621,22 @@ function escaparHtml(s) {
   return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
 
+/* La vigencia la calcula el servidor leyendo la nota oficial del texto
+   (index/vigencia.py). "sin_nota" no se pinta: que no haya nota no prueba que
+   la norma rija, y un sello verde lo afirmaria. */
+function selloVigencia(v) {
+  if (!v || v.estado === 'sin_nota') return '';
+  const nota = escaparHtml(v.nota || '');
+  if (v.estado === 'incierta') {
+    return `<span class="vigencia incierta" title="${nota}">Vigencia incierta</span>`;
+  }
+  const estado = escaparHtml(v.estado.toUpperCase());
+  if (v.alcance === 'documento') {
+    return `<span class="vigencia no-rige" title="${nota}">Norma ${estado} — no rige</span>`;
+  }
+  return `<span class="vigencia parcial" title="${nota}">Parte del texto ${estado}</span>`;
+}
+
 function resaltar(texto, consulta) {
   const palabras = consulta.trim().split(/\s+/).filter(p => p.length > 2).map(p =>
     p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
@@ -720,6 +739,7 @@ async function buscar() {
         </div>
         <div class="meta">
           <span class="puntaje">Relevancia ${r.puntaje}</span>
+          ${selloVigencia(r.vigencia)}
         </div>
         <div class="fragmento-preview">${htmlPreview}${tieneExtension ? ' […]' : ''}</div>
         ${tieneExtension ? `

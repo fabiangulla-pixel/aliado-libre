@@ -233,12 +233,16 @@ class IndiceBusqueda:
         mejorar el orden de lo que recibe.
         """
         from index.reordenar import CANDIDATOS, activo, reordenar
+        from index.vigencia import anotar
 
+        # Cada resultado sale con su `vigencia` (ver index/vigencia.py): la nota
+        # oficial de derogación o inexequibilidad pasa de texto que el modelo
+        # tenía que notar a dato que la GUI, el MCP y el enrutador leen.
         if not activo():
-            return self._buscar_crudo(consulta, k=k, fuentes=fuentes)
+            return anotar(self._buscar_crudo(consulta, k=k, fuentes=fuentes))
 
         crudos = self._buscar_crudo(consulta, k=max(k, CANDIDATOS), fuentes=fuentes)
-        return reordenar(consulta, crudos, k=k)
+        return anotar(reordenar(consulta, crudos, k=k))
 
     def _buscar_crudo(self, consulta: str, k: int = 8, fuentes: list[str] | None = None) -> list[dict]:
         """Búsqueda híbrida (vectorial + FTS5, fusionadas por RRF), sin reordenar.

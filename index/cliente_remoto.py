@@ -125,6 +125,13 @@ class IndiceRemoto:
             raise ErrorIndiceRemoto(
                 "El servidor del índice respondió con un formato inesperado (falta la lista 'resultados')."
             )
+        # Un servidor anterior al 29-sep no manda `vigencia`. Sin la tabla por
+        # documento solo se lee la nota del propio fragmento: menos, no nada.
+        from index.vigencia import vigencia_de
+
+        for r in resultados:
+            if isinstance(r, dict) and not isinstance(r.get("vigencia"), dict):
+                r["vigencia"] = vigencia_de(r)
         return resultados
 
     def salud(self) -> dict:

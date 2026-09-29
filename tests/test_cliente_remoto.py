@@ -69,10 +69,28 @@ def test_toma_url_y_token_del_entorno(monkeypatch):
 # -- éxito ----------------------------------------------------------------
 
 
+def _sin_vigencia(resultados):
+    return [{k: v for k, v in r.items() if k != "vigencia"} for r in resultados]
+
+
 def test_buscar_devuelve_los_fragmentos_tal_cual():
+    """Los campos del servidor llegan intactos; solo se AÑADE `vigencia`
+    cuando un servidor anterior al 29-sep no la manda."""
     cliente = IndiceRemoto("http://indice.local")
     with patch("urllib.request.urlopen", return_value=_respuesta({"resultados": [FRAGMENTO]})):
-        assert cliente.buscar("acción de tutela", k=3) == [FRAGMENTO]
+        resultados = cliente.buscar("acción de tutela", k=3)
+    assert _sin_vigencia(resultados) == [FRAGMENTO]
+    assert resultados[0]["vigencia"]["estado"] == "sin_nota"
+
+
+def test_respeta_la_vigencia_que_manda_el_servidor():
+    """El servidor tiene la tabla por documento; el cliente no debe pisarla
+    con la lectura de un solo fragmento."""
+    vigencia = {"estado": "derogada", "alcance": "documento", "nota": "x", "por": None}
+    del_servidor = {**FRAGMENTO, "vigencia": vigencia}
+    cliente = IndiceRemoto("http://indice.local")
+    with patch("urllib.request.urlopen", return_value=_respuesta({"resultados": [del_servidor]})):
+        assert cliente.buscar("tutela")[0]["vigencia"]["estado"] == "derogada"
 
 
 def test_buscar_envia_post_json_con_consulta_n_y_token():
@@ -253,7 +271,7 @@ def test_503_se_reintenta_y_la_segunda_vez_funciona():
 
     with patch("urllib.request.urlopen", side_effect=falso), patch("time.sleep"):
         cliente = IndiceRemoto("http://x", reintentos=2)
-        assert cliente.buscar("tutela") == [FRAGMENTO]
+        assert _sin_vigencia(cliente.buscar("tutela")) == [FRAGMENTO]
     assert respuestas == []
 
 

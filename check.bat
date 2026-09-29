@@ -1,6 +1,7 @@
 @echo off
 setlocal enabledelayedexpansion
 set PY=venv\Scripts\python.exe
+if not exist %PY% set PY=.venv\Scripts\python.exe
 
 echo [check] ruff lint...
 %PY% -m ruff check .

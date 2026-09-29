@@ -60,6 +60,24 @@ def decidir(resultados: list[dict], hay_clave_externa: bool = False) -> Decision
             "Ningún documento del índice se acerca lo suficiente a la consulta.",
         )
 
+    # Todo lo que trajo la búsqueda ya no rige: redactar sobre eso es presentar
+    # derecho muerto como respuesta. Se dice qué se encontró y por qué no sirve,
+    # que es una abstención útil y no un "no sé".
+    from index.vigencia import documento_no_vigente
+
+    considerados = resultados[:5]
+    if all(documento_no_vigente(r) for r in considerados):
+        encontrados = "; ".join(
+            f"{r.get('titulo_documento') or r.get('identificador_documento')} "
+            f"({(r.get('vigencia') or {}).get('nota') or 'no vigente'})"
+            for r in considerados[:3]
+        )
+        return Decision(
+            "abstenerse",
+            "Lo único que el índice tiene sobre esto son normas que ya no rigen según su "
+            f"propia nota oficial: {encontrados}. Busca la norma que las reemplazó.",
+        )
+
     claro = mejor >= UMBRAL_PUNTAJE and (segundo == 0 or mejor / segundo >= VENTAJA_MINIMA)
     if claro:
         return Decision("local", "Un documento destaca con claridad: el modelo propio basta.")

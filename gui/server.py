@@ -220,11 +220,18 @@ class Handler(BaseHTTPRequestHandler):
             return
 
         from index.verificar_anclaje import marcar, verificar
+        from index.vigencia import garantizar_advertencia, vigencia_de
 
-        informe = verificar(r.texto, fragmentos[:8])
+        # Los fragmentos vienen del navegador: la vigencia se recalcula aquí,
+        # no se cree la que traigan.
+        usados = [f for f in fragmentos[:8] if isinstance(f, dict)]
+        for f in usados:
+            f["vigencia"] = vigencia_de(f)
+        informe = verificar(r.texto, usados)
+        texto = garantizar_advertencia(r.texto, usados)
         self._responder_json(
             {
-                "respuesta": r.texto if informe.anclada else marcar(r.texto, informe),
+                "respuesta": texto if informe.anclada else marcar(texto, informe),
                 "anclada": informe.anclada,
                 "aviso_anclaje": "" if informe.anclada else informe.resumen(),
                 "proveedor": r.proveedor,

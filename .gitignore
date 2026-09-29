@@ -42,3 +42,5 @@ modelos/
 # Indices apartados al reindexar (copias de seguridad, decenas de GB).
 index/chroma_db.*/
 _run/.conteo*
+# catálogo SUIN-Juriscol descargado (scripts/descargar_suin_vigencias.py)
+data/suin_vigencias.json

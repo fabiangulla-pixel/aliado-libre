@@ -12,11 +12,16 @@ Asistente que **responde en prosa** y cita sus fuentes, con un modelo propio fin
 que corre en el equipo del usuario. Se usa de tres maneras, y la elige el usuario según
 la máquina que tenga:
 
-| Modo | Qué necesita | Para quién |
-|---|---|---|
-| Todo local | ~21 GB de disco, ~5,1 GB de RAM de pico | quien quiera independencia total |
-| Modelo local + índice en la nube | conexión; el .exe pesa 29 MB + modelo | equipos modestos |
-| Servidor MCP | un asistente de IA propio (Claude, Cursor…) | perfil técnico |
+| Modo | Qué necesita | Qué sale de tu equipo | Costo por consulta | Para quién |
+|---|---|---|---|---|
+| Todo local | ~21 GB de disco, ~6,4 GB de RAM de pico | nada | 0 | quien quiera independencia total |
+| Modelo local + índice en la nube | conexión; el .exe pesa 29 MB + modelo | la consulta, al servidor del índice | 0 | equipos modestos |
+| Redacción con IA externa (opcional, en cualquiera de los dos) | tu clave de API | consulta + fragmentos, al proveedor que elijas | ~0,004 USD con Haiku 4.5 | quien quiera mejor redacción |
+| Servidor MCP | un asistente de IA propio (Claude, Cursor…) | lo que tu asistente decida | el de tu asistente | perfil técnico |
+
+"100 % local y gratuito" describe solo la primera fila. Las mediciones internas del piloto
+de 100 consultas (12-sep) usaron **redacción por nube** (Haiku 4.5, ~0,43 USD en total):
+no describen la calidad del modelo local.
 
 **Estado: en desarrollo, no apto para uso profesional todavía.** La capa que redacta
 respuestas está en calibración y su tasa de acierto aún no alcanza el umbral que nos hemos
@@ -39,9 +44,16 @@ alcance el objetivo fijado.
 
 **No guardamos tus consultas ni registramos quién pregunta.** Ver `docs/PRINCIPIOS.md`.
 
-**Salvaguarda que ya existe**: un verificador determinista comprueba que cada número de
-norma, artículo, plazo y cifra de la respuesta esté en los fragmentos recuperados, y marca
-lo que no encuentre.
+**Salvaguardas que ya existen**, todas deterministas (sin IA):
+
+- Un verificador comprueba que cada número de norma, artículo, plazo y cifra de la
+  respuesta esté en los fragmentos recuperados, y marca lo que no encuentre.
+- **Vigencia** (29-sep): cada resultado lleva el estado de su norma — derogada,
+  inexequible, revocada, nula, suspendida o de vigencia incierta — leído de la nota
+  oficial de su texto y del catálogo de SUIN-Juriscol (8.194 documentos marcados). Si la
+  respuesta se apoya en una norma que no rige y no lo dice, se le antepone la advertencia;
+  si todo lo encontrado ya no rige, la app se abstiene y dice qué encontró. "Sin nota" **no
+  significa vigente**, y la interfaz no lo pinta como tal.
 
 **Cobertura honesta**: este proyecto NO pretende cubrir "toda" la data jurídica de Colombia.
 Cubre lo que tiene fuente abierta confirmada y documentada (ver `docs/fuentes.md`).
@@ -67,7 +79,8 @@ Ver `CHANGELOG.md` para el detalle sesión a sesión.
   corpus de >1M resultados brutos) pero el servidor de la Corte es muy inestable (502
   intermitente) — corriendo con reintento persistente hasta que haya una ventana estable.
 - 🔴 Consejo de Estado, SUIN-Juriscol, jurisprudencia.ramajudicial.gov.co: bloqueados por WAF.
-- ✅ **Servidor MCP**: `buscar_normativa()` operativo (API `mcp` 2.x), modo local (`stdio`).
+- ✅ **Servidor MCP**: `buscar_normativa()`, `verificar_vigencia()` y `leer_fragmento()`
+  (API `mcp` 2.x), con entradas acotadas y validadas; modo local (`stdio`).
   Deploy a un servicio web (Render) preparado pero deliberadamente no activado — el costo
   recurrente no se justifica frente al uso 100% local actual (ver `docs/DEPLOY.md`).
 

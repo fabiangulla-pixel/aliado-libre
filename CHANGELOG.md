@@ -1,5 +1,60 @@
 # Changelog
 
+## 2026-09-29 — La vigencia pasa de texto a dato
+
+El 12-sep la app presentó como vigente la tarifa de un decreto inexequible
+teniendo `<Decreto INEXEQUIBLE>` dentro del fragmento que recibió. La nota
+estaba; nadie la leía por programa.
+
+### `index/vigencia.py`
+
+- Lee las notas oficiales del texto con reglas, sin modelo. Distingue alcance
+  **documento** («Resolución derogada por…») de **parcial** («Artículo
+  INEXEQUIBLE», «Aparte tachado…»).
+- **Tabla por documento** (`index/vigencia_documentos.json`, 1,2 MB): la nota
+  de "decreto derogado" suele estar en el frag0 y no en el fragmento que trae la
+  búsqueda. Se construye recorriendo el FTS5 completo (~45 s).
+- **Notas que nombran otra norma** (37 casos: «Decreto 2788 de 2004 derogado…»
+  dentro del Decreto 65 de 2005, que lo modificaba) quedan como `incierta`, no
+  como derogación del documento que las contiene.
+- **Catálogo de SUIN-Juriscol** (datos.gov.co, 89.366 normas) cruzado por tipo,
+  número y año: de 607 a **8.194 documentos marcados**. Solo sus estados
+  negativos: su «Vigente» es el valor por omisión (lo lleva la Ley 1943 de 2018,
+  inexequible entera, y 29.250 decretos anteriores a 1960) y «Compilado» lo
+  lleva el Código Sustantivo del Trabajo. Usarlos habría sellado como vigente
+  derecho muerto.
+
+### Dónde se usa
+
+- `IndiceBusqueda.buscar` anota `vigencia` en cada resultado; el cliente remoto
+  la calcula si el servidor es anterior.
+- **Enrutador**: si todo lo recuperado ya no rige, se abstiene diciendo qué
+  encontró y que busque la norma que lo reemplazó.
+- **Prompt**: línea `Vigencia:` por fragmento, fragmentos entre
+  `<documento>…</documento>` declarados material de consulta (defensa contra
+  instrucciones incrustadas). **El prompt cambió: las cifras del piloto del
+  12-sep ya no lo describen.**
+- **Guarda sobre la respuesta**: si se apoya en una norma que no rige y no lo
+  dice, se le antepone la advertencia. Local y nube.
+- **GUI**: sello rojo "no rige", amarillo "parte del texto" o "incierta". "Sin
+  nota" no se pinta: no prueba vigencia.
+- **MCP**: vigencia en `buscar_normativa`, entradas acotadas, y dos
+  herramientas nuevas: `verificar_vigencia` y `leer_fragmento`.
+
+### Medido, sin maquillar
+
+Sobre las 100 consultas del piloto, 27 de 500 fragmentos recuperados llevan
+nota (antes de SUIN, 6). **En las 5 trampas la guarda no se activa**: el
+documento derogado no llega al top-5 (p051, p052) o su texto no trae nota y SUIN
+lo da por vigente (p054, Ley 33 de 1986). La guarda es correcta; el cuello
+sigue siendo la recuperación.
+
+### Documentación
+
+`SECURITY.md` (modelo de amenazas, cada control con su prueba),
+`docs/RECOMENDACIONES_TRIAGE.md`, README con qué sale del equipo en cada modo.
+`check.bat` encuentra `.venv`. 45 pruebas nuevas; 420 en total.
+
 ## 2026-09-12 (cierre) — Demanda real: la primera cifra del proyecto que no es una suposición
 
 ### Se cosecharon 1.276 consultas reales de colombianos

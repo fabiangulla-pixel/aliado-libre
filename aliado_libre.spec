@@ -28,6 +28,10 @@ RAIZ = Path(SPECPATH)
 # --- datos ---------------------------------------------------------------
 datas = [
     (str(RAIZ / "gui" / "static"), "gui/static"),
+    # Estado de vigencia por documento (index/build_vigencia.py). Sin él el
+    # cliente solo ve la nota del propio fragmento: la de "decreto derogado"
+    # suele estar en el frag0 y no en el que trae la búsqueda.
+    (str(RAIZ / "index" / "vigencia_documentos.json"), "index"),
 ]
 
 # --- pila que NO debe entrar --------------------------------------------
@@ -71,6 +75,7 @@ excludes = (
 # chromadb, que son justo lo que no debe viajar en el .exe.
 hiddenimports = [
     "index.responder",
+    "index.vigencia",
     # confianza_tls y truststore hacen que el .exe funcione en equipos con un
     # antivirus que inspecciona TLS. Sin ellos dentro, esos equipos ven
     # CERTIFICATE_VERIFY_FAILED al primer uso. Ver confianza_tls.py.
