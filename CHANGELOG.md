@@ -1,5 +1,21 @@
 # Changelog
 
+## 2026-09-29 (noche, 4) — Producto mínimo: beta pública «Juris-consulta ColombIA»
+
+- `gui/publico.py` + `ALIADO_PUBLICO=1`: la GUI servida a cualquiera desde el PC
+  por Cloudflare Tunnel (el servidor sigue en 127.0.0.1). Cuota de búsqueda por
+  huella de IP (aporte a las 15, pausa a las 30), **3 respuestas redactadas gratis
+  al día** con la clave del servidor y **tope de gasto mensual**; pasados, la
+  búsqueda con citas sigue. `CF-Connecting-IP` solo con `ALIADO_CONFIAR_PROXY=1`.
+- Página: nombre del producto, casilla de redacción con su cupo, enlaces a
+  **términos** y **privacidad** (borradores, Ley 1581; declaran Cloudflare y
+  Anthropic como terceros). `leerJson` ya no tapa el mensaje del 429.
+- Los planes solo se ofrecen con `ALIADO_PLANES_ACTIVOS=1`: sin pasarela, el
+  bloqueo invita a escribir, no a "comprar un pase" que no existe.
+- `scripts/lanzar_publico.ps1` y `docs/LANZAMIENTO.md` (lista de salida).
+  Probado de punta a punta contra el índice real.
+- `PRINCIPIOS.md` registra el paso a freemium.
+
 ## 2026-09-29 (noche, 3) — Mecánica freemium (pagos aparcados)
 
 Tope suave de 15 (aporte voluntario, sin bloquear) y duro de 30 por día para

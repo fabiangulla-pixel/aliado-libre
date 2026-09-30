@@ -4,6 +4,17 @@ Decidido el 6 de septiembre de 2026. Este documento existe para que las
 decisiones no se reinterpreten con el tiempo, y para que quien llegue después
 entienda **por qué** el código está hecho así.
 
+> **Actualización del 29-sep-2026 (decisión de Fabián).** El modelo pasa a ser
+> **freemium**: gratis y libre para las personas, de pago para el uso comercial o
+> a escala. El proyecto va a generar ingresos. Cambian las secciones 1 y 4: hay
+> tope diario de uso gratuito y habrá planes de pago (`docs/PLANES.md`); el código
+> sigue libre (AGPL-3.0), pero los datos nuevos (índice actualizado, tabla de
+> vigencia) ya no se publican para descarga libre (`LICENSE-DATOS.md`). Las
+> secciones 2, 3 y 5 siguen vigentes sin cambios: en particular, **no se guardan
+> consultas ni se identifica a quien pregunta** — la cuota se cuenta con una huella
+> de IP que se destruye cada día. El texto original se conserva abajo como
+> registro de la decisión anterior.
+
 ## 1. Modelo Wikipedia: gratuito, sostenido por aportes voluntarios
 
 No hay suscripción, no hay muro de pago, no hay versión "pro". El uso es

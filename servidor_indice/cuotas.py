@@ -257,9 +257,19 @@ def enlace_pago() -> str:
     return os.environ.get("ALIADO_ENLACE_PAGO", "").strip() or "fabian.gulla@gmail.com"
 
 
+def _nombre() -> str:
+    return os.environ.get("ALIADO_NOMBRE", "").strip() or "Aliado Libre"
+
+
+def planes_activos() -> bool:
+    """Los planes de pago solo se ofrecen cuando existen de verdad: ofrecer un
+    pase o una membresía que no se pueden comprar es inventar cobertura."""
+    return os.environ.get("ALIADO_PLANES_ACTIVOS", "").strip() == "1"
+
+
 def mensaje_aporte(v: Veredicto) -> str:
     return (
-        f"Llevas {v.usadas} consultas hoy. Aliado Libre es gratuito y se sostiene con aportes "
+        f"Llevas {v.usadas} consultas hoy. {_nombre()} es gratuito y se sostiene con aportes "
         f"voluntarios: si te está sirviendo, considera apoyarlo ({enlace_pago()}). Puedes seguir "
         f"consultando hasta {v.tope} hoy."
     )
@@ -271,11 +281,16 @@ def mensaje_bloqueo(v: Veredicto) -> str:
     if v.via == "clave":
         cuando = "el primer día del próximo mes" if v.periodo == "mes" else "a medianoche"
         return f"Tu plan llegó a su tope de {v.tope} consultas; se renueva {cuando}. Planes: {enlace_pago()}."
-    return (
+    base = (
         f"Llegaste al límite de {v.tope} consultas gratuitas de hoy; se renueva a medianoche (hora de "
-        f"Colombia). Si necesitas seguir hoy, puedes comprar un pase de un día, y si consultas "
-        f"seguido, una membresía mensual: {enlace_pago()}."
+        "Colombia)."
     )
+    if planes_activos():
+        return (
+            f"{base} Si necesitas seguir hoy, puedes comprar un pase de un día, y si consultas seguido, "
+            f"una membresía mensual: {enlace_pago()}."
+        )
+    return f"{base} Si necesitas consultar más para tu trabajo, escríbenos: {enlace_pago()}."
 
 
 def segundos_hasta_renovar(v: Veredicto, ahora: datetime | None = None) -> int:

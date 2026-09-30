@@ -118,3 +118,13 @@ def test_gold_dura_pi_anios():
     assert clave not in json.dumps(entrada)  # solo el hash
     plan = cargar_claves(json.dumps(entrada))[hash_clave(clave)]
     assert plan.vence == date(2029, 11, 19)
+
+
+def test_solo_se_ofrecen_planes_si_existen(monkeypatch):
+    from servidor_indice.cuotas import Veredicto
+
+    v = Veredicto(False, 30, 30, "ip")
+    monkeypatch.delenv("ALIADO_PLANES_ACTIVOS", raising=False)
+    assert "pase de un día" not in mensaje_bloqueo(v)
+    monkeypatch.setenv("ALIADO_PLANES_ACTIVOS", "1")
+    assert "pase de un día" in mensaje_bloqueo(v)

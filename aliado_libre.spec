@@ -76,6 +76,10 @@ excludes = (
 hiddenimports = [
     "index.responder",
     "index.vigencia",
+    "index.respaldo",
+    # gui/ no es paquete y publico se importa dentro de las funciones: sin esto
+    # el .exe fallaría en /api/estado con ModuleNotFoundError.
+    "gui.publico",
     # confianza_tls y truststore hacen que el .exe funcione en equipos con un
     # antivirus que inspecciona TLS. Sin ellos dentro, esos equipos ven
     # CERTIFICATE_VERIFY_FAILED al primer uso. Ver confianza_tls.py.

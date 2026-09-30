@@ -471,7 +471,7 @@
 <body>
 
 <header>
-  <h1>Aliado <span class="acento">Libre</span></h1>
+  <h1 id="nombreProducto">Aliado <span class="acento">Libre</span></h1>
   <p>Legislación y jurisprudencia colombiana, con citas verificables — libre y gratuito</p>
 </header>
 
@@ -574,6 +574,8 @@
 
 <footer>
   Software libre y gratuito. No guardamos tus consultas ni registramos quién pregunta.
+  <br>Orientación, no asesoría jurídica: verifica siempre la norma en su fuente oficial.
+  <br><a href="/terminos.html">Términos de uso</a> · <a href="/privacidad.html">Privacidad</a>
 </footer>
 
 <script>
@@ -581,12 +583,29 @@ const input = document.getElementById('consulta');
 const boton = document.getElementById('botonBuscar');
 const contenedor = document.getElementById('resultados');
 const casillaConversacional = document.getElementById('conversacional');
+let modoPublico = false;
+let etiquetaIA = 'IA local';
 
 /* Si el modelo local no esta instalado, no se ofrece redactar con el. Antes la
    casilla se mostraba siempre y quien la marcaba esperaba un rato para recibir
    un error tecnico sobre un .gguf que le faltaba: ofrecer lo que no se tiene es
    la version pequena de inventar cobertura. */
 fetch('/api/estado').then(r => r.json()).then(estado => {
+  if (estado && estado.nombre) {
+    document.title = estado.nombre;
+    if (estado.publico) document.getElementById('nombreProducto').textContent = estado.nombre;
+  }
+  if (estado && estado.publico) {
+    modoPublico = true;
+    etiquetaIA = 'IA';
+    /* En público redacta la IA del servidor, con un cupo diario gratis. */
+    const etiqueta = casillaConversacional.closest('label');
+    if (etiqueta) {
+      etiqueta.lastChild.textContent =
+        ` Redactar la respuesta con IA (${estado.redacciones_diarias} gratis al día) — verifica siempre la cita`;
+    }
+    return;
+  }
   if (estado && estado.modelo_local === false) {
     casillaConversacional.checked = false;
     casillaConversacional.disabled = true;
@@ -606,7 +625,11 @@ fetch('/api/estado').then(r => r.json()).then(estado => {
    una busqueda larga y mostro su pagina de error. */
 async function leerJson(resp) {
   const tipo = resp.headers.get('content-type') || '';
-  if (!resp.ok || !tipo.includes('json')) {
+  /* Un error que trae JSON (el 429 del límite diario, un 500 con mensaje) se
+     entrega tal cual: el llamador muestra datos.error. Antes se tapaba con un
+     "respondió 429" genérico y la persona no sabía cuándo se renovaba. */
+  if (tipo.includes('json')) return resp.json();
+  if (!resp.ok) {
     if (resp.status === 524 || resp.status === 504 || resp.status === 408) {
       throw new Error('La consulta tardo demasiado y la conexion se corto. '
         + 'Vuelve a intentarlo, o desmarca la redaccion con IA para que sea mas rapido.');
@@ -693,7 +716,7 @@ async function buscar() {
   boton.disabled = true;
   boton.textContent = 'Buscando…';
   const mensajeEspera = quiereRespuesta
-    ? 'Buscando y redactando respuesta con IA local (puede tardar más de un minuto)…'
+    ? `Buscando y redactando respuesta con ${etiquetaIA}${modoPublico ? '' : ' (puede tardar más de un minuto)'}…`
     : 'Buscando (la primera consulta carga el índice, puede tardar un momento)…';
   contenedor.innerHTML = `<div class="estado">${mensajeEspera}</div>`;
 
@@ -758,7 +781,7 @@ async function buscar() {
           : '';
         bloqueRespuesta = `
           <div class="respuesta-ia">
-            <div class="etiqueta">Respuesta redactada por IA local</div>
+            <div class="etiqueta">Respuesta redactada por ${etiquetaIA}</div>
             ${avisoDebil}
             <p>${escaparHtml(datos.respuesta)}</p>
             ${avisoAnclaje}
@@ -766,7 +789,7 @@ async function buscar() {
       } else {
         bloqueRespuesta = `
           <div class="respuesta-ia">
-            <div class="etiqueta">Respuesta redactada por IA local</div>
+            <div class="etiqueta">Respuesta redactada por ${etiquetaIA}</div>
             <p>No se pudo generar la respuesta — mostrando solo los fragmentos encontrados.</p>
             <div class="aviso">${escaparHtml(datos.aviso_respuesta || '')}</div>
           </div>`;

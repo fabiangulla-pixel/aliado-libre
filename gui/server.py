@@ -119,12 +119,17 @@ class Handler(BaseHTTPRequestHandler):
             # .gguf no estaba en su sitio el usuario pulsaba, esperaba, y
             # recibia un error tecnico sobre un archivo que le faltaba. Ofrecer
             # lo que no se tiene es la version pequena de inventar cobertura.
+            from gui import publico
             from index.responder import ruta_modelo
 
             self._responder_json(
                 {
                     "cargado": _indice is not None,
-                    "modelo_local": ruta_modelo().is_file(),
+                    # En público no se ofrece el modelo local: redacta la nube.
+                    "modelo_local": ruta_modelo().is_file() and not publico.activo(),
+                    "publico": publico.activo(),
+                    "nombre": publico.nombre_producto(),
+                    "redacciones_diarias": publico.cuota_redaccion().tope_ip if publico.activo() else None,
                 }
             )
             return
@@ -274,6 +279,20 @@ class Handler(BaseHTTPRequestHandler):
 
         quiere_respuesta = (params.get("conversacional") or ["0"])[0] == "1"
 
+        # Modo público (gui/publico.py): gratis con tope diario por huella de IP.
+        from gui import publico
+
+        aviso_aporte_publico = None
+        if publico.activo():
+            from servidor_indice.cuotas import mensaje_aporte, mensaje_bloqueo
+
+            v = publico.cuota_busqueda().consumir(publico.ip_cliente(self))
+            if not v.permitido:
+                self._responder_json({"error": mensaje_bloqueo(v), "limite": True}, status=429)
+                return
+            if v.sugerir_aporte:
+                aviso_aporte_publico = mensaje_aporte(v)
+
         # "fuentes" llega repetido (fuentes=sic&fuentes=dian) o separado por
         # comas; se aceptan las dos formas para que la URL sea legible.
         from index.fuentes import normalizar
@@ -302,7 +321,7 @@ class Handler(BaseHTTPRequestHandler):
 
         decision = decidir(resultados, hay_clave_externa=True)
         # Solo el índice remoto tiene cuota; en "todo local" no existe este aviso.
-        aviso_aporte = getattr(indice, "ultimo_aviso_aporte", None)
+        aviso_aporte = aviso_aporte_publico or getattr(indice, "ultimo_aviso_aporte", None)
         salida = {
             "resultados": resultados,
             "fuentes_aplicadas": fuentes or [],
@@ -329,7 +348,15 @@ class Handler(BaseHTTPRequestHandler):
             MAX_FRAGMENTOS_CONVERSACIONAL = 4
             usados = resultados[:MAX_FRAGMENTOS_CONVERSACIONAL]
             try:
-                texto = responder(consulta, usados)
+                if publico.activo():
+                    texto = self._redactar_publico(consulta, usados)
+                    if texto is None:
+                        salida["respuesta"] = None
+                        salida["aviso_respuesta"] = self._aviso_redaccion
+                        self._responder_json(salida)
+                        return
+                else:
+                    texto = responder(consulta, usados)
                 # Comprobación determinista antes de mostrar nada: cada número de
                 # norma, artículo, plazo o cifra de la respuesta tiene que estar
                 # en los fragmentos. Medido sobre 150 respuestas reales, marca 21
@@ -369,6 +396,31 @@ class Handler(BaseHTTPRequestHandler):
 
         self._responder_json(salida)
 
+    def _redactar_publico(self, consulta: str, usados: list[dict]) -> str | None:
+        """Redacta con la clave del servidor si quedan redacciones gratis hoy y
+        presupuesto este mes. None = no se redacta (motivo en _aviso_redaccion);
+        la búsqueda con citas sigue funcionando igual."""
+        from gui import publico
+        from index.vigencia import garantizar_advertencia
+
+        mes = publico.mes_actual()
+        if not publico.presupuesto().queda(mes):
+            self._aviso_redaccion = (
+                "Las respuestas redactadas por IA están en pausa este mes (se agotó el presupuesto "
+                "del servicio gratuito). Las normas y sus citas de abajo siguen disponibles."
+            )
+            return None
+        v = publico.cuota_redaccion().consumir(publico.ip_cliente(self))
+        if not v.permitido:
+            self._aviso_redaccion = (
+                f"Ya usaste tus {v.tope} respuestas redactadas gratis de hoy. Puedes seguir buscando: "
+                "las normas y sus citas de abajo no tienen ese límite."
+            )
+            return None
+        texto, usd = publico.redactar(consulta, usados)
+        publico.presupuesto().registrar(mes, usd)
+        return garantizar_advertencia(texto, usados)
+
     def _servir_estatico(self, ruta_pedida: str) -> None:
         nombre = "index.html" if ruta_pedida in ("/", "") else ruta_pedida.lstrip("/")
         archivo = (RAIZ_ESTATICA / nombre).resolve()
@@ -403,10 +455,18 @@ def main() -> None:
     # Kaspersky…), las llamadas a la IA de nube y al índice remoto fallarían con
     # CERTIFICATE_VERIFY_FAILED. Ver confianza_tls.py.
     confiar_en_almacen_del_sistema()
-    servidor = ThreadingHTTPServer(("127.0.0.1", PUERTO), Handler)
-    url = f"http://127.0.0.1:{PUERTO}"
-    print(f"Aliado Libre corriendo en {url} (Ctrl+C para detener)")
-    threading.Timer(0.5, lambda: webbrowser.open(url)).start()
+    from gui import publico
+
+    puerto = int(os.environ.get("ALIADO_PUERTO", PUERTO))
+    # Siempre 127.0.0.1, también en público: el túnel (Cloudflare) se conecta
+    # desde dentro de la máquina, así que no hace falta abrir nada a la red.
+    servidor = ThreadingHTTPServer(("127.0.0.1", puerto), Handler)
+    url = f"http://127.0.0.1:{puerto}"
+    if publico.activo():
+        print(f"{publico.nombre_producto()} en MODO PÚBLICO en {url} — exponer con el túnel.")
+    else:
+        print(f"Aliado Libre corriendo en {url} (Ctrl+C para detener)")
+        threading.Timer(0.5, lambda: webbrowser.open(url)).start()
     try:
         servidor.serve_forever()
     except KeyboardInterrupt:

@@ -69,7 +69,13 @@ def sin_token(monkeypatch):
     monkeypatch.delenv("ALIADO_INDICE_TOKEN", raising=False)
     # La cuota es un singleton de proceso: cada test empieza con la suya.
     monkeypatch.setattr(srv, "_cuotas", None)
-    for var in ("ALIADO_MODO_PUBLICO", "ALIADO_TOPE_DIARIO_IP", "ALIADO_CLAVES_API", "ALIADO_CONFIAR_PROXY"):
+    for var in (
+        "ALIADO_MODO_PUBLICO",
+        "ALIADO_TOPE_DIARIO_IP",
+        "ALIADO_CLAVES_API",
+        "ALIADO_CONFIAR_PROXY",
+        "ALIADO_PLANES_ACTIVOS",
+    ):
         monkeypatch.delenv(var, raising=False)
 
 
@@ -538,7 +544,9 @@ def test_pasadas_15_se_pide_aporte_y_a_las_30_se_bloquea(base, monkeypatch):
     assert [r[0] for r in respuestas] == [200, 200, 200, 429]
     assert "aviso_aporte" not in respuestas[1][2]
     assert "aportes" in respuestas[2][2]["aviso_aporte"]
-    assert "pase de un día" in respuestas[3][2]["error"]
+    # sin planes activos no se ofrece lo que no se puede comprar
+    assert "pase de un día" not in respuestas[3][2]["error"]
+    assert "escríbenos" in respuestas[3][2]["error"]
 
 
 def test_clave_vencida_devuelve_402(base, monkeypatch):
