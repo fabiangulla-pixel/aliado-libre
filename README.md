@@ -239,7 +239,8 @@ el `.spec` de PyInstaller y la decisión de arquitectura híbrida nube+API.
   redistribuirlo; si ofreces una versión modificada a otras personas, también
   como servicio web, debes publicar su código bajo la misma licencia.
 - **Datos producidos por el proyecto** (índice, tabla de vigencia, bancos de
-  evaluación): [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/deed.es).
+  evaluación): gratis para personas, estudiantes y fines sin ánimo de lucro; el uso
+  comercial o a escala requiere licencia o clave de acceso de pago.
 - **Corpus normativo**: textos oficiales del Estado colombiano, de libre
   reproducción (art. 41 de la Ley 23 de 1982). Aliado Libre no es fuente oficial.
 

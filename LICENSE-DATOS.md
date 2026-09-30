@@ -13,19 +13,27 @@ publicar el código fuente de tu versión bajo la misma licencia.
 
 Copyright © 2026 Fabián Gulla.
 
-## 2. Datos producidos por el proyecto — CC BY-SA 4.0
+## 2. Datos producidos por el proyecto — uso personal libre, uso comercial con licencia
 
-Los datos que este proyecto genera se distribuyen bajo
-**Creative Commons Atribución-CompartirIgual 4.0 Internacional**
-(<https://creativecommons.org/licenses/by-sa/4.0/deed.es>). Incluye:
+Los datos que este proyecto genera **no** se publican bajo licencia libre:
 
 - el índice de búsqueda (vectores, índice léxico y metadatos);
 - la tabla de vigencia por documento (`index/vigencia_documentos.json`);
-- los bancos de evaluación y sus resultados;
-- las consultas agregadas y las mediciones publicadas.
+- los bancos de evaluación, las consultas agregadas y sus resultados.
 
-Puedes reutilizarlos, también comercialmente, citando a "Aliado Libre" y
-compartiendo lo que derives bajo la misma licencia.
+Copyright © 2026 Fabián Gulla. Todos los derechos reservados, con estas
+excepciones:
+
+- **Uso personal, académico o sin ánimo de lucro**: permitido, citando
+  "Aliado Libre", mediante la aplicación o el servicio público, dentro de sus
+  límites de uso razonable.
+- **Uso comercial o a escala** (integrarlo en un producto o servicio, reventa,
+  consultas masivas o automatizadas por encima del límite gratuito): requiere
+  una licencia o una clave de acceso de pago. Escribe a fabian.gulla@gmail.com.
+
+La versión del índice publicada en Hugging Face el 7-sep-2026
+(`Gullax/indice-legal-colombia`) conserva las condiciones con las que se
+publicó. Las versiones posteriores se rigen por esta sección.
 
 ## 3. Corpus normativo — textos oficiales
 

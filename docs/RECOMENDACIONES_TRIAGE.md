@@ -110,7 +110,7 @@ hicieron, y alguna se probó y **empeoraba** el resultado. Cuatro estados:
 ## P12 — Publicación
 
 - ✅ `SECURITY.md`.
-- ✅ **Licencia (29-sep)**: código AGPL-3.0 (`LICENSE`); datos producidos CC BY-SA 4.0 y
+- ✅ **Licencia (29-sep)**: código AGPL-3.0 (`LICENSE`); datos producidos gratis para personas y de pago para uso comercial o a escala y
   corpus oficial de libre reproducción (`LICENSE-DATOS.md`); `CONTRIBUTING.md` con
   cesión para relicenciar (permite ofrecer también otras licencias).
 - ⏳ `CITATION.cff`, `v0.1.0-alpha`: después de la licencia.
