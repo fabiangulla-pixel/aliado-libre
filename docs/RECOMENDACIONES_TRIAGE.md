@@ -110,11 +110,10 @@ hicieron, y alguna se probó y **empeoraba** el resultado. Cuatro estados:
 ## P12 — Publicación
 
 - ✅ `SECURITY.md`.
-- ⏳ **`LICENSE`: no existe.** Un proyecto "libre" sin licencia es, legalmente, de
-  todos los derechos reservados. La elección (MIT, Apache-2.0, AGPL-3.0…) es de
-  **Fabián**. Si el objetivo es que nadie cierre un derivado como servicio de pago,
-  la AGPL-3.0 es la que lo impide.
-- ⏳ `CONTRIBUTING.md`, `CITATION.cff`, `v0.1.0-alpha`: después de la licencia.
+- ✅ **Licencia (29-sep)**: código AGPL-3.0 (`LICENSE`); datos producidos CC BY-SA 4.0 y
+  corpus oficial de libre reproducción (`LICENSE-DATOS.md`); `CONTRIBUTING.md` con
+  cesión para relicenciar (permite ofrecer también otras licencias).
+- ⏳ `CITATION.cff`, `v0.1.0-alpha`: después de la licencia.
 - ⏳ El nombre: `docs/NOMBRE.md` recomienda "Norma Abierta"; falta confirmar. **Fabián.**
 
 ## Lo que el documento no dice y los datos sí

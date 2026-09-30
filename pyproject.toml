@@ -7,6 +7,9 @@ name = "aliado-libre"
 version = "0.1.0"
 description = "Busqueda y respuesta sobre legislacion y jurisprudencia colombiana, libre y sin registro de consultas"
 requires-python = ">=3.12,<3.13"
+license = "AGPL-3.0-only"
+license-files = ["LICENSE", "LICENSE-DATOS.md"]
+authors = [{ name = "Fabián Gulla" }]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

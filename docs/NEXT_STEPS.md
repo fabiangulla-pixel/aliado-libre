@@ -5,9 +5,7 @@ externas está en `docs/RECOMENDACIONES_TRIAGE.md`.
 
 ## Bloqueado en Fabián
 
-1. **Elegir licencia.** No hay `LICENSE`: hoy el código es legalmente de todos
-   los derechos reservados. AGPL-3.0 si se quiere impedir que alguien lo cierre
-   como servicio de pago; MIT/Apache-2.0 si se prefiere la máxima adopción.
+1. ~~Elegir licencia~~: AGPL-3.0 + CC BY-SA 4.0 (29-sep).
 2. **Revisar las 47 abstenciones** (`finetune/eval/revision_abstenciones.html`,
    se regenera con `revisar_abstenciones.py`). Decide el umbral de abstención,
    que hoy mide coincidencia léxica y no relevancia. **Es lo que más mueve la
