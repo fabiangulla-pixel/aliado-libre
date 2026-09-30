@@ -183,6 +183,8 @@ def main() -> int:
     ap.add_argument("--proveedor", default="claude")
     ap.add_argument("--modelo", default=None)
     ap.add_argument("--limite", type=int, default=0)
+    ap.add_argument("--ids", default="", help="solo estos casos, separados por comas (p. ej. p014,p015)")
+    ap.add_argument("--salida", default="", help="archivo de detalle (por omisión resultado_piloto.json)")
     args = ap.parse_args()
 
     from index import costos
@@ -192,8 +194,15 @@ def main() -> int:
 
     modelo = args.modelo or MODELOS_POR_DEFECTO[args.proveedor]
     casos = json.loads(BANCO.read_text(encoding="utf-8"))
+    if args.ids:
+        pedidos = {i.strip() for i in args.ids.split(",") if i.strip()}
+        casos = [c for c in casos if c["id"] in pedidos]
+        faltan = pedidos - {c["id"] for c in casos}
+        if faltan:
+            raise SystemExit(f"Ids que no están en el banco: {sorted(faltan)}")
     if args.limite:
         casos = casos[: args.limite]
+    salida = Path(args.salida) if args.salida else SALIDA
 
     print(f"{len(casos)} consultas | proveedor {args.proveedor} | modelo {modelo}")
     print("Cargando índice...")
@@ -287,12 +296,12 @@ def main() -> int:
         if i % 10 == 0:
             print(f"  redactadas {i}/{len(casos)}  ({usd_real:.2f} USD)")
 
-    SALIDA.write_text(
+    salida.write_text(
         json.dumps({"modelo": modelo, "usd": usd_real, "detalle": filas}, ensure_ascii=False, indent=1),
         encoding="utf-8",
     )
     informe(filas, usd_real)
-    print(f"\nDetalle en {SALIDA}")
+    print(f"\nDetalle en {salida}")
     return 0
 
 
