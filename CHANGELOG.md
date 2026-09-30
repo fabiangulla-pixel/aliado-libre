@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-09-29 (noche, 3) — Mecánica freemium (pagos aparcados)
+
+Tope suave de 15 (aporte voluntario, sin bloquear) y duro de 30 por día para
+anónimos; claves con tope, periodo (día/mes) y vencimiento, cuyo uso se persiste
+(`ALIADO_USO_CLAVES`); 402 para clave vencida; presets de planes en
+`scripts/crear_clave_api.py` (pase de un día, mensual, pro, empresarial, gold por
+π años = 1.147 días). La página cuenta las "tandas" del mes **en el navegador**
+—el servidor no puede saber si un anónimo volvió otro día, a propósito— y sugiere
+la membresía. Sin pasarela: modelo y pendientes en `docs/PLANES.md`.
+
 ## 2026-09-29 (noche, 2) — La app deja de callar cuando tiene una norma bien citada
 
 El umbral de abstención medía si coincidían los dos motores, no si había

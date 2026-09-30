@@ -301,11 +301,14 @@ class Handler(BaseHTTPRequestHandler):
         from index.enrutador import decidir
 
         decision = decidir(resultados, hay_clave_externa=True)
+        # Solo el índice remoto tiene cuota; en "todo local" no existe este aviso.
+        aviso_aporte = getattr(indice, "ultimo_aviso_aporte", None)
         salida = {
             "resultados": resultados,
             "fuentes_aplicadas": fuentes or [],
             "hay_respaldo": decision.responde,
             "aviso_cobertura": None if decision.responde else decision.motivo,
+            "aviso_aporte": aviso_aporte,
             # "claro" | "condicional" (coincidencia débil: se redacta, pero solo se
             # muestra si pasa index.respaldo) | "ninguno"
             "respaldo": "claro"

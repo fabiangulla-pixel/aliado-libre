@@ -529,3 +529,24 @@ def test_x_forwarded_for_solo_cuenta_si_se_confia_en_el_proxy(base, monkeypatch)
     monkeypatch.setenv("ALIADO_CONFIAR_PROXY", "1")
     assert _estado_http(base, cabeceras={"X-Forwarded-For": "1.1.1.1"})[0] == 200
     assert _estado_http(base, cabeceras={"X-Forwarded-For": "2.2.2.2"})[0] == 200
+
+
+def test_pasadas_15_se_pide_aporte_y_a_las_30_se_bloquea(base, monkeypatch):
+    monkeypatch.setenv("ALIADO_TOPE_APORTE", "2")
+    monkeypatch.setenv("ALIADO_TOPE_DIARIO_IP", "3")
+    respuestas = [_estado_http(base) for _ in range(4)]
+    assert [r[0] for r in respuestas] == [200, 200, 200, 429]
+    assert "aviso_aporte" not in respuestas[1][2]
+    assert "aportes" in respuestas[2][2]["aviso_aporte"]
+    assert "pase de un día" in respuestas[3][2]["error"]
+
+
+def test_clave_vencida_devuelve_402(base, monkeypatch):
+    from servidor_indice.cuotas import hash_clave
+
+    monkeypatch.setenv(
+        "ALIADO_CLAVES_API",
+        json.dumps({hash_clave("vieja"): {"nombre": "x", "tope": None, "vence": "2020-01-01"}}),
+    )
+    codigo, _, datos = _estado_http(base, token="vieja")
+    assert codigo == 402 and datos["vencida"] is True

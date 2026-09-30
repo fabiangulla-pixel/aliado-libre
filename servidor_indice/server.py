@@ -315,27 +315,28 @@ class Handler(BaseHTTPRequestHandler):
 
         # Se cuenta después de validar: una petición mal formada no gasta cuota.
         cabeceras_cuota: dict[str, str] = {}
+        aviso_aporte = None
         if via != "operador":
-            from servidor_indice.cuotas import segundos_hasta_manana
+            from servidor_indice.cuotas import mensaje_aporte, mensaje_bloqueo, segundos_hasta_renovar
 
             v = obtener_cuotas().consumir(self._ip_cliente(), clave)
             if v.tope is not None:
                 cabeceras_cuota = {"X-Cuota-Tope": str(v.tope), "X-Cuota-Restante": str(v.restantes)}
             if not v.permitido:
-                espera = segundos_hasta_manana()
-                mensaje = (
-                    f"Llegaste al límite de {v.tope} consultas diarias gratuitas. Se renueva a "
-                    "medianoche (hora de Colombia). Si necesitas consultar por volumen o "
-                    "integrarlo en un producto, pide una clave: fabian.gulla@gmail.com."
-                    if v.via == "ip"
-                    else f"Tu clave llegó a su tope de {v.tope} consultas diarias. Se renueva a medianoche."
-                )
+                espera = segundos_hasta_renovar(v)
                 self._responder_json(
-                    {"error": mensaje, "tope_diario": v.tope, "reintentar_en_segundos": espera},
-                    status=429,
+                    {
+                        "error": mensaje_bloqueo(v),
+                        "tope": v.tope,
+                        "vencida": v.vencida,
+                        "reintentar_en_segundos": espera,
+                    },
+                    status=429 if not v.vencida else 402,
                     cabeceras={"Retry-After": str(espera), **cabeceras_cuota},
                 )
                 return
+            if v.sugerir_aporte:
+                aviso_aporte = mensaje_aporte(v)
 
         try:
             texto = consulta.strip()
@@ -361,6 +362,8 @@ class Handler(BaseHTTPRequestHandler):
                 "n": n,
                 "fuentes": fuentes or [],
                 "resultados": resultados,
+                # Pasadas ALIADO_TOPE_APORTE consultas: se pide un aporte, no se bloquea.
+                **({"aviso_aporte": aviso_aporte} if aviso_aporte else {}),
             },
             cabeceras=cabeceras_cuota,
         )

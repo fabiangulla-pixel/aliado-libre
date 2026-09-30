@@ -103,6 +103,7 @@ class IndiceRemoto:
         self.token = (token or "").strip() or None
         self.espera = espera
         self.reintentos = max(0, int(reintentos))
+        self.ultimo_aviso_aporte: str | None = None
 
     # -- interfaz pública -------------------------------------------------
 
@@ -120,6 +121,9 @@ class IndiceRemoto:
         if fuentes:
             cuerpo["fuentes"] = list(fuentes)
         datos = self._peticion("/buscar", cuerpo)
+        # Pasado el tope suave, el servidor pide un aporte voluntario sin bloquear.
+        # Se guarda para que la GUI lo muestre; buscar() sigue devolviendo la lista.
+        self.ultimo_aviso_aporte = datos.get("aviso_aporte")
         resultados = datos.get("resultados")
         if not isinstance(resultados, list):
             raise ErrorIndiceRemoto(
@@ -220,7 +224,7 @@ class IndiceRemoto:
                 "El servidor del índice rechazó la autenticación (401). Revisa el "
                 f"token compartido (variable {VAR_TOKEN})." + detalle
             )
-        if error.code == 429:
+        if error.code in (402, 429):
             # Tope diario de consultas gratuitas: el servidor ya explica cuándo
             # se renueva y cómo pedir una clave. Se muestra tal cual, y NO se
             # reintenta (429 no está en CODIGOS_REINTENTABLES): insistir no cura.

@@ -617,6 +617,41 @@ async function leerJson(resp) {
   return resp.json();
 }
 
+/* Modelo freemium (29-sep-2026). El servidor, a propósito, no puede saber si
+   una persona anónima volvió otro día (su huella cambia a diario). Por eso las
+   "tandas" del mes las cuenta ESTE navegador y nunca se envían: una tanda es un
+   día en que se pasó del tope gratuito. Con más de 4 tandas, o cerca de 100
+   consultas en el mes, se sugiere la membresía mensual. */
+const CLAVE_USO = 'aliado_uso_mes';
+
+function registrarUso(huboAporte) {
+  const mes = new Date().toISOString().slice(0, 7);
+  const dia = new Date().toISOString().slice(0, 10);
+  let uso = { mes, consultas: 0, tandas: [] };
+  try {
+    const guardado = JSON.parse(localStorage.getItem(CLAVE_USO) || 'null');
+    if (guardado && guardado.mes === mes) uso = guardado;
+  } catch (e) { /* almacenamiento bloqueado: se cuenta solo esta sesión */ }
+  uso.consultas += 1;
+  if (huboAporte && !uso.tandas.includes(dia)) uso.tandas.push(dia);
+  try { localStorage.setItem(CLAVE_USO, JSON.stringify(uso)); } catch (e) { /* idem */ }
+  return uso;
+}
+
+function pintarAporte(avisoAporte) {
+  const uso = registrarUso(Boolean(avisoAporte));
+  const sugerirMembresia = uso.tandas.length > 4 || uso.consultas >= 90;
+  let html = '';
+  if (sugerirMembresia) {
+    html += `<div class="aviso-cobertura"><strong>Consultas seguido.</strong>
+      <p>Este mes llevas ${uso.consultas} consultas${uso.tandas.length ? ` y ${uso.tandas.length} días por encima del límite gratuito` : ''}.
+      Una membresía mensual te quita los límites y sostiene el proyecto.</p></div>`;
+  } else if (avisoAporte) {
+    html += `<div class="aviso-cobertura"><p>${escaparHtml(avisoAporte)}</p></div>`;
+  }
+  return html;
+}
+
 function escaparHtml(s) {
   return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
@@ -738,7 +773,9 @@ async function buscar() {
       }
     }
 
-    contenedor.innerHTML = bloqueCobertura + bloqueRespuesta + datos.resultados.map(r => {
+    const bloqueAporte = pintarAporte(datos.aviso_aporte);
+
+    contenedor.innerHTML = bloqueAporte + bloqueCobertura + bloqueRespuesta + datos.resultados.map(r => {
       const textoCompleto = r.texto || '';
       const preview = textoCompleto.slice(0, 400);
       const tieneExtension = textoCompleto.length > 400;
