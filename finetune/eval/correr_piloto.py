@@ -41,7 +41,6 @@ import os
 import re
 import sys
 import time
-import unicodedata
 from collections import Counter, defaultdict
 from pathlib import Path
 
@@ -55,17 +54,8 @@ SALIDA = RAIZ / "finetune" / "eval" / "resultado_piloto.json"
 TOPE = 5
 # Cuántos fallos seguidos desde el arranque bastan para dar la corrida por rota.
 UMBRAL_ABORTO = 5
-PATRON_CITA = re.compile(r"«([^»]{15,})»")
 PATRON_NORMA = re.compile(
     r"(?i)\b(?:ley|decreto|resoluci[oó]n|circular|oficio|concepto|sentencia|auto|art[ií]culo)\b"
-)
-MARCAS_ABSTENCION = (
-    "no encontré información suficiente",
-    "no encontre informacion suficiente",
-    "no está en el índice",
-    "no esta en el indice",
-    "no está indexad",
-    "no esta indexad",
 )
 MARCAS_VIGENCIA = (
     "derogad",
@@ -91,50 +81,20 @@ PATRON_LIMITE_TEMPORAL = re.compile(
 )
 
 
-def normalizar(t: str) -> str:
-    t = unicodedata.normalize("NFKD", t)
-    t = "".join(c for c in t if not unicodedata.combining(c))
-    for a, b in (("“", '"'), ("”", '"'), ("«", '"'), ("»", '"'), ("’", "'"), ("‘", "'")):
-        t = t.replace(a, b)
-    return re.sub(r"[\s ]+", " ", t).lower().strip()
-
-
-def cita_esta_en_los_fragmentos(respuesta: str, fragmentos: list[dict]) -> tuple[int, int]:
-    """Cuántas de las citas entre «» aparecen de verdad en el contexto.
-
-    Se comprueba contra los fragmentos que se le PASARON al modelo, no contra
-    todo el corpus: citar bien algo que no estaba en el contexto seguiría
-    siendo inventar, aunque por casualidad exista en otra parte.
-    """
-    contexto = normalizar(" ".join(f.get("texto", "") for f in fragmentos))
-    citas = PATRON_CITA.findall(respuesta or "")
-    if not citas:
-        return 0, 0
-    buenas = 0
-    for c in citas:
-        # Una cita recortada se verifica por trozos. La primera versión solo
-        # partía por "[...]" y contaba como inventada toda cita que usara los
-        # puntos suspensivos sueltos, que es como recorta la aplicación la
-        # mitad de las veces: el 14% de alucinación que salió al principio
-        # era en buena parte eso. Elidir texto no es inventarlo.
-        trozos = [
-            t.strip()
-            for t in re.split(r"\[\s*\.\.\.\s*\]|\[…\]|\.\.\.|…", normalizar(c))
-            if len(t.strip()) >= 15
-        ]
-        if trozos and all(t in contexto for t in trozos):
-            buenas += 1
-    return buenas, len(citas)
+# La comprobación de citas y de abstención vive en index/respaldo.py: la app
+# la usa para decidir qué mostrar, y la medición tiene que juzgar igual.
+from index.respaldo import (  # noqa: E402
+    MARCAS_ABSTENCION,  # noqa: F401
+    PATRON_CITA,
+    normalizar,
+    se_abstuvo,  # noqa: E402,F401
+)
+from index.respaldo import citas_literales as cita_esta_en_los_fragmentos  # noqa: E402
 
 
 def tiene_formato(respuesta: str) -> bool:
     r = respuesta or ""
     return bool(PATRON_NORMA.search(r)) and bool(PATRON_CITA.search(r)) and len(r) > 180
-
-
-def se_abstuvo(respuesta: str) -> bool:
-    n = normalizar(respuesta or "")
-    return any(normalizar(m) in n for m in MARCAS_ABSTENCION)
 
 
 def advirtio_vigencia(respuesta: str) -> bool:

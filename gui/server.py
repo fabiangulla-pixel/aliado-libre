@@ -229,6 +229,26 @@ class Handler(BaseHTTPRequestHandler):
             f["vigencia"] = vigencia_de(f)
         informe = verificar(r.texto, usados)
         texto = garantizar_advertencia(r.texto, usados)
+
+        from index.enrutador import decidir
+        from index.respaldo import respaldo_suficiente
+
+        # Misma regla que la búsqueda: con coincidencia débil solo se muestra una
+        # respuesta cuyas citas estén TODAS, literalmente, en las fuentes. La
+        # persona pagó la llamada, así que se le dice cuánto y por qué se retiene.
+        if decidir(usados, hay_clave_externa=True).motor == "condicional":
+            aceptada, motivo = respaldo_suficiente(r.texto, usados)
+            if not aceptada:
+                self._responder_json(
+                    {
+                        "respuesta": None,
+                        "retenida": motivo + " Revisa los fragmentos como pista.",
+                        "proveedor": r.proveedor,
+                        "modelo": r.modelo,
+                        "costo": _costo_a_dict(costos.liquidar(r.usage, r.modelo)),
+                    }
+                )
+                return
         self._responder_json(
             {
                 "respuesta": texto if informe.anclada else marcar(texto, informe),
@@ -286,8 +306,13 @@ class Handler(BaseHTTPRequestHandler):
             "fuentes_aplicadas": fuentes or [],
             "hay_respaldo": decision.responde,
             "aviso_cobertura": None if decision.responde else decision.motivo,
+            # "claro" | "condicional" (coincidencia débil: se redacta, pero solo se
+            # muestra si pasa index.respaldo) | "ninguno"
+            "respaldo": "claro"
+            if decision.responde
+            else ("condicional" if decision.puede_redactar else "ninguno"),
         }
-        if quiere_respuesta and not decision.responde:
+        if quiere_respuesta and not decision.puede_redactar:
             # Redactar sobre fragmentos que no responden es la forma más cara de
             # inventar cobertura: sale una respuesta con aspecto de buena.
             salida["respuesta"] = None
@@ -311,6 +336,23 @@ class Handler(BaseHTTPRequestHandler):
                 from index.verificar_anclaje import marcar, verificar
 
                 informe = verificar(texto, usados)
+                if decision.motor == "condicional":
+                    from index.respaldo import respaldo_suficiente
+
+                    aceptada, motivo = respaldo_suficiente(texto, usados)
+                    if not aceptada or not informe.anclada:
+                        # Coincidencia débil y respuesta sin respaldo literal: no
+                        # se muestra. Los fragmentos siguen como pista.
+                        salida["respuesta"] = None
+                        salida["aviso_respuesta"] = (
+                            "No muestro una respuesta redactada: "
+                            + (motivo or informe.resumen())
+                            + " Revisa los fragmentos de abajo como pista."
+                        )
+                        self._responder_json(salida)
+                        return
+                    salida["hay_respaldo"] = True
+                    salida["respaldo_debil"] = True
                 salida["respuesta"] = texto if informe.anclada else marcar(texto, informe)
                 salida["anclada"] = informe.anclada
                 if not informe.anclada:

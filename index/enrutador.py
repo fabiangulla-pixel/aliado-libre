@@ -33,11 +33,19 @@ UMBRAL_ABSTENCION = float(os.environ.get("ALIADO_UMBRAL_ABSTENCION", "0.020"))
 
 @dataclass
 class Decision:
-    motor: str  # "local" | "externo" | "abstenerse"
+    motor: str  # "local" | "externo" | "condicional" | "abstenerse"
     motivo: str
 
     @property
     def responde(self) -> bool:
+        """Hay respaldo claro. "condicional" NO cuenta: la cobertura medida
+        (`medir_demanda_real.py`) conserva su significado."""
+        return self.motor in ("local", "externo")
+
+    @property
+    def puede_redactar(self) -> bool:
+        """Se puede redactar, con condiciones si es "condicional": la respuesta
+        solo se muestra si pasa `index.respaldo.respaldo_suficiente`."""
         return self.motor != "abstenerse"
 
 
@@ -53,12 +61,6 @@ def decidir(resultados: list[dict], hay_clave_externa: bool = False) -> Decision
     puntajes = _puntajes(resultados)
     mejor = puntajes[0]
     segundo = puntajes[1] if len(puntajes) > 1 else 0.0
-
-    if mejor < UMBRAL_ABSTENCION:
-        return Decision(
-            "abstenerse",
-            "Ningún documento del índice se acerca lo suficiente a la consulta.",
-        )
 
     # Todo lo que trajo la búsqueda ya no rige: redactar sobre eso es presentar
     # derecho muerto como respuesta. Se dice qué se encontró y por qué no sirve,
@@ -76,6 +78,18 @@ def decidir(resultados: list[dict], hay_clave_externa: bool = False) -> Decision
             "abstenerse",
             "Lo único que el índice tiene sobre esto son normas que ya no rigen según su "
             f"propia nota oficial: {encontrados}. Busca la norma que las reemplazó.",
+        )
+
+    if mejor < UMBRAL_ABSTENCION:
+        # 29-sep-2026: el puntaje es casi binario (0,0167 si lo encontró un solo
+        # motor, >=0,026 si los dos), así que este umbral mide si coinciden la
+        # búsqueda léxica y la semántica, no si hay respuesta. Callar aquí dejaba
+        # sin respuesta 21 de 48 consultas del piloto que el modelo respondía con
+        # citas literales verificadas. Ahora se redacta y la respuesta solo se
+        # muestra si pasa index.respaldo.respaldo_suficiente.
+        return Decision(
+            "condicional",
+            "Coincidencia débil: solo un método de búsqueda encontró estos documentos.",
         )
 
     claro = mejor >= UMBRAL_PUNTAJE and (segundo == 0 or mejor / segundo >= VENTAJA_MINIMA)

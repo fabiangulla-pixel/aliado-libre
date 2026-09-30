@@ -167,10 +167,16 @@ def test_sin_clave_externa_responde_igual_el_propio():
     assert "sin clave" in d.motivo.lower()
 
 
-def test_sin_nada_relevante_se_abstiene():
+def test_puntaje_bajo_es_condicional_no_abstencion():
+    """Hasta el 29-sep esto se abstenía. El umbral mide si coinciden los dos
+    motores, no si hay respuesta (en el piloto callaba 48 veces, 20 con una
+    norma bien citada). Ahora se redacta y solo se muestra lo que pasa
+    index.respaldo; `responde` sigue en False para que la cobertura medida no
+    cambie de significado."""
     d = enrutador.decidir(_res(0.005), hay_clave_externa=True)
-    assert d.motor == "abstenerse"
+    assert d.motor == "condicional"
     assert not d.responde
+    assert d.puede_redactar
 
 
 def test_sin_resultados_se_abstiene():

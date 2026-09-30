@@ -1,5 +1,22 @@
 # Changelog
 
+## 2026-09-29 (noche, 2) — La app deja de callar cuando tiene una norma bien citada
+
+El umbral de abstención medía si coincidían los dos motores, no si había
+respuesta. Ahora, por debajo del umbral el enrutador devuelve `condicional`: se
+redacta y la respuesta **solo se muestra** si no es una abstención, trae citas,
+todas aparecen literalmente en los fragmentos y el verificador de anclaje no
+marca datos sin respaldo (`index/respaldo.py`). Si no pasa, se muestran los
+fragmentos como pista con el motivo. Sobre el piloto: **20 de las 48 consultas
+silenciadas recuperan respuesta**, ninguna de las `no_cubierto`.
+
+- La abstención por "todo lo recuperado ya no rige" va antes del umbral.
+- `responde` sigue significando respaldo claro (la cobertura medida no cambia de
+  sentido); `puede_redactar` es lo nuevo.
+- La IA externa aplica la misma regla y, si retiene la respuesta, dice cuánto costó.
+- `correr_piloto.py` importa la comprobación de `index/respaldo.py`: la app y la
+  medición juzgan con el mismo código.
+
 ## 2026-09-29 (noche) — Licencia y modelo de acceso: gratis para personas, de pago a escala
 
 - **Código AGPL-3.0** (`LICENSE`); **datos** (índice, tabla de vigencia, bancos):

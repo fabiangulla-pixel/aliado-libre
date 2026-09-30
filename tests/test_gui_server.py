@@ -158,3 +158,59 @@ def test_estado_dice_si_el_modelo_local_existe(servidor):
     datos = json.loads(r.read())
     assert "modelo_local" in datos
     assert isinstance(datos["modelo_local"], bool)
+
+
+# -- coincidencia débil: se redacta, pero solo se muestra lo respaldado ------
+# 29-sep-2026: el umbral mide si coinciden los dos motores, no si hay
+# respuesta. En el piloto callaba en 48 consultas, 21 de ellas con una norma y
+# citas literales verificadas.
+
+TEXTO_NORMA = "La licencia de conducción tendrá una vigencia de diez años para vehículos particulares."
+
+
+def _indice_debil():
+    class IndiceFalso:
+        def buscar(self, consulta, k, fuentes=None):
+            return [
+                {
+                    "id": "ley::frag0",
+                    "texto": TEXTO_NORMA,
+                    "puntaje": 0.0167,
+                    "titulo_documento": "Ley 769 de 2002",
+                }
+            ]
+
+    return IndiceFalso()
+
+
+def test_debil_con_cita_literal_se_muestra_marcada(servidor):
+    respuesta = (
+        "Hola. Revisa la Ley 769 de 2002, que dice: «La licencia de conducción tendrá una vigencia de "
+        "diez años para vehículos particulares». Es decir, dura diez años."
+    )
+    with (
+        patch.object(servidor_modulo, "_obtener_indice", return_value=_indice_debil()),
+        patch("index.responder.responder", return_value=respuesta),
+    ):
+        datos = json.loads(
+            urllib.request.urlopen(servidor + "/api/buscar?q=licencia&conversacional=1").read()
+        )
+    assert datos["respaldo"] == "condicional"
+    assert datos["respuesta"] == respuesta
+    assert datos["respaldo_debil"] is True
+
+
+def test_debil_con_cita_inventada_no_se_muestra(servidor):
+    """Prueba negativa: la misma coincidencia débil con una cita que no está
+    en el texto no llega a la persona."""
+    respuesta = "Hola. La Ley 769 dice: «La licencia de conducción dura quince años en todos los casos»."
+    with (
+        patch.object(servidor_modulo, "_obtener_indice", return_value=_indice_debil()),
+        patch("index.responder.responder", return_value=respuesta),
+    ):
+        datos = json.loads(
+            urllib.request.urlopen(servidor + "/api/buscar?q=licencia&conversacional=1").read()
+        )
+    assert datos["respuesta"] is None
+    assert "no aparecen literalmente" in datos["aviso_respuesta"]
+    assert datos["resultados"]  # los fragmentos siguen como pista

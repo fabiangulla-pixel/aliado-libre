@@ -686,7 +686,17 @@ async function buscar() {
        Policia como si fuera la respuesta. Los fragmentos se siguen mostrando
        —pueden servir de pista— pero encabezados por lo que son. */
     let bloqueCobertura = '';
-    if (datos.hay_respaldo === false) {
+    if (datos.hay_respaldo === false && datos.respaldo === 'condicional') {
+      /* 29-sep-2026: solo uno de los dos métodos de búsqueda los encontró. No
+         es "no hay nada" (en el piloto, 21 de 48 de estas consultas tenían una
+         norma con cita literal), pero tampoco es una coincidencia clara. */
+      bloqueCobertura = `
+        <div class="aviso-cobertura">
+          <strong>Coincidencia débil.</strong>
+          <p>Estos fragmentos pueden servir, pero no coinciden con claridad con tu
+          consulta. Léelos como pista y comprueba que la norma aplica a tu caso.</p>
+        </div>`;
+    } else if (datos.hay_respaldo === false) {
       bloqueCobertura = `
         <div class="aviso-cobertura">
           <strong>No encontré en el índice una norma que responda esto.</strong>
@@ -698,7 +708,7 @@ async function buscar() {
     }
 
     let bloqueRespuesta = '';
-    if (quiereRespuesta && datos.hay_respaldo === false) {
+    if (quiereRespuesta && datos.respaldo === 'ninguno') {
       bloqueRespuesta = '';
     } else if (quiereRespuesta) {
       if (datos.respuesta) {
@@ -708,9 +718,13 @@ async function buscar() {
         const avisoAnclaje = datos.anclada === false
           ? `<div class="aviso">⚠ ${escaparHtml(datos.aviso_anclaje || '')} — verifica en las fuentes de abajo.</div>`
           : '';
+        const avisoDebil = datos.respaldo_debil
+          ? '<div class="aviso">Coincidencia débil: la cita es literal, pero comprueba que la norma aplica a tu caso.</div>'
+          : '';
         bloqueRespuesta = `
           <div class="respuesta-ia">
             <div class="etiqueta">Respuesta redactada por IA local</div>
+            ${avisoDebil}
             <p>${escaparHtml(datos.respuesta)}</p>
             ${avisoAnclaje}
           </div>`;
@@ -1054,6 +1068,13 @@ async function responderConIaExterna() {
     const datos = await resp.json();   // 502 del proveedor trae JSON con 'error'
     if (datos.error) {
       bloque.innerHTML = `<div class="costo">${escaparHtml(datos.error)}</div>`;
+      return;
+    }
+    if (datos.retenida) {
+      bloque.innerHTML = `
+        <div class="respuesta-ia"><div class="etiqueta">Respuesta retenida</div>
+        <p>No muestro la respuesta de ${escaparHtml(datos.modelo || datos.proveedor)}: ${escaparHtml(datos.retenida)}</p></div>
+        <div class="costo">${escaparHtml((datos.costo || {}).texto || '')}</div>`;
       return;
     }
     const avisoAnclaje = datos.anclada === false
