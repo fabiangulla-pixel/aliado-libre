@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-09-29 (noche) — Licencia y modelo de acceso: gratis para personas, de pago a escala
+
+- **Código AGPL-3.0** (`LICENSE`); **datos** (índice, tabla de vigencia, bancos):
+  gratis para personas y fines sin ánimo de lucro, licencia de pago para uso
+  comercial o a escala (`LICENSE-DATOS.md`). Se retiró en minutos una CC BY-SA que
+  permitía uso comercial del índice. `CONTRIBUTING.md` con cesión para relicenciar.
+- **Cuota diaria** en el servidor del índice (`servidor_indice/cuotas.py`): anónimo
+  con tope por IP (30 por defecto), claves de pago con tope propio, operador sin
+  tope. La IP nunca se guarda: huella HMAC con sal diaria en memoria, que muere con
+  el día. 429 con `Retry-After` hasta medianoche de Colombia; el cliente lo muestra
+  y no reintenta. `scripts/crear_clave_api.py` emite claves.
+
 ## 2026-09-29 (tarde) — 273 leyes recientes, y el umbral de abstención no mide lo que dice
 
 ### El hueco del corpus no era el que creíamos

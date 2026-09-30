@@ -220,6 +220,13 @@ class IndiceRemoto:
                 "El servidor del índice rechazó la autenticación (401). Revisa el "
                 f"token compartido (variable {VAR_TOKEN})." + detalle
             )
+        if error.code == 429:
+            # Tope diario de consultas gratuitas: el servidor ya explica cuándo
+            # se renueva y cómo pedir una clave. Se muestra tal cual, y NO se
+            # reintenta (429 no está en CODIGOS_REINTENTABLES): insistir no cura.
+            return detalle.removeprefix(" Detalle: ") or (
+                "Llegaste al límite diario de consultas gratuitas. Se renueva a medianoche."
+            )
         if error.code == 404:
             return (
                 f"La dirección del índice ({self.url}) no expone este servicio (404). "

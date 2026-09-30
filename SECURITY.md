@@ -20,6 +20,7 @@ probable, así que va primero.
 | Exposición de la clave de API del usuario | la clave llega por petición, se usa una vez, no se guarda y se borra de los mensajes de error | `index/proveedores.py` | `tests/test_clave_api.py` |
 | Credenciales del proyecto en el repositorio | ninguna vive en el repo; van a `~/.aliado_libre/credenciales.json` o al entorno | — | revisión antes de cada push |
 | Registro de consultas sensibles | no se guardan consultas ni se identifica a quien pregunta | `gui/server.py` | `tests/test_no_registro.py` |
+| Uso masivo del servicio gratuito | tope diario por huella HMAC de IP con sal diaria en memoria (la IP nunca se guarda); claves de pago guardadas por hash; `X-Forwarded-For` solo con `ALIADO_CONFIAR_PROXY` | `servidor_indice/cuotas.py` | `tests/test_cuotas.py` |
 | Cuerpos HTTP no drenados (conexión abortada en Windows) | drenaje único en `drenar_cuerpo.py`, con tope | `drenar_cuerpo.py` | `tests/test_servidor_indice.py` |
 | Índice mezclado de dos corpus o troceos | huella del corpus y del troceo en los metadatos; el indexador se niega a reanudar si no coinciden | `reindexar_con_gpu.py` | `tests/test_indice_alterno.py` |
 

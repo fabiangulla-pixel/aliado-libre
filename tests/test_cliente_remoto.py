@@ -397,3 +397,23 @@ def test_sin_configuracion_el_mensaje_dice_donde_escribirla(config):
     mensaje = str(exc.value)
     assert str(config) in mensaje, "el mensaje debe decir el archivo concreto"
     assert "indice_url" in mensaje
+
+
+def test_429_muestra_el_mensaje_del_servidor_y_no_reintenta():
+    import io
+    import urllib.error
+
+    llamadas = []
+
+    def falso(*_a, **_k):
+        llamadas.append(1)
+        cuerpo = io.BytesIO(
+            json.dumps({"error": "Llegaste al límite de 30 consultas diarias gratuitas."}).encode()
+        )
+        raise urllib.error.HTTPError("http://x/buscar", 429, "Too Many Requests", {}, cuerpo)
+
+    with patch("urllib.request.urlopen", side_effect=falso), patch("time.sleep"):
+        cliente = IndiceRemoto("http://x", reintentos=3)
+        with pytest.raises(ErrorIndiceRemoto, match="límite de 30 consultas"):
+            cliente.buscar("tutela")
+    assert len(llamadas) == 1

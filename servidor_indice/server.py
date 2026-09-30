@@ -18,6 +18,15 @@ nada, para que index/cliente_remoto.py sea un reemplazo transparente del
 Autenticación: token compartido en `Authorization: Bearer <token>`, leído de
 la variable de entorno ALIADO_INDICE_TOKEN. Si no está definida el servidor
 arranca ABIERTO y lo advierte por log (útil en local; nunca en internet).
+
+Cuota (29-sep-2026, `servidor_indice/cuotas.py`): gratis para las personas, de
+pago para el uso a escala. En `Authorization: Bearer`:
+  - el token del operador pasa sin tope;
+  - una clave de pago (`ALIADO_CLAVES_API`) consume su propio tope diario;
+  - cualquier otra cosa es 401.
+Sin cabecera, y solo si el servidor es público (`ALIADO_MODO_PUBLICO=1` o sin
+token), cuenta contra `ALIADO_TOPE_DIARIO_IP` por huella de IP. Pasado el tope,
+429 con `Retry-After` hasta la medianoche de Colombia.
 """
 
 from __future__ import annotations
@@ -113,6 +122,22 @@ def quedarse_fuera_de_la_regla_automatica() -> None:
     os.environ.setdefault("ALIADO_RERANKER_ACTIVO", "0")
 
 
+_cuotas = None
+
+
+def obtener_cuotas():
+    global _cuotas
+    if _cuotas is None:
+        from servidor_indice.cuotas import Cuotas
+
+        _cuotas = Cuotas.desde_entorno()
+    return _cuotas
+
+
+def modo_publico() -> bool:
+    return os.environ.get("ALIADO_MODO_PUBLICO", "").strip() == "1" or token_configurado() is None
+
+
 def token_configurado() -> str | None:
     token = os.environ.get("ALIADO_INDICE_TOKEN", "").strip()
     return token or None
@@ -151,9 +176,11 @@ class Handler(BaseHTTPRequestHandler):
         if descartar_cuerpo(self, MAX_DRENAJE):
             self.cuerpo_consumido = True
 
-    def _responder_json(self, datos: dict, status: int = 200) -> None:
+    def _responder_json(self, datos: dict, status: int = 200, cabeceras: dict | None = None) -> None:
         cuerpo = json.dumps(datos, ensure_ascii=False).encode("utf-8")
         self.send_response(status)
+        for nombre, valor in (cabeceras or {}).items():
+            self.send_header(nombre, valor)
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(cuerpo)))
         self.end_headers()
@@ -162,6 +189,31 @@ class Handler(BaseHTTPRequestHandler):
     def _error(self, status: int, mensaje: str) -> None:
         self._descartar_cuerpo()
         self._responder_json({"error": mensaje}, status=status)
+
+    def _ip_cliente(self) -> str:
+        """La IP de quien consulta. Detrás de un proxy (Render) la del socket es
+        la del proxy; `X-Forwarded-For` solo se cree con ALIADO_CONFIAR_PROXY=1,
+        porque sin proxy cualquiera la falsea y se regala cuota infinita."""
+        if os.environ.get("ALIADO_CONFIAR_PROXY", "").strip() == "1":
+            reenviada = self.headers.get("X-Forwarded-For", "").split(",")[0].strip()
+            if reenviada:
+                return reenviada
+        return self.client_address[0]
+
+    def _acceso(self):
+        """("operador"|"clave"|"anonimo"|None, clave). None = 401."""
+        cabecera = self.headers.get("Authorization", "")
+        if cabecera.startswith("Bearer "):
+            valor = cabecera[7:].strip()
+            esperado = token_configurado()
+            if esperado is not None and compare_digest(valor, esperado):
+                return "operador", None
+            if obtener_cuotas().plan_de(valor) is not None:
+                return "clave", valor
+            return None, None
+        if token_configurado() is None or modo_publico():
+            return "anonimo", None
+        return None, None
 
     def _autorizado(self) -> bool:
         """True si la petición puede pasar. Con ALIADO_INDICE_TOKEN definida
@@ -184,7 +236,7 @@ class Handler(BaseHTTPRequestHandler):
         ruta = urlparse(self.path).path.rstrip("/") or "/"
 
         if ruta == "/salud":
-            if not self._autorizado():
+            if not modo_publico() and not self._autorizado():
                 self._error(401, "Token ausente o inválido.")
                 return
             self._responder_json(
@@ -216,8 +268,9 @@ class Handler(BaseHTTPRequestHandler):
             self._error(404, f"Ruta desconocida: {ruta}")
             return
 
-        if not self._autorizado():
-            self._error(401, "Token ausente o inválido.")
+        via, clave = self._acceso()
+        if via is None:
+            self._error(401, "Token o clave ausente o inválida.")
             return
 
         try:
@@ -260,6 +313,30 @@ class Handler(BaseHTTPRequestHandler):
 
             fuentes = normalizar(fuentes)
 
+        # Se cuenta después de validar: una petición mal formada no gasta cuota.
+        cabeceras_cuota: dict[str, str] = {}
+        if via != "operador":
+            from servidor_indice.cuotas import segundos_hasta_manana
+
+            v = obtener_cuotas().consumir(self._ip_cliente(), clave)
+            if v.tope is not None:
+                cabeceras_cuota = {"X-Cuota-Tope": str(v.tope), "X-Cuota-Restante": str(v.restantes)}
+            if not v.permitido:
+                espera = segundos_hasta_manana()
+                mensaje = (
+                    f"Llegaste al límite de {v.tope} consultas diarias gratuitas. Se renueva a "
+                    "medianoche (hora de Colombia). Si necesitas consultar por volumen o "
+                    "integrarlo en un producto, pide una clave: fabian.gulla@gmail.com."
+                    if v.via == "ip"
+                    else f"Tu clave llegó a su tope de {v.tope} consultas diarias. Se renueva a medianoche."
+                )
+                self._responder_json(
+                    {"error": mensaje, "tope_diario": v.tope, "reintentar_en_segundos": espera},
+                    status=429,
+                    cabeceras={"Retry-After": str(espera), **cabeceras_cuota},
+                )
+                return
+
         try:
             texto = consulta.strip()
             # Reordenar (o no) lo decide IndiceBusqueda.buscar leyendo
@@ -284,7 +361,8 @@ class Handler(BaseHTTPRequestHandler):
                 "n": n,
                 "fuentes": fuentes or [],
                 "resultados": resultados,
-            }
+            },
+            cabeceras=cabeceras_cuota,
         )
 
     def _metodo_no_permitido(self, permitidos: str) -> None:

@@ -67,6 +67,10 @@ def sin_token(monkeypatch):
     """Por defecto los tests corren con el servidor abierto; los de auth
     definen la variable explícitamente."""
     monkeypatch.delenv("ALIADO_INDICE_TOKEN", raising=False)
+    # La cuota es un singleton de proceso: cada test empieza con la suya.
+    monkeypatch.setattr(srv, "_cuotas", None)
+    for var in ("ALIADO_MODO_PUBLICO", "ALIADO_TOPE_DIARIO_IP", "ALIADO_CLAVES_API", "ALIADO_CONFIAR_PROXY"):
+        monkeypatch.delenv(var, raising=False)
 
 
 def _post(base, ruta, cuerpo, token=None, crudo=None):
@@ -453,3 +457,75 @@ def test_apagado_pide_al_indice_exactamente_lo_que_devuelve(base, monkeypatch):
     monkeypatch.setattr(indice, "buscar", espia)
     _post(base, "/buscar", {"consulta": "tutela", "n": 3})
     assert pedidos == [3]
+
+
+# -- cuota diaria (29-sep-2026) -------------------------------------------
+
+
+def _estado_http(base, cuerpo=None, token=None, cabeceras=None):
+    peticion = urllib.request.Request(
+        base + "/buscar", data=json.dumps(cuerpo or {"consulta": "tutela"}).encode(), method="POST"
+    )
+    if token:
+        peticion.add_header("Authorization", f"Bearer {token}")
+    for k, v in (cabeceras or {}).items():
+        peticion.add_header(k, v)
+    try:
+        r = urllib.request.urlopen(peticion, timeout=5)
+        return r.status, dict(r.headers), json.loads(r.read())
+    except urllib.error.HTTPError as e:
+        return e.code, dict(e.headers), json.loads(e.read())
+
+
+def test_anonimo_agota_el_tope_diario_y_recibe_429(base, monkeypatch):
+    monkeypatch.setenv("ALIADO_TOPE_DIARIO_IP", "3")
+    estados = [_estado_http(base)[0] for _ in range(3)]
+    assert estados == [200, 200, 200]
+    codigo, cab, datos = _estado_http(base)
+    assert codigo == 429
+    assert int(cab["Retry-After"]) > 0
+    assert "límite de 3 consultas" in datos["error"]
+    assert cab["X-Cuota-Restante"] == "0"
+
+
+def test_peticion_mal_formada_no_gasta_cuota(base, monkeypatch):
+    monkeypatch.setenv("ALIADO_TOPE_DIARIO_IP", "1")
+    assert _estado_http(base, {"consulta": ""})[0] == 400
+    assert _estado_http(base)[0] == 200
+
+
+def test_operador_no_tiene_tope(base, monkeypatch):
+    monkeypatch.setenv("ALIADO_INDICE_TOKEN", "secreto-operador")
+    monkeypatch.setenv("ALIADO_MODO_PUBLICO", "1")
+    monkeypatch.setenv("ALIADO_TOPE_DIARIO_IP", "1")
+    assert [_estado_http(base, token="secreto-operador")[0] for _ in range(4)] == [200] * 4
+
+
+def test_clave_de_pago_tiene_su_propio_tope_y_la_desconocida_es_401(base, monkeypatch):
+    from servidor_indice.cuotas import hash_clave
+
+    monkeypatch.setenv("ALIADO_TOPE_DIARIO_IP", "0")  # el anónimo ya no pasa
+    monkeypatch.setenv(
+        "ALIADO_CLAVES_API", json.dumps({hash_clave("clave-bufete"): {"nombre": "bufete", "tope_diario": 2}})
+    )
+    assert _estado_http(base)[0] == 429
+    assert [_estado_http(base, token="clave-bufete")[0] for _ in range(3)] == [200, 200, 429]
+    # un error de tipeo en la clave no se disfraza de "límite agotado"
+    assert _estado_http(base, token="clave-bufetx")[0] == 401
+
+
+def test_modo_privado_sin_modo_publico_sigue_exigiendo_token(base, monkeypatch):
+    """Compatibilidad: con token y sin ALIADO_MODO_PUBLICO, igual que antes."""
+    monkeypatch.setenv("ALIADO_INDICE_TOKEN", "secreto-operador")
+    assert _estado_http(base)[0] == 401
+
+
+def test_x_forwarded_for_solo_cuenta_si_se_confia_en_el_proxy(base, monkeypatch):
+    """Sin ALIADO_CONFIAR_PROXY, falsear la cabecera no regala cuota."""
+    monkeypatch.setenv("ALIADO_TOPE_DIARIO_IP", "1")
+    assert _estado_http(base, cabeceras={"X-Forwarded-For": "1.1.1.1"})[0] == 200
+    assert _estado_http(base, cabeceras={"X-Forwarded-For": "2.2.2.2"})[0] == 429
+    monkeypatch.setattr(srv, "_cuotas", None)
+    monkeypatch.setenv("ALIADO_CONFIAR_PROXY", "1")
+    assert _estado_http(base, cabeceras={"X-Forwarded-For": "1.1.1.1"})[0] == 200
+    assert _estado_http(base, cabeceras={"X-Forwarded-For": "2.2.2.2"})[0] == 200

@@ -23,6 +23,18 @@ services:
       # sync:false = se define a mano en el panel de Render, nunca en git.
       - key: ALIADO_INDICE_TOKEN
         sync: false
+      # Gratis para las personas, de pago a escala (servidor_indice/cuotas.py).
+      # Público: se aceptan consultas sin token, con tope diario por huella de IP.
+      - key: ALIADO_MODO_PUBLICO
+        value: "1"
+      - key: ALIADO_TOPE_DIARIO_IP
+        value: "30"
+      # Render pone un proxy delante: la IP real viene en X-Forwarded-For.
+      - key: ALIADO_CONFIAR_PROXY
+        value: "1"
+      # Hashes de las claves de pago (scripts/crear_clave_api.py). Nunca en git.
+      - key: ALIADO_CLAVES_API
+        sync: false
     disk:
       name: indice-legal
       # Montado en /datos, no en /app/index: el Dockerfile deja symlinks para
