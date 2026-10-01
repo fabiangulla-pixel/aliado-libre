@@ -150,7 +150,7 @@ def main() -> int:
     from index import costos
     from index.buscar import IndiceBusqueda
     from index.proveedores import MODELOS_POR_DEFECTO, generar
-    from index.responder import PROMPT_SISTEMA, construir_prompt
+    from index.responder import construir_prompt, sistema
 
     modelo = args.modelo or MODELOS_POR_DEFECTO[args.proveedor]
     casos = json.loads(BANCO.read_text(encoding="utf-8"))
@@ -209,7 +209,7 @@ def main() -> int:
     primer_fallo = ""
     for i, (c, res, prompt) in enumerate(recuperado, 1):
         try:
-            r = generar(prompt, PROMPT_SISTEMA, args.proveedor, clave, modelo)
+            r = generar(prompt, sistema(), args.proveedor, clave, modelo)
             texto = r.texto
             usd_real += costos.liquidar(r.usage, modelo).usd
         except Exception as e:  # noqa: BLE001
