@@ -48,3 +48,4 @@ data/suin_vigencias.json
 # indices experimentales (ALIADO_DIR_INDICE)
 index/chroma_db*/
 index/*_fts.db
+_run/*.err

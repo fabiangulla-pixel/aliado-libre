@@ -1,5 +1,41 @@
 # Changelog
 
+## 2026-09-30 / 10-01 — Calidad: cuatro palancas medidas, tres descartadas, dos arreglos cableados
+
+### Arreglado (cableado donde lo usa la persona)
+- **La web redactaba con 4 fragmentos y el piloto se midió con 5**: un documento
+  correcto que llegaba quinto se descartaba antes de redactar. Ahora 5 en la nube
+  (`gui/server.py`); 4 solo para el modelo local en CPU.
+- **Citas reescritas mostradas como textuales** en respuestas con respaldo claro
+  (p027 cambió la base de cálculo entre comillas). `index/respaldo.py`
+  `marcar_citas_no_literales` las señala sin borrarlas.
+
+### Medido y descartado (docs/MEDICIONES.md)
+- **Título antepuesto al codificar** (`ALIADO_ENCABEZADO=titulo`, reindexado
+  completo): recall@5 27,4% -> 22,1%, MRR 0,196 -> 0,158; gana 3, pierde 8. Peor
+  en dev y en test. `_run/INFORME_titulo.md`.
+- **LLM reordenando candidatos** (`finetune/eval/reordenar_llm.py`, 0,20 USD):
+  27,3 -> 29,5% en dev, MRR plano. No se gastó la partición de prueba.
+- **Reordenaciones deterministas** (agregación por documento, deduplicar,
+  ventanas): sin efecto. Producción ya está en el óptimo de esa familia.
+- **Abstenciones del modelo (~10 -> 23)**: no es el prompt. Sin línea de vigencia
+  20/23 siguen; sin etiquetas `<documento>` (`ALIADO_PROMPT_VARIANTE`, 0,10 USD)
+  19/23. El documento correcto llegó 1 de 20: son honestas.
+
+### Incidente
+El primer reindexado del experimento murió al cerrarse la sesión anterior y dejó
+el `index_metadata.pickle` de HNSW en ceros (irrecuperable). Se rehízo con
+`Start-Process` desacoplado de la sesión. Un `.err` de ese intento se había
+colado al repositorio: retirado y `_run/*.err` ignorado.
+
+### Pendiente
+1. Revisión humana: `finetune/eval/revision_abstenciones.html` y `revision_humana.html`.
+2. Afinar el embedding con `finetune/data/pares_embedding.jsonl` (comprobar
+   ANTES que sus documentos no se solapan con las anclas del piloto).
+3. Confirmar si "solo vectorial" (29,5%) supera de verdad a la híbrida (27,4%).
+4. Borrar `index/chroma_db_titulo*` (~17 GB) si no se va a reusar.
+5. Lista de salida de la beta: `docs/LANZAMIENTO.md`.
+
 ## 2026-09-29 (noche, 4) — Producto mínimo: beta pública «Juris-consulta ColombIA»
 
 - `gui/publico.py` + `ALIADO_PUBLICO=1`: la GUI servida a cualquiera desde el PC
