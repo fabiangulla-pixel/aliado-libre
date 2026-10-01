@@ -254,8 +254,12 @@ class Handler(BaseHTTPRequestHandler):
                     }
                 )
                 return
+        from index.respaldo import marcar_citas_no_literales
+
+        texto, citas_marcadas = marcar_citas_no_literales(texto, usados)
         self._responder_json(
             {
+                "citas_no_literales": citas_marcadas,
                 "respuesta": texto if informe.anclada else marcar(texto, informe),
                 "anclada": informe.anclada,
                 "aviso_anclaje": "" if informe.anclada else informe.resumen(),
@@ -345,8 +349,11 @@ class Handler(BaseHTTPRequestHandler):
 
             # menos fragmentos que los mostrados: el prompt crece con cada
             # uno y en CPU la respuesta se vuelve notablemente más lenta
-            MAX_FRAGMENTOS_CONVERSACIONAL = 4
-            usados = resultados[:MAX_FRAGMENTOS_CONVERSACIONAL]
+            # El piloto se midió con 5 fragmentos; con 4, un documento correcto que
+            # llegaba quinto se descartaba antes de redactar. El 4 solo se justifica
+            # por la lentitud del modelo local en CPU, así que en la nube van 5.
+            max_fragmentos = 5 if publico.activo() else 4
+            usados = resultados[:max_fragmentos]
             try:
                 if publico.activo():
                     texto = self._redactar_publico(consulta, usados)
@@ -383,8 +390,12 @@ class Handler(BaseHTTPRequestHandler):
                         return
                     salida["hay_respaldo"] = True
                     salida["respaldo_debil"] = True
+                from index.respaldo import marcar_citas_no_literales
+
+                texto, citas_marcadas = marcar_citas_no_literales(texto, usados)
                 salida["respuesta"] = texto if informe.anclada else marcar(texto, informe)
                 salida["anclada"] = informe.anclada
+                salida["citas_no_literales"] = citas_marcadas
                 if not informe.anclada:
                     salida["aviso_anclaje"] = informe.resumen()
             except RuntimeError as e:

@@ -80,3 +80,31 @@ def respaldo_suficiente(respuesta: str, fragmentos: list[dict]) -> tuple[bool, s
             "fuentes encontradas."
         )
     return True, ""
+
+
+MARCA_CITA = " [⚠ esta cita no aparece textualmente en las fuentes: compruébala]"
+
+
+def marcar_citas_no_literales(respuesta: str, fragmentos: list[dict]) -> tuple[str, int]:
+    """Señala, sin borrarla, cada cita entre «» que no esté literalmente en los
+    fragmentos. Devuelve (texto marcado, cuántas se marcaron).
+
+    Con respaldo claro la respuesta se muestra, pero una cita reescrita entre
+    comillas se lee como texto de la norma: en el piloto, p027 convirtió «sobre la
+    asignación básica mensual» en «sobre el valor de la hora ordinaria», que es
+    otra base de cálculo. Marcarla enseña a ir a la fuente; borrarla escondería
+    el error.
+    """
+    if not respuesta:
+        return respuesta, 0
+    marcadas = 0
+
+    def revisar(m: re.Match) -> str:
+        nonlocal marcadas
+        buenas, total = citas_literales(m.group(0), fragmentos)
+        if total and buenas < total:
+            marcadas += 1
+            return m.group(0) + MARCA_CITA
+        return m.group(0)
+
+    return re.sub(r"«[^»]{15,}»", revisar, respuesta), marcadas

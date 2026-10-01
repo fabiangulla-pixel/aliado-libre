@@ -45,3 +45,16 @@ def test_todo_no_vigente_se_abstiene_aunque_el_puntaje_sea_bajo():
     derogada = {"estado": "derogada", "alcance": "documento", "nota": "Decreto derogado", "por": None}
     rs = [{"id": f"d::frag{i}", "texto": "x", "puntaje": 0.0167, "vigencia": derogada} for i in range(5)]
     assert decidir(rs, hay_clave_externa=True).motor == "abstenerse"
+
+
+def test_marca_la_cita_reescrita_y_deja_la_literal():
+    from index.respaldo import MARCA_CITA, marcar_citas_no_literales
+
+    r = (
+        "Dice «El trabajador tendrá derecho a quince (15) días hábiles consecutivos de vacaciones» "
+        "y también «el trabajador tendrá derecho a treinta días calendario de vacaciones pagadas»."
+    )
+    texto, n = marcar_citas_no_literales(r, FRAG)
+    assert n == 1
+    assert texto.count(MARCA_CITA) == 1
+    assert texto.index(MARCA_CITA) > texto.index("treinta")
