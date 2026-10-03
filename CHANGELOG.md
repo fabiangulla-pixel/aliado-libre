@@ -1,5 +1,21 @@
 # Changelog
 
+## 2026-10-03 (noche, 3) — Índice reparado; banco de preguntas en muestra
+
+- **Doble codificación reparada en el índice** (`scripts/reparar_codificacion_indice.py`,
+  `ingest/codificacion.py` con ftfy): 27.358 fragmentos de 268 documentos (190
+  legalize, 64 Gestor, 8 Corte, 5 Superfinanciera, 1 DIAN). Quedan 3 que ftfy no
+  arregla. Chroma (texto + embedding recalculado con TF32) y FTS5 actualizados en
+  sitio; respaldo para `--revertir` en `_run/reparacion_codificacion_respaldo.jsonl`.
+  El Gestor repara al ingerir. Primera corrida: 0,9 s/fragmento (UPDATE del FTS
+  por `id`, que es UNINDEXED); corregido a `rowid`, 28 fragmentos/s.
+  Piloto sin cambio (27,4%): solo 1 de sus 95 anclas estaba en esos documentos.
+- **Banco de preguntas QBR, muestra de 180** consultas reales etiquetadas con la
+  búsqueda asistida (`finetune/eval/banco_preguntas.py`, 5,04 USD): como lista
+  extra en el RRF, sin IA al buscar, recall@5 27,4% -> 32,6% (dev 34,1 / test
+  31,4); gana 5, pierde 0 (p≈0,06). Pendiente: etiquetar las 1.276 (~30 USD
+  más) y cablearlo.
+
 ## 2026-10-03 (noche, 2) — Citas exactas, registro de la Corte, ALIA descartado
 
 ### Añadido

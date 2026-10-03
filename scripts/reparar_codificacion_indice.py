@@ -62,11 +62,23 @@ def _modelo():
     return SentenceTransformer(MODELO_EMBEDDINGS)
 
 
-def _escribir(col, fts, ids, textos, metas, modelo) -> None:
+def _rowids(fts) -> dict[str, int]:
+    """id -> rowid del FTS. `id` es UNINDEXED: un UPDATE ... WHERE id = ? recorre
+    el millón de filas por cada fragmento (la primera corrida iba a 0,9 s por
+    fragmento, ~7 horas). Por rowid es directo."""
+    return dict(fts.execute("SELECT id, rowid FROM fragmentos_fts"))
+
+
+def _escribir_fts(fts, rowids, ids, textos) -> None:
+    filas = [(t, rowids[i]) for i, t in zip(ids, textos, strict=True) if i in rowids]
+    fts.executemany("UPDATE fragmentos_fts SET texto = ? WHERE rowid = ?", filas)
+    fts.commit()
+
+
+def _escribir(col, fts, rowids, ids, textos, metas, modelo) -> None:
     emb = modelo.encode([PREFIJO_PASAJE + t for t in textos], batch_size=64).tolist()
     col.update(ids=ids, documents=textos, embeddings=emb, metadatas=metas)
-    fts.executemany("UPDATE fragmentos_fts SET texto = ? WHERE id = ?", list(zip(textos, ids, strict=True)))
-    fts.commit()
+    _escribir_fts(fts, rowids, ids, textos)
 
 
 def reparar_indice() -> int:
@@ -74,16 +86,27 @@ def reparar_indice() -> int:
 
     ids = ids_sospechosos()
     print(f"{len(ids)} fragmentos con mojibake", flush=True)
-    if RESPALDO.exists():
-        print(f"Ya existe {RESPALDO}: una reparación previa. Revierte o muévelo antes de repetir.")
-        return 1
     col = chromadb.PersistentClient(path=str(DIR_INDICE)).get_collection(COLECCION)
     fts = sqlite3.connect(str(DB_FTS))
-    modelo = _modelo()
+    rowids = _rowids(fts)
     RESPALDO.parent.mkdir(exist_ok=True)
+    if RESPALDO.exists():
+        # Reanudación: los fragmentos ya reparados en Chroma no vuelven a salir
+        # como sospechosos, pero si el proceso murió a mitad de un lote su FTS
+        # puede haber quedado con el texto viejo. Se iguala con Chroma.
+        hechos = list(
+            dict.fromkeys(
+                json.loads(x)["id"] for x in RESPALDO.read_text(encoding="utf-8").splitlines() if x.strip()
+            )
+        )
+        for j in range(0, len(hechos), LOTE):
+            d = col.get(ids=hechos[j : j + LOTE], include=["documents"])
+            _escribir_fts(fts, rowids, d["ids"], d["documents"])
+        print(f"Reanudación: FTS igualado con Chroma en {len(hechos)} fragmentos ya tocados", flush=True)
+    modelo = _modelo()
     cambiados = 0
     t0 = time.time()
-    with RESPALDO.open("w", encoding="utf-8") as resp:
+    with RESPALDO.open("a", encoding="utf-8") as resp:
         for j in range(0, len(ids), LOTE):
             lote = ids[j : j + LOTE]
             datos = col.get(ids=lote, include=["documents", "metadatas"])
@@ -101,7 +124,7 @@ def reparar_indice() -> int:
                 nuevos_textos.append(texto_rep)
                 nuevas_metas.append(meta)
             if nuevos_ids:
-                _escribir(col, fts, nuevos_ids, nuevos_textos, nuevas_metas, modelo)
+                _escribir(col, fts, rowids, nuevos_ids, nuevos_textos, nuevas_metas, modelo)
                 cambiados += len(nuevos_ids)
             resp.flush()
             print(
@@ -120,15 +143,24 @@ def revertir() -> int:
     if not RESPALDO.exists():
         print("No hay respaldo que revertir.")
         return 1
-    filas = [json.loads(x) for x in RESPALDO.read_text(encoding="utf-8").splitlines() if x.strip()]
+    # Tras una reanudación un id puede repetirse: vale la PRIMERA copia, que es
+    # el texto original.
+    originales: dict[str, dict] = {}
+    for x in RESPALDO.read_text(encoding="utf-8").splitlines():
+        if x.strip():
+            f = json.loads(x)
+            originales.setdefault(f["id"], f)
+    filas = list(originales.values())
     col = chromadb.PersistentClient(path=str(DIR_INDICE)).get_collection(COLECCION)
     fts = sqlite3.connect(str(DB_FTS))
+    rowids = _rowids(fts)
     modelo = _modelo()
     for j in range(0, len(filas), LOTE):
         lote = filas[j : j + LOTE]
-        metas = col.get(ids=[f["id"] for f in lote], include=["metadatas"])["metadatas"]
-        metas = [{**(m or {}), "titulo_documento": f["titulo"]} for m, f in zip(metas, lote, strict=True)]
-        _escribir(col, fts, [f["id"] for f in lote], [f["texto"] for f in lote], metas, modelo)
+        d = col.get(ids=[f["id"] for f in lote], include=["metadatas"])
+        meta_de = dict(zip(d["ids"], d["metadatas"], strict=True))
+        metas = [{**(meta_de.get(f["id"]) or {}), "titulo_documento": f["titulo"]} for f in lote]
+        _escribir(col, fts, rowids, [f["id"] for f in lote], [f["texto"] for f in lote], metas, modelo)
     fts.close()
     RESPALDO.rename(RESPALDO.with_suffix(".revertido.jsonl"))
     print(f"Revertidos {len(filas)} fragmentos.")
