@@ -181,6 +181,8 @@ Comandos de uso:
 ```
 ./.venv/Scripts/python.exe index/build_index.py     # construir/actualizar índice vectorial (Chroma)
 ./.venv/Scripts/python.exe index/build_fts.py       # construir el índice léxico (FTS5) a partir de Chroma
+./.venv/Scripts/python.exe index/resolver_citas.py --construir  # catálogo de citas exactas (tras cada reindexado)
+./.venv/Scripts/python.exe index/resolver_citas.py "art. 64 del CST"  # probar una cita exacta
 ./.venv/Scripts/python.exe index/buscar.py "consulta"  # probar búsqueda por CLI
 ./.venv/Scripts/python.exe mcp_server/server.py      # levantar servidor MCP
 ./.venv/Scripts/python.exe gui/server.py             # GUI web local (abre navegador solo)
@@ -190,6 +192,21 @@ Comandos de uso:
 ./.venv/Scripts/python.exe finetune/medir_demanda_real.py            # cobertura frente a ellas
 ./.venv/Scripts/python.exe finetune/eval/validar_banco_piloto.py     # integridad del banco
 ./.venv/Scripts/python.exe finetune/eval/correr_piloto.py            # estima; --ejecutar gasta
+```
+
+**Búsqueda asistida (opcional, cuesta ~0,027 USD por búsqueda):** con
+`ALIADO_BUSQUEDA_ASISTIDA=1` y una clave de Anthropic configurada, Sonnet 5
+reformula la pregunta y reordena los candidatos (`index/busqueda_asistida.py`).
+Medido en el banco piloto: recall@5 del 27% al 47%. La beta pública la enciende
+en `scripts/lanzar_publico.ps1`; sin clave, o si falla, se usa la búsqueda normal.
+Las citas exactas ("T-760/08", "art. 1058 del Código de Comercio") se resuelven
+siempre y van primero.
+
+Mantenimiento de datos:
+
+```
+./.venv/Scripts/python.exe scripts/sincronizar_corte_datosgov.py    # sentencias de la Corte que faltan
+./.venv/Scripts/python.exe scripts/reparar_codificacion_indice.py --contar   # texto con doble codificación
 ```
 
 La GUI (`gui/server.py`) es la forma recomendada de uso diario: búsqueda
