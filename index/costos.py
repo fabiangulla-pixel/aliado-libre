@@ -25,6 +25,7 @@ PRECIOS = {
     "claude-haiku-4-5": (1.00, 5.00),
     "claude-sonnet-5": (2.00, 10.00),
     "claude-opus-5": (5.00, 25.00),
+    "claude-opus-5-5": (4.00, 20.00),
     "gpt-4o-mini": (0.15, 0.60),
     "gpt-4o": (2.50, 10.00),
     "gemini-2.0-flash": (0.10, 0.40),

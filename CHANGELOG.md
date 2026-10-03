@@ -1,5 +1,24 @@
 # Changelog
 
+## 2026-10-03 (tarde) — PRIMERA MEJORA REAL: reescritura + reordenamiento amplio con LLM
+
+`finetune/eval/reordenar_amplio.py`: el LLM escribe 3 reformulaciones jurídicas,
+cada una se busca con los dos motores, se fusiona todo por RRF y el mismo LLM
+elige los 10 mejores entre 60 documentos. Banco piloto, misma métrica por ancla.
+
+| | dev (44) recall@5 | dev MRR | test (51) recall@5 | test MRR | USD/consulta |
+|---|---|---|---|---|---|
+| producción | 27,3% | 0,211 | 27,5% | 0,182 | 0 |
+| Opus 5.5 (esfuerzo bajo) | 45,5% | 0,365 | — | — | 0,056 |
+| **Sonnet 5** (esfuerzo bajo) | **50,0%** | **0,378** | **45,1%** | **0,324** | **0,027** |
+| Haiku 4.5 | 27,3% | 0,170 | — | — | 0,010 |
+
+Sonnet 5 en dev+test: 27,4% -> 47,4% recall@5; gana 26, pierde 7 (McNemar
+p≈0,001). recall@10 34,1->68,2% (dev), 29,4->56,9% (test). Techo: el ancla entra
+en los 60 documentos que ve el LLM en 72/95. Haiku no sirve para esta tarea.
+Gasto real del experimento: 5,49 USD. **Aún no cableado en producción**:
+falta decidir latencia (2 llamadas) y costo (~0,027 USD por consulta).
+
 ## 2026-10-03 — Embedding afinado descartado; vectorial vs híbrida, empate
 
 ### Medido y descartado
