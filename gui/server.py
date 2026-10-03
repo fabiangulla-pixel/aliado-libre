@@ -326,7 +326,19 @@ class Handler(BaseHTTPRequestHandler):
         decision = decidir(resultados, hay_clave_externa=True)
         # La decisión de abstenerse se toma con la búsqueda normal: sus umbrales
         # están calibrados sobre puntajes RRF, y el orden asistido no los tiene.
-        resultados, asistida = self._intentar_busqueda_asistida(indice, consulta, k, fuentes, resultados)
+        resultados, info_cita = self._anteponer_cita_exacta(indice, consulta, k, resultados)
+        # Una consulta que es solo la cita ("art. 64 CST") ya quedó resuelta:
+        # pagar la búsqueda asistida para eso sería gastar sin mejorar nada.
+        solo_cita = bool(info_cita and info_cita["encontrada"]) and len(consulta.split()) <= 6
+        asistida = False
+        if not solo_cita:
+            nuevos, asistida = self._intentar_busqueda_asistida(indice, consulta, k, fuentes, resultados)
+            if asistida and info_cita and info_cita["encontrada"]:
+                # La cita exacta sigue primero aunque el modelo haya reordenado.
+                exactos = [x for x in resultados if x.get("cita_exacta")]
+                ids = {x["id"] for x in exactos}
+                nuevos = (exactos + [x for x in nuevos if x.get("id") not in ids])[: max(k, len(exactos))]
+            resultados = nuevos
         # Solo el índice remoto tiene cuota; en "todo local" no existe este aviso.
         aviso_aporte = aviso_aporte_publico or getattr(indice, "ultimo_aviso_aporte", None)
         salida = {
@@ -336,6 +348,7 @@ class Handler(BaseHTTPRequestHandler):
             "aviso_cobertura": None if decision.responde else decision.motivo,
             "aviso_aporte": aviso_aporte,
             "busqueda_asistida": asistida,
+            "cita": info_cita,
             # "claro" | "condicional" (coincidencia débil: se redacta, pero solo se
             # muestra si pasa index.respaldo) | "ninguno"
             "respaldo": "claro"
@@ -410,6 +423,43 @@ class Handler(BaseHTTPRequestHandler):
                 salida["aviso_respuesta"] = str(e)
 
         self._responder_json(salida)
+
+    def _anteponer_cita_exacta(self, indice, consulta, k, resultados):
+        """Si la consulta trae una cita ("art. 64 del CST", "T-760/08"), pone
+        primero el fragmento exacto. Devuelve (resultados, info para la GUI o None).
+
+        No sustituye la búsqueda: quien escribe "¿qué dice el art. 64 del CST
+        sobre el despido?" quiere el artículo Y lo que lo interpreta. Necesita
+        la colección local; con el índice remoto no hace nada.
+        """
+        coleccion = getattr(indice, "_coleccion", None)
+        if coleccion is None:
+            return resultados, None
+        try:
+            from index.resolver_citas import resolver
+
+            r = resolver(consulta, coleccion, k=3)
+        except Exception as e:  # noqa: BLE001 - una cita mal resuelta no rompe la búsqueda
+            print(f"[citas] falló: {type(e).__name__}", flush=True)
+            return resultados, None
+        if r.cita is None:
+            return resultados, None
+        info = {
+            "reconocida": r.cita.sentencia
+            or (
+                r.cita.codigo
+                or f"{r.cita.tipo.capitalize()} {r.cita.numero}"
+                + (f" de {r.cita.anio}" if r.cita.anio else "")
+            )
+            + (f", artículo {r.cita.articulo}" if r.cita.articulo else ""),
+            "encontrada": bool(r.resultados),
+            "aviso": r.aviso or None,
+            "candidatos": r.candidatos or None,
+        }
+        ids = {f["id"] for f in r.resultados}
+        return (r.resultados + [x for x in resultados if x.get("id") not in ids])[
+            : max(k, len(r.resultados))
+        ], info
 
     def _intentar_busqueda_asistida(self, indice, consulta, k, fuentes, resultados):
         """Reordena con `index.busqueda_asistida` si está encendida y se puede.

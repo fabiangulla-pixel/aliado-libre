@@ -49,3 +49,6 @@ data/suin_vigencias.json
 index/chroma_db*/
 index/*_fts.db
 _run/*.err
+
+# Derivado del indice: se reconstruye con index/resolver_citas.py --construir
+index/catalogo_citas.json

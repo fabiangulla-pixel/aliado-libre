@@ -120,6 +120,37 @@ def leer_fragmento(fragmento_id: str) -> str:
     )
 
 
+@mcp.tool()
+def resolver_cita(cita: str) -> str:
+    """Busca una norma o sentencia por su cita exacta, sin búsqueda por
+    significado: "art. 64 del CST", "artículo 1058 del Código de Comercio",
+    "T-760/08", "Ley 1480 de 2011 art. 51", "artículo 86 de la Constitución".
+    Úsala cuando la pregunta nombra una norma concreta; para preguntas en
+    lenguaje llano usa buscar_normativa. Si la cita no trae año y hay varias
+    normas con ese número, devuelve los candidatos: pregunta el año, no elijas."""
+    from index.resolver_citas import resolver
+
+    cita = (cita or "").strip()[:MAX_CONSULTA]
+    indice = _obtener_indice()
+    coleccion = getattr(indice, "_coleccion", None)
+    if coleccion is None:
+        return "Resolución de citas no disponible con el índice remoto."
+    r = resolver(cita, coleccion, k=MAX_RESULTADOS)
+    if r.cita is None:
+        return "No reconocí una cita normativa en el texto. Usa buscar_normativa."
+    partes = []
+    if r.aviso:
+        partes.append(f"Aviso: {r.aviso}")
+    for c in r.candidatos:
+        partes.append(f"- {c['anio']}: {c['titulo']} (documento {c['documento_id']})")
+    for f in r.resultados:
+        partes.append(
+            f"### {f.get('titulo_documento')}\nFragmento: {f.get('id')} | URL: {f.get('url_original')}\n"
+            f"Vigencia: {_vigencia_linea(f)}\n<fragmento>\n{f.get('texto', '')}\n</fragmento>"
+        )
+    return "\n---\n".join(partes) or "Sin resultados."
+
+
 if __name__ == "__main__":
     # Local (uso normal, cliente MCP en el mismo equipo): stdio, sin variables
     # de entorno. Desplegado (Render u otro host web): streamable-http sobre
