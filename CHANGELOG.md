@@ -1,5 +1,21 @@
 # Changelog
 
+## 2026-10-03 — Embedding afinado descartado; vectorial vs híbrida, empate
+
+### Medido y descartado
+- **Embedding afinado** (`modelos/e5_afinado`, 936 pares) sobre el piloto, sin
+  reindexar (`_run/medir_afinado_piloto.py`): reordenado puro recall@5
+  29,5% -> 22,1%, MRR 0,212 -> 0,152; gana 5, pierde 12. Peor en dev y en test.
+  Con la mitad léxica queda plano (28,4% vs 27,4%; 3 contra 2). No se reindexa.
+  Los pares no comparten positivos ni consultas con el piloto (0 de 72
+  documentos; 6 aparecen solo como negativos). La reproducción de producción
+  (base + léxica) dio el 27,4% de la línea base: el montaje es fiel.
+- **Solo vectorial (29,5%) frente a híbrida (27,4%)**: 6 casos a favor, 4 en
+  contra (McNemar p≈0,75). Empate; se mantiene la híbrida.
+
+### Otros
+- cloudflared instalado (winget); 3 commits del 1-oct subidos.
+
 ## 2026-09-30 / 10-01 — Calidad: cuatro palancas medidas, tres descartadas, dos arreglos cableados
 
 ### Arreglado (cableado donde lo usa la persona)
