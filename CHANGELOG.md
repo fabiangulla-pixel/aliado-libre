@@ -1,5 +1,34 @@
 # Changelog
 
+## 2026-10-03 (noche, 2) — Citas exactas, registro de la Corte, ALIA descartado
+
+### Añadido
+- **Citas exactas** (`index/citas.py`, `index/resolver_citas.py`), portado de
+  Normativa-colombiana-MCP (MIT, © 2026 Angel Peña): «art. 64 del CST»,
+  «T-760/08», «art. 771-5 del Estatuto Tributario», «artículo 86 de la
+  Constitución». Catálogo de 119.783 citas desde los metadatos del índice
+  (`--construir`, no versionado). Cita sin año con varios candidatos: se pide el
+  año, no se elige. En la web el fragmento exacto va primero (`cita` en la
+  respuesta) y una consulta que es solo la cita no paga la búsqueda asistida.
+  Herramienta MCP nueva `resolver_cita`. Endurecido frente a prosa: «a 3/4» o
+  «a 15 de 2023» no son autos. 20 tests.
+- **Sincronización con el registro oficial de la Corte**
+  (`scripts/sincronizar_corte_datosgov.py`, datos.gov.co v2k4-2t8s):
+  **faltan 10.346 de 29.195 sentencias (35,4%)**: 8.085 T, 2.089 C, 172 SU, casi
+  todas de 1992-2004 (de 1992 el corpus tiene 25). Lista en
+  `_run/sincronizacion_corte.json`. Pendiente: ingerirlas.
+
+### Hallazgo de calidad de datos
+- **64 documentos del Gestor (28.373 fragmentos) con doble codificación UTF-8**
+  («ARTÃCULO», «cÃ¡ncer»): daña el FTS y los embeddings de esos documentos
+  (entre ellos el Código de Comercio). El resolvedor lo tolera; **falta reparar
+  el texto y reindexar esos fragmentos**.
+
+### Medido y descartado
+- **ALIA-MrBERT-es-legal** (`_run/medir_embedding_piloto.py`, sin reindexar):
+  recall@5 29,5% igual que e5 (gana 9, pierde 9), MRR 0,188 vs 0,212. Entrenado
+  con derecho de España; no se adopta.
+
 ## 2026-10-03 (noche) — Búsqueda asistida cableada; techo ampliado; métrica de pertinencia
 
 ### Cableado (donde lo usa la persona)
