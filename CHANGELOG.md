@@ -1,5 +1,43 @@
 # Changelog
 
+## 2026-10-03 (noche) — Búsqueda asistida cableada; techo ampliado; métrica de pertinencia
+
+### Cableado (donde lo usa la persona)
+- `index/busqueda_asistida.py` + `gui/server.py`: con `ALIADO_BUSQUEDA_ASISTIDA=1`
+  (encendida en `scripts/lanzar_publico.ps1`), Sonnet 5 reformula y reordena.
+  Cae a la búsqueda normal ante cualquier fallo, sin clave, con filtro de fuentes,
+  con índice remoto o sin presupuesto del mes (el gasto cuenta contra el mismo
+  tope que la redacción). La abstención sigue decidida con la búsqueda normal
+  (sus umbrales son de puntajes RRF): **recalibrar pendiente**. 9 tests nuevos.
+
+### Techo: pool de 150 documentos (`ALIADO_ASISTIDA_DOCUMENTOS`)
+Techo del ancla: 60 docs 74/95, 150 docs 82/95, 300 docs 85/95.
+
+| Sonnet 5 | dev recall@5 | test recall@5 | todo | USD/consulta |
+|---|---|---|---|---|
+| 60 documentos | 50,0% | 45,1% | 47,4% | 0,027 |
+| 150 documentos | 52,3% | 52,9% | **52,6%** | 0,060 |
+
+Producción sigue en 60 (default): +5 puntos por 2,2x el costo; decidir.
+
+### Métrica nueva: éxito@5 con juez de pertinencia (`finetune/eval/juzgar_pertinencia.py`)
+Pooling de los top-10 de todos los sistemas; Sonnet 5 juzga cada fragmento
+(2 responde / 1 relacionado / 0 no). Éxito@5 = algún fragmento del top-5 responde.
+
+| sistema | n | éxito@1 | éxito@5 | nDCG@10 |
+|---|---|---|---|---|
+| producción | 95 | 47,4% | 70,5% | 0,449 |
+| Haiku 4.5 (60) | 44 | 70,5% | 86,4% | 0,615 |
+| Opus 5.5 (60) | 44 | 95,5% | 100% | 0,775 |
+| Sonnet 5 (60) | 95 | 84,2% | 96,8% | 0,709 |
+| Sonnet 5 (150) | 95 | 87,4% | 98,9% | 0,767 |
+
+⚠️ **Hipótesis, no resultado**: el juez es Sonnet juzgando lo que eligió Sonnet
+(sesgo de autopreferencia posible). Control: al fragmento ancla le da 2 en 42/55
+(no es complaciente; 31% de todas las notas son 2). **Falta la revisión humana**
+de `finetune/eval/revision_pertinencia.html` (40 pares, veredicto oculto).
+Gasto de esta tanda: 8,09 USD (150 docs 5,70 + juez 2,39).
+
 ## 2026-10-03 (tarde) — PRIMERA MEJORA REAL: reescritura + reordenamiento amplio con LLM
 
 `finetune/eval/reordenar_amplio.py`: el LLM escribe 3 reformulaciones jurídicas,

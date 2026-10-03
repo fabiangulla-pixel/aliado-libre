@@ -324,6 +324,9 @@ class Handler(BaseHTTPRequestHandler):
         from index.enrutador import decidir
 
         decision = decidir(resultados, hay_clave_externa=True)
+        # La decisión de abstenerse se toma con la búsqueda normal: sus umbrales
+        # están calibrados sobre puntajes RRF, y el orden asistido no los tiene.
+        resultados, asistida = self._intentar_busqueda_asistida(indice, consulta, k, fuentes, resultados)
         # Solo el índice remoto tiene cuota; en "todo local" no existe este aviso.
         aviso_aporte = aviso_aporte_publico or getattr(indice, "ultimo_aviso_aporte", None)
         salida = {
@@ -332,6 +335,7 @@ class Handler(BaseHTTPRequestHandler):
             "hay_respaldo": decision.responde,
             "aviso_cobertura": None if decision.responde else decision.motivo,
             "aviso_aporte": aviso_aporte,
+            "busqueda_asistida": asistida,
             # "claro" | "condicional" (coincidencia débil: se redacta, pero solo se
             # muestra si pasa index.respaldo) | "ninguno"
             "respaldo": "claro"
@@ -406,6 +410,37 @@ class Handler(BaseHTTPRequestHandler):
                 salida["aviso_respuesta"] = str(e)
 
         self._responder_json(salida)
+
+    def _intentar_busqueda_asistida(self, indice, consulta, k, fuentes, resultados):
+        """Reordena con `index.busqueda_asistida` si está encendida y se puede.
+
+        Devuelve (resultados, se_uso). Cualquier fallo deja la búsqueda normal:
+        la asistida mejora el orden, nunca es condición para buscar. No se usa
+        con filtro de fuentes (el pool no lo respeta) ni con el índice remoto
+        (necesita los dos motores locales). En modo público el gasto cuenta
+        contra el mismo presupuesto mensual que la redacción.
+        """
+        from gui import publico
+        from index import busqueda_asistida as ba
+
+        if not ba.activa() or fuentes or not hasattr(indice, "listas_candidatos"):
+            return resultados, False
+        mes = publico.mes_actual()
+        if publico.activo() and not publico.presupuesto().queda(mes):
+            return resultados, False
+        from finetune.clave_api import leer_clave
+
+        clave = leer_clave(obligatoria=False) or ""
+        if not clave:
+            return resultados, False
+        try:
+            r = ba.buscar_asistida(indice, consulta, k, clave)
+        except Exception as e:  # noqa: BLE001 - degradar, no romper la búsqueda
+            print(f"[busqueda asistida] falló, sigo con la normal: {type(e).__name__}", flush=True)
+            return resultados, False
+        if publico.activo():
+            publico.presupuesto().registrar(mes, r.usd)
+        return (r.resultados, True) if r.resultados else (resultados, False)
 
     def _redactar_publico(self, consulta: str, usados: list[dict]) -> str | None:
         """Redacta con la clave del servidor si quedan redacciones gratis hoy y

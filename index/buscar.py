@@ -244,6 +244,28 @@ class IndiceBusqueda:
         crudos = self._buscar_crudo(consulta, k=max(k, CANDIDATOS), fuentes=fuentes)
         return anotar(reordenar(consulta, crudos, k=k))
 
+    def listas_candidatos(self, consulta: str, n: int) -> list[list[str]]:
+        """Las dos listas de ids sin fusionar, [vectorial, léxica], n por motor.
+
+        La usa `index.busqueda_asistida`, que fusiona varias consultas a la vez.
+        """
+        if self._total == 0:
+            return [[], []]
+        n = min(n, self._total)
+        emb = self._modelo.encode([PREFIJO_CONSULTA + consulta]).tolist()
+        vectorial = self._coleccion.query(query_embeddings=emb, n_results=n)["ids"][0]
+        lexica: list[str] = []
+        match = _consulta_fts(_tokenizar(consulta))
+        if self._fts is not None and match:
+            lexica = [
+                fila[0]
+                for fila in self._fts.execute(
+                    "SELECT id FROM fragmentos_fts WHERE fragmentos_fts MATCH ? ORDER BY rank LIMIT ?",
+                    (match, n),
+                ).fetchall()
+            ]
+        return [vectorial, lexica]
+
     def _buscar_crudo(self, consulta: str, k: int = 8, fuentes: list[str] | None = None) -> list[dict]:
         """Búsqueda híbrida (vectorial + FTS5, fusionadas por RRF), sin reordenar.
 

@@ -38,6 +38,7 @@ $env:ALIADO_REDACCIONES_DIARIAS = "3"   # respuestas redactadas por IA gratis al
 $env:ALIADO_TOPE_GASTO_MES_USD = "10"   # tope de gasto de IA del mes
 $env:ALIADO_CONFIAR_PROXY = "1"         # la IP real llega en CF-Connecting-IP
 $env:ALIADO_RERANKER_ACTIVO = "0"
+$env:ALIADO_BUSQUEDA_ASISTIDA = "1"     # Sonnet 5 reformula y reordena (~0,027 USD/busqueda; recall@5 27->47%)
 $env:PYTHONWARNINGS = "ignore"
 
 Write-Host "Arrancando la web en modo publico en http://127.0.0.1:$Puerto ..."

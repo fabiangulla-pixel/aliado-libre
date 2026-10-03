@@ -117,6 +117,7 @@ def interpretar(texto: str, n: int) -> list[int]:
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--modelo", required=True)
+    ap.add_argument("--documentos", type=int, default=DOCUMENTOS, help="documentos que ve el LLM")
     ap.add_argument("--subconjunto", choices=["dev", "test", "todo"], default="dev")
     ap.add_argument("--ejecutar", action="store_true", help="gasta de verdad; sin esto solo estima")
     a = ap.parse_args()
@@ -133,7 +134,7 @@ def main() -> int:
     entrada, salida = costos.PRECIOS[a.modelo]
     # Por consulta: reescritura ~600 tokens de entrada; ordenar ~DOCUMENTOS*130.
     # Salida con razonamiento a esfuerzo bajo: ~1.500 tokens en total.
-    estimado = len(casos) * ((600 + DOCUMENTOS * 130) * entrada + 1500 * salida) / 1e6
+    estimado = len(casos) * ((600 + a.documentos * 130) * entrada + 1500 * salida) / 1e6
     print(f"{len(casos)} consultas ({a.subconjunto}) | {a.modelo} | estimado {estimado:.2f} USD")
     if not a.ejecutar:
         print("No se llamó a ninguna API. Añade --ejecutar para medir.")
@@ -153,8 +154,15 @@ def main() -> int:
     )
 
     DIR_SALIDA.mkdir(parents=True, exist_ok=True)
-    avance_ruta = DIR_SALIDA / f"avance_{a.modelo}.json"
+    sufijo = "" if a.documentos == DOCUMENTOS else f"_{a.documentos}docs"
+    avance_ruta = DIR_SALIDA / f"avance_{a.modelo}{sufijo}.json"
     avance: dict = json.loads(avance_ruta.read_text(encoding="utf-8")) if avance_ruta.exists() else {}
+    # Las reformulaciones no dependen del tamano del pool: se reusan las ya
+    # pagadas para que la comparacion aisle el efecto de ver mas documentos.
+    previo = DIR_SALIDA / f"avance_{a.modelo}.json"
+    if sufijo and previo.exists():
+        for k, v in json.loads(previo.read_text(encoding="utf-8")).items():
+            avance.setdefault(k, {"reformulaciones": v["reformulaciones"], "usd_reescribir": 0.0})
 
     cliente = anthropic.Anthropic(api_key=leer_clave(obligatoria=True))
     ix = IndiceBusqueda()
@@ -192,7 +200,7 @@ def main() -> int:
         for r in reg["reformulaciones"]:
             listas += buscar_dos_motores(r)
         orden_reescrito = candidatos_fusionados(listas)
-        pool = un_fragmento_por_documento(orden_reescrito, DOCUMENTOS)
+        pool = un_fragmento_por_documento(orden_reescrito, a.documentos)
 
         if "salida_ordenar" not in reg:
             datos = coleccion.get(ids=pool, include=["documents", "metadatas"])
@@ -234,12 +242,12 @@ def main() -> int:
         if n % 10 == 0:
             print(f"  {n}/{len(casos)}  gasto acumulado {usd:.2f} USD", flush=True)
 
-    (DIR_SALIDA / f"resultado_{a.modelo}_{a.subconjunto}.json").write_text(
+    (DIR_SALIDA / f"resultado_{a.modelo}{sufijo}_{a.subconjunto}.json").write_text(
         json.dumps(filas, ensure_ascii=False, indent=1), encoding="utf-8"
     )
     print(f"\n{a.modelo} — {a.subconjunto} (n={len(filas)})")
     print(
-        f"techo: el documento correcto entra en los {DOCUMENTOS} que ve el LLM en "
+        f"techo: el documento correcto entra en los {a.documentos} que ve el LLM en "
         f"{sum(f['en_pool'] for f in filas)}/{len(filas)}"
     )
     for clave in ("base", "reescrito", "llm"):
