@@ -14,6 +14,7 @@ tqdm==4.70.0
 pypdf==6.16.2
 python-docx==1.2.0
 pyyaml==6.0.3
+ftfy==6.3.1               # repara doble codificacion UTF-8 (ingest/codificacion.py)
 
 # -- indice y busqueda ---------------------------------------------------
 # torch y transformers llegan como dependencia de sentence-transformers, pero

@@ -120,7 +120,11 @@ def obtener_norma(sesion: requests.Session, norma_id: str) -> Documento | None:
     r = sesion.get(url, verify=False, timeout=30)
     if r.status_code != 200:
         return None
-    return _parsear_documento(r.text, norma_id, url)
+    from ingest.codificacion import reparar
+
+    # Algunas normas del portal llegan con doble codificación UTF-8: ver
+    # ingest/codificacion.py (28.373 fragmentos dañados medidos el 3-oct-2026).
+    return _parsear_documento(reparar(r.text), norma_id, url)
 
 
 def crawl(
