@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Revisión de pertinencia</title>
+<style>
+:root{--fondo:#f6f5f2;--tarjeta:#fff;--texto:#1d1d1b;--suave:#6b6a66;--borde:#dddad3;--cita:#f1efe9;
+--acento:#2f5d8a;--si:#2e7d4f;--medio:#a8741a;--no:#b23b3b;--sombra:0 1px 3px rgba(0,0,0,.08)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--fondo:#161616;--tarjeta:#202020;
+--texto:#ecebe7;--suave:#a3a19b;--borde:#3a3936;--cita:#2a2927;--acento:#7fb0e0;--si:#5fbf86;--medio:#d9a646;
+--no:#e07a7a;--sombra:none}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--fondo);color:var(--texto);font:16px/1.55 system-ui,-apple-system,"Segoe UI",sans-serif}
+header{position:sticky;top:0;z-index:2;background:var(--fondo);border-bottom:1px solid var(--borde);padding:12px 16px}
+.envoltura{max-width:860px;margin:0 auto}
+h1{font-size:1.2rem;margin:0 0 4px}
+.barra{height:6px;background:var(--borde);border-radius:3px;overflow:hidden;margin-top:8px}
+.barra i{display:block;height:100%;width:0;background:var(--acento);transition:width .2s}
+.estado{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;font-size:.9rem;color:var(--suave)}
+main{padding:16px}
+.ayuda{background:var(--tarjeta);border:1px solid var(--borde);border-radius:10px;padding:12px 16px;margin-bottom:16px;font-size:.95rem}
+.ayuda b{color:var(--texto)}
+article{background:var(--tarjeta);border:1px solid var(--borde);border-radius:12px;padding:16px;margin-bottom:16px;box-shadow:var(--sombra)}
+article.hecho{border-left:4px solid var(--acento)}
+.num{font-size:.8rem;color:var(--suave);text-transform:uppercase;letter-spacing:.04em}
+.pregunta{font-size:1.08rem;font-weight:600;margin:4px 0 12px}
+.fuente{font-size:.88rem;color:var(--suave);margin-bottom:6px}
+.fuente a{color:var(--acento)}
+.fragmento{background:var(--cita);border-radius:8px;padding:12px;white-space:pre-wrap;max-height:22em;overflow:auto;font-size:.95rem}
+.opciones{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:12px}
+@media (max-width:560px){.opciones{grid-template-columns:1fr 1fr}}
+.opciones button{font:inherit;font-size:.92rem;padding:10px 8px;border-radius:8px;border:1.5px solid var(--borde);
+background:transparent;color:var(--texto);cursor:pointer;min-height:44px}
+.opciones button:hover{border-color:var(--acento)}
+.opciones button[aria-pressed="true"][data-v="2"]{background:var(--si);border-color:var(--si);color:#fff}
+.opciones button[aria-pressed="true"][data-v="1"]{background:var(--medio);border-color:var(--medio);color:#fff}
+.opciones button[aria-pressed="true"][data-v="0"]{background:var(--no);border-color:var(--no);color:#fff}
+.opciones button[aria-pressed="true"][data-v="-1"]{background:var(--suave);border-color:var(--suave);color:#fff}
+.juez{margin-top:10px;font-size:.9rem;color:var(--suave)}
+.juez.coincide{color:var(--si)} .juez.difiere{color:var(--no)}
+#resultado{display:none}
+#resultado.visible{display:block}
+table{border-collapse:collapse;font-size:.92rem;margin:8px 0}
+td,th{border:1px solid var(--borde);padding:6px 10px;text-align:center}
+.grande{font-size:2rem;font-weight:700}
+.acciones{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.acciones button{font:inherit;padding:10px 14px;border-radius:8px;border:1.5px solid var(--acento);background:var(--acento);color:#fff;cursor:pointer}
+.acciones button.sec{background:transparent;color:var(--acento)}
+</style>
+</head>
+<body>
+<header><div class="envoltura">
+  <h1>¿El fragmento responde la pregunta?</h1>
+  <div class="estado"><span id="avance">0 de 0</span><span id="guardado">Se guarda solo en este navegador</span></div>
+  <div class="barra"><i id="relleno"></i></div>
+</div></header>
+<main class="envoltura">
+  <div class="ayuda">
+    Lee la pregunta como la escribió la persona y el fragmento que el buscador le mostraría.
+    <b>Responde</b>: trae la regla, derecho, plazo o procedimiento que resuelve lo que pregunta
+    (aunque sea un concepto o sentencia que cita la norma).
+    <b>Relacionado</b>: mismo tema, pero con esto solo no se puede responder.
+    <b>No sirve</b>: no ayuda con esta pregunta. Usa <b>No sé</b> si te falta información para juzgar.
+    El veredicto del juez automático se muestra solo cuando hayas juzgado todos los pares.
+  </div>
+  <section id="resultado" class="ayuda"></section>
+  <div id="lista"></div>
+  <div class="acciones">
+    <button id="descargar">Descargar mis respuestas (.json)</button>
+    <button id="borrar" class="sec">Empezar de nuevo</button>
+  </div>
+</main>
+<script>
+const DATOS = __DATOS__;
+const CLAVE = "revision_pertinencia_" + DATOS.version;
+const ETIQ = {"2":"Responde","1":"Relacionado, no basta","0":"No sirve","-1":"No sé"};
+let resp = {};
+try { resp = JSON.parse(localStorage.getItem(CLAVE) || "{}"); } catch (e) { resp = {}; }
+
+function guardar() {
+  try { localStorage.setItem(CLAVE, JSON.stringify(resp)); document.getElementById("guardado").textContent = "Guardado"; }
+  catch (e) { document.getElementById("guardado").textContent = "No se pudo guardar: descarga el .json antes de cerrar"; }
+}
+function esc(s) { const d = document.createElement("div"); d.textContent = s; return d.innerHTML; }
+
+function pintar() {
+  const lista = document.getElementById("lista");
+  lista.innerHTML = "";
+  const terminado = DATOS.pares.every(p => resp[p.n] !== undefined);
+  DATOS.pares.forEach(p => {
+    const a = document.createElement("article");
+    if (resp[p.n] !== undefined) a.classList.add("hecho");
+    const fuente = p.url ? `<a href="${esc(p.url)}" target="_blank" rel="noopener">${esc(p.titulo)}</a>` : esc(p.titulo);
+    let juez = "";
+    if (terminado && resp[p.n] !== "-1") {
+      const igual = String(p.juez) === resp[p.n];
+      juez = `<div class="juez ${igual ? "coincide" : "difiere"}">Juez: ${ETIQ[String(p.juez)]} — ${igual ? "coincide" : "difiere"}</div>`;
+    }
+    a.innerHTML = `<div class="num">Par ${p.n} de ${DATOS.pares.length}</div>
+      <div class="pregunta">${esc(p.consulta)}</div>
+      <div class="fuente">${fuente}</div>
+      <div class="fragmento">${esc(p.texto)}</div>
+      <div class="opciones">${["2","1","0","-1"].map(v =>
+        `<button data-v="${v}" aria-pressed="${resp[p.n] === v}">${ETIQ[v]}</button>`).join("")}</div>${juez}`;
+    a.querySelectorAll("button").forEach(b => b.onclick = () => { resp[p.n] = b.dataset.v; guardar(); pintar(); });
+    lista.appendChild(a);
+  });
+  const hechos = DATOS.pares.filter(p => resp[p.n] !== undefined).length;
+  document.getElementById("avance").textContent = `${hechos} de ${DATOS.pares.length} juzgados`;
+  document.getElementById("relleno").style.width = (100 * hechos / DATOS.pares.length) + "%";
+  resultado(terminado);
+}
+
+function resultado(terminado) {
+  const caja = document.getElementById("resultado");
+  if (!terminado) { caja.classList.remove("visible"); return; }
+  const validos = DATOS.pares.filter(p => resp[p.n] !== "-1");
+  const n = validos.length;
+  const iguales = validos.filter(p => String(p.juez) === resp[p.n]).length;
+  // "Responde" frente a lo demás: es lo que decide la métrica éxito@5.
+  let vv = 0, vf = 0, fv = 0, ff = 0;
+  validos.forEach(p => { const h = resp[p.n] === "2", j = p.juez === 2;
+    if (h && j) vv++; else if (!h && j) fv++; else if (h && !j) vf++; else ff++; });
+  const acuerdoBin = n ? (vv + ff) / n : 0;
+  const pe = n ? (((vv + fv) / n) * ((vv + vf) / n) + ((ff + vf) / n) * ((ff + fv) / n)) : 0;
+  const kappa = pe < 1 ? (acuerdoBin - pe) / (1 - pe) : 1;
+  const precJuez = (vv + fv) ? vv / (vv + fv) : 0;
+  caja.innerHTML = `<b>Resultado</b> (${n} pares juzgados, ${DATOS.pares.length - n} «No sé»)<br>
+    <span class="grande">${n ? Math.round(100 * iguales / n) : 0}%</span> de coincidencia exacta con el juez (3 niveles).<br>
+    En la pregunta que importa, «¿responde o no?»: coincidencia ${Math.round(100 * acuerdoBin)}%, kappa de Cohen ${kappa.toFixed(2)}.<br>
+    Cuando el juez dice «Responde», tú también lo dices en el ${Math.round(100 * precJuez)}% de los casos.
+    Si esa cifra es baja, el juez es complaciente y el 97% de éxito@5 está inflado.
+    <table><tr><th></th><th>Juez: responde</th><th>Juez: no</th></tr>
+    <tr><th>Tú: responde</th><td>${vv}</td><td>${vf}</td></tr>
+    <tr><th>Tú: no</th><td>${fv}</td><td>${ff}</td></tr></table>
+    Descarga tus respuestas y déjalas en <code>finetune/eval/</code> para registrarlas.`;
+  caja.classList.add("visible");
+}
+
+document.getElementById("descargar").onclick = () => {
+  const blob = new Blob([JSON.stringify({version: DATOS.version, fecha: new Date().toISOString(),
+    respuestas: DATOS.pares.map(p => ({n: p.n, consulta_id: p.cid, fragmento_id: p.fid,
+      humano: resp[p.n] === undefined ? null : Number(resp[p.n]), juez: p.juez}))}, null, 1)], {type: "application/json"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "revision_pertinencia_respuestas_" + new Date().toISOString().split("T")[0] + ".json";
+  a.click();
+};
+document.getElementById("borrar").onclick = () => {
+  if (confirm("¿Borrar todas tus respuestas?")) { resp = {}; guardar(); pintar(); }
+};
+pintar();
+</script>
+</body>
+</html>

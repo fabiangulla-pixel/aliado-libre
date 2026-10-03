@@ -29,7 +29,6 @@ Uso:
 from __future__ import annotations
 
 import argparse
-import html
 import json
 import math
 import os
@@ -143,7 +142,11 @@ def informe(sis, juicios, casos) -> None:
 
 
 def hoja(juicios, casos, n=40) -> None:
-    """Muestra estratificada para revisión humana, veredicto del juez oculto."""
+    """Muestra estratificada (por nota del juez) para revisión humana.
+
+    El veredicto del juez solo se muestra cuando la persona juzgó todos los pares;
+    la página guarda las respuestas en el navegador y calcula el acuerdo y kappa.
+    """
     por_id = {c["id"]: c for c in casos}
     muestra = []
     rng = random.Random(2026)
@@ -161,27 +164,26 @@ def hoja(juicios, casos, n=40) -> None:
     datos = col.get(ids=[f for _, f in muestra], include=["documents", "metadatas"])
     texto = dict(zip(datos["ids"], datos["documents"], strict=True))
     meta = dict(zip(datos["ids"], datos["metadatas"], strict=True))
-    filas = []
-    for i, (cid, f) in enumerate(muestra, 1):
-        filas.append(
-            f"<section><h3>{i}. {html.escape(por_id[cid]['consulta'])}</h3>"
-            f"<p class=t>{html.escape((meta.get(f) or {}).get('titulo_documento', f))}</p>"
-            f"<blockquote>{html.escape((texto.get(f) or '')[:EXTRACTO])}</blockquote>"
-            + "".join(
-                f"<label><input type=radio name=r{i} value={v}> {e}</label> "
-                for v, e in ((2, "Responde"), (1, "Relacionado, no basta"), (0, "No sirve"))
-            )
-            + f"<details><summary>ver juez</summary>{juicios[cid][f]}</details></section>"
-        )
-    HOJA.write_text(
-        "<!doctype html><meta charset=utf-8><title>Revisión de pertinencia</title>"
-        "<style>body{font:16px/1.5 system-ui;max-width:860px;margin:2em auto;padding:0 16px}"
-        "section{border-top:1px solid #ccc;padding:1em 0}blockquote{background:#f5f5f5;padding:.6em;"
-        "white-space:pre-wrap}.t{color:#555}</style>"
-        "<h1>¿El fragmento responde la pregunta?</h1><p>Marca tu juicio ANTES de abrir «ver juez». "
-        "Al final, anota cuántas veces coincidiste con el juez.</p>" + "".join(filas),
-        encoding="utf-8",
+    pares = [
+        {
+            "n": i,
+            "cid": cid,
+            "fid": f,
+            "consulta": por_id[cid]["consulta"],
+            "titulo": (meta.get(f) or {}).get("titulo_documento") or f,
+            "url": (meta.get(f) or {}).get("url_original") or "",
+            "texto": (texto.get(f) or "")[:3000],
+            "juez": juicios[cid][f],
+        }
+        for i, (cid, f) in enumerate(muestra, 1)
+    ]
+    datos_json = json.dumps({"version": "2026-10-03", "pares": pares}, ensure_ascii=False)
+    # Evita que un "</script>" dentro de un fragmento cierre el bloque de código.
+    datos_json = datos_json.replace("</", r"<\/")
+    plantilla = (Path(__file__).resolve().parent / "plantilla_revision_pertinencia.html").read_text(
+        encoding="utf-8"
     )
+    HOJA.write_text(plantilla.replace("__DATOS__", datos_json), encoding="utf-8")
     print(f"Hoja de revisión: {HOJA} ({len(muestra)} pares)")
 
 
