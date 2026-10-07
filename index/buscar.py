@@ -173,6 +173,23 @@ def _consulta_fts(tokens: list[str]) -> str:
     return " OR ".join(f'"{tok}"' for tok in tokens if tok)
 
 
+def un_fragmento_por_documento(resultados: list[dict]) -> list[dict]:
+    """El mejor fragmento de cada documento, en el orden de la fusión.
+
+    Es el pool que recibe el reordenador: sin esto, varios fragmentos del mismo
+    documento ocupan la ventana y desplazan a otros documentos (medido el 6-oct).
+    """
+    vistos: set[str] = set()
+    salida = []
+    for r in resultados:
+        doc = r.get("documento_id") or (r.get("id") or "").rsplit("::", 1)[0]
+        if doc in vistos:
+            continue
+        vistos.add(doc)
+        salida.append(r)
+    return salida
+
+
 class IndiceBusqueda:
     def __init__(self) -> None:
         self._modelo = SentenceTransformer(MODELO_EMBEDDINGS)
@@ -242,7 +259,7 @@ class IndiceBusqueda:
             return anotar(self._buscar_crudo(consulta, k=k, fuentes=fuentes))
 
         crudos = self._buscar_crudo(consulta, k=max(k, CANDIDATOS), fuentes=fuentes)
-        return anotar(reordenar(consulta, crudos, k=k))
+        return anotar(reordenar(consulta, un_fragmento_por_documento(crudos), k=k))
 
     def listas_candidatos(self, consulta: str, n: int) -> list[list[str]]:
         """Las dos listas de ids sin fusionar, [vectorial, léxica], n por motor.

@@ -41,3 +41,8 @@ def test_idempotente_y_no_toca_el_articulado():
     assert enmascarar_destinatario(texto) == texto
     once = enmascarar_destinatario("Señora\nANA\nAsunto: x\ncuerpo")
     assert enmascarar_destinatario(once) == once
+
+
+def test_correo_con_espacio_duro_antes_de_la_arroba():
+    salida = enmascarar_destinatario("E mail: catalinainesmm @yahoo.com Ref.: Consulta")
+    assert "yahoo" not in salida and "catalina" not in salida

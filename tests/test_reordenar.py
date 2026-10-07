@@ -121,7 +121,7 @@ def test_el_modelo_se_carga_una_sola_vez(monkeypatch):
 
 def test_solo_reordena_la_ventana_y_conserva_el_resto(monkeypatch):
     """Reordenar 500 candidatos costaría más que la búsqueda entera."""
-    monkeypatch.setattr(R, "CANDIDATOS", 2)
+    monkeypatch.setattr(R, "DOCUMENTOS", 2)
     _modelo_falso(monkeypatch, [0.1, 0.9])
     salida = R.reordenar("consulta", _resultados("a", "b", "c", "d"))
     assert [r["id"] for r in salida[:2]] == ["f1", "f0"]
@@ -156,11 +156,12 @@ def test_esta_conectado_a_la_busqueda_local():
 # Auxilios de la Policía.
 
 
-def test_apagado_por_defecto_aunque_haya_gpu(monkeypatch):
-    """Tener con qué reordenar no es razón para hacerlo: está medido que daña."""
+def test_encendido_por_defecto_con_gpu(monkeypatch):
+    """Desde el 6-oct-2026, con pool de un fragmento por documento: +9,5 puntos
+    de recall@5 en el banco prueba_200 (p=0,0005). Ver `R.activo`."""
     monkeypatch.delenv("ALIADO_RERANKER_ACTIVO", raising=False)
     monkeypatch.setattr(R, "_hay_gpu", lambda: True)
-    assert R.activo() is False
+    assert R.activo() is True
 
 
 def test_sin_gpu_tambien_apagado(monkeypatch):
@@ -176,12 +177,11 @@ def test_se_puede_encender_a_mano_para_volver_a_medirlo(monkeypatch):
     assert R.activo() is True
 
 
-@pytest.mark.parametrize("valor", ["0", "false", "no", ""])
+@pytest.mark.parametrize("valor", ["0", "false", "no"])
 def test_un_apagado_explicito_sigue_apagando(monkeypatch, valor):
     """El servidor del índice fija "0" para quedarse fuera de la regla.
 
-    La cadena vacía es "no haber dicho nada", y desde el 12-sep-2026 eso ya no
-    significa "mira si hay GPU" sino "apagado": el defecto cambió.
+    (La cadena vacía es "no haber dicho nada": decide la GPU.)
     """
     monkeypatch.setenv("ALIADO_RERANKER_ACTIVO", valor)
     monkeypatch.setattr(R, "_hay_gpu", lambda: True)

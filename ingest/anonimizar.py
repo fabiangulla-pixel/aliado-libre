@@ -37,7 +37,8 @@ _FIN_BLOQUE = re.compile(
     r"en atenci[oó]n|de manera atenta|me permito|consulta\b|tema\b)",
     re.I,
 )
-_CORREO = re.compile(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)+")
+# Admite un espacio junto a la arroba: «catalina @yahoo.com» aparece en conceptos viejos.
+_CORREO = re.compile(r"[\w.+-]+\s?@\s?[\w-]+(?:\.[\w-]+)+")
 _TELEFONO = re.compile(
     r"\b(?:tel[eé]fono|tel\.?|cel(?:ular)?\.?|m[oó]vil|fax)\s*(?:no\.?|n[uú]mero)?\s*:?\s*[\d\s().-]{7,20}\d",
     re.I,

@@ -117,14 +117,20 @@ def main() -> int:
     )
 
     modelo = CrossEncoder(BASE, num_labels=1, max_length=512)
-    antes = acuerdo_con_maestro(modelo, etiquetas, pools, validacion, textos)
+    # Sobre el modelo de transformers: el argumento del Trainer no lo acepta en ST 6.0.
+    modelo.model.gradient_checkpointing_enable()
+    antes = float(os.environ.get("ALIADO_ACUERDO_ANTES", "nan"))
+    if antes != antes:  # nan: no se midió antes en esta corrida
+        antes = acuerdo_con_maestro(modelo, etiquetas, pools, validacion, textos)
     print(f"Acuerdo con el maestro ANTES (top-5 sobre el mismo pool, validación): {antes:.3f}", flush=True)
 
     args = CrossEncoderTrainingArguments(
         output_dir=str(RAIZ / "_run" / "entreno_reranker"),
         num_train_epochs=1,
-        per_device_train_batch_size=16,
-        gradient_accumulation_steps=2,
+        # 16x512 con AdamW no cabe en 16 GB: Windows desborda a la RAM y cada paso
+        # tarda 15 s (medido el 6-oct). 8 x 4 = mismo lote efectivo de 32.
+        per_device_train_batch_size=8,
+        gradient_accumulation_steps=4,
         learning_rate=2e-5,
         warmup_ratio=0.1,
         bf16=torch.cuda.is_available(),

@@ -39,7 +39,7 @@ tags:
 
 # Indice legal de Colombia - Aliado Libre
 
-Indice de legislacion y jurisprudencia colombiana: **1.605.373 fragmentos** de
+Indice de legislacion y jurisprudencia colombiana: **1.605.055 fragmentos** de
 **175.981 documentos** oficiales, construido por
 [Aliado Libre](https://github.com/fabiangulla-pixel/aliado-libre) - RAG legal
 gratuito y de codigo abierto.

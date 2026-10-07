@@ -22,15 +22,27 @@ from __future__ import annotations
 
 import os
 import threading
+from pathlib import Path
 
-MODELO_RERANKER = os.environ.get("ALIADO_RERANKER", "BAAI/bge-reranker-v2-m3")
-# Cuántos candidatos se reordenan. La intuición dice que más candidatos dan más
-# margen; **medido, no es cierto**: sobre 200 consultas apartadas, las ventanas
-# de 40, 100 y 200 dan el MISMO recall@5 (43,5%), y la de 200 cuesta cinco veces
-# más (16,85 s/consulta en GPU frente a 3,42). El reranker ya tiene delante el
-# documento correcto en los casos que falla, y no lo reconoce; darle más no lo
-# arregla. Ver docs/PROJECT_STATE.md.
-CANDIDATOS = int(os.environ.get("ALIADO_RERANKER_CANDIDATOS", "40"))
+# Por defecto, bge-reranker-v2-m3 sin afinar. El DESTILADO (finetune/destilar/,
+# 6-oct-2026: bge afinado con las elecciones de Sonnet como maestro) se elige con
+# ALIADO_RERANKER=destilado. No es el defecto porque no está probado que gane:
+# por ancla queda por debajo de bge (prueba_200: 32,0% vs 34,0% @5) y la medición
+# de pertinencia, que es la que puede favorecerlo, quedó pendiente.
+_DESTILADO = Path(__file__).resolve().parent.parent / "modelos" / "reranker_destilado"
+_ELEGIDO = os.environ.get("ALIADO_RERANKER", "").strip()
+MODELO_RERANKER = (
+    str(_DESTILADO) if _ELEGIDO.lower() == "destilado" else (_ELEGIDO or "BAAI/bge-reranker-v2-m3")
+)
+# Fragmentos crudos que se piden a la búsqueda antes de reordenar. De ahí sale el
+# pool: UN fragmento por documento, hasta DOCUMENTOS. Diversificar es lo que
+# cambió el resultado: la ventana de 40 fragmentos del 12-sep traía varios del
+# mismo documento y el reordenador empeoraba (27% -> 23%); con un fragmento por
+# documento mejora (ver `activo`).
+CANDIDATOS = int(os.environ.get("ALIADO_RERANKER_CANDIDATOS", "240"))
+DOCUMENTOS = int(os.environ.get("ALIADO_RERANKER_DOCUMENTOS", "60"))
+# El pasaje se presenta con su título: «ARTÍCULO 130» no dice de qué ley es.
+MAX_CARACTERES = 2000
 MAX_LONGITUD = 512
 
 _modelo = None
@@ -98,36 +110,34 @@ def disponible() -> bool:
 
 
 def activo() -> bool:
-    """Decide si reordenar. **Apagado por defecto desde el 12-sep-2026.**
+    """Decide si reordenar. **Encendido por defecto con GPU desde el 6-oct-2026.**
 
-    Se adoptó por +10 puntos de recall@5 (33,5% -> 43,5%) medidos el 7-sep-2026.
-    Esa medición se hizo sobre un banco cuyas consultas se habían redactado A
-    PARTIR del fragmento que debían recuperar, así que compartían su vocabulario.
-    Con consultas escritas como las escribe la gente, **empeora**:
+    Historia. Se adoptó el 7-sep (+10 puntos sobre un banco cuyas consultas
+    compartían vocabulario con el fragmento) y se apagó el 12-sep porque con
+    consultas en lenguaje llano empeoraba (27% -> 23%, ventana de 40 fragmentos):
+    ante «puedo tener mi herencia antes de que mueran mis padres» sacaba el Código
+    Civil del top-5 y ponía un decreto de 1938 de la Policía.
 
-        sin reordenar   27%      (44 consultas del conjunto de desarrollo)
-        ventana 40      23%
-        ventana 120     20%
+    Lo que cambió el 6-oct: el pool es de UN fragmento por documento (60
+    documentos) y cada pasaje va con su título. Medido sobre los dos bancos
+    apartados, misma máquina (finetune/destilar/evaluar_reordenador.py):
 
-    Y hay un caso real que lo enseña mejor que la tabla. Ante «puedo tener mi
-    herencia antes de que mueran mis padres», la fusión devuelve primero la
-    LEY-84-1873 —el Código Civil, que es donde está la respuesta— con puntaje
-    0,0284. El reordenador la saca del top-5 y pone en su lugar el DECRETO-475-1938,
-    sobre la Caja de Auxilios de la Policía Nacional. Le quitó al usuario la
-    respuesta correcta y le dejó un decreto de 1938.
+        banco prueba_200   hoy 24,5%  ->  bge 34,0% recall@5  (gana 24, pierde 5, p=0,0005)
+        piloto 95          hoy 25,3%  ->  bge 29,5%           (gana 10, pierde 6, p=0,45)
 
-    No se borra el código: sigue siendo la herramienta adecuada para un problema
-    de ordenamiento, y el diagnóstico dice que hay margen (el documento correcto
-    está entre los 120 candidatos el 69% de las veces y solo llega al top-5 el
-    29%). Lo que está medido es que ESTE reordenador, con ESTE corpus y consultas
-    en lenguaje llano, no cobra ese margen sino que lo destruye.
-
-    `ALIADO_RERANKER_ACTIVO=1` lo enciende para quien quiera volver a medirlo.
+    Solo con GPU: en CPU, 60 pares de 512 tokens tardan demasiado por consulta.
+    `ALIADO_RERANKER_ACTIVO=0/1` fuerza el valor.
     """
     crudo = os.environ.get("ALIADO_RERANKER_ACTIVO", "").strip().lower()
     if crudo:
         return crudo in VERDADEROS
-    return False
+    return _hay_gpu()
+
+
+def _pasaje(r: dict) -> str:
+    titulo = r.get("titulo_documento") or ""
+    texto = r.get("texto") or ""
+    return (f"{titulo}\n{texto}" if titulo else texto)[:MAX_CARACTERES]
 
 
 def reordenar(consulta: str, resultados: list[dict], k: int | None = None) -> list[dict]:
@@ -143,11 +153,10 @@ def reordenar(consulta: str, resultados: list[dict], k: int | None = None) -> li
     if modelo is None:
         return resultados[:k] if k else resultados
 
-    candidatos = resultados[:CANDIDATOS]
+    candidatos = resultados[:DOCUMENTOS]
     try:
-        pares = [(consulta, (r.get("texto") or "")[:4000]) for r in candidatos]
-        # Un solo lote: son 40 pares y el batch por defecto (32) los parte en dos
-        # sin ganar nada, ni en memoria ni en tiempo.
+        pares = [(consulta, _pasaje(r)) for r in candidatos]
+        # Un solo lote: los 60 pares caben en la GPU y partirlos no gana nada.
         puntajes = modelo.predict(pares, batch_size=max(len(pares), 1))
     except Exception:  # noqa: BLE001
         return resultados[:k] if k else resultados
@@ -157,7 +166,7 @@ def reordenar(consulta: str, resultados: list[dict], k: int | None = None) -> li
         for p, r in sorted(zip(puntajes, candidatos, strict=True), key=lambda x: -x[0])
     ]
     # los que no entraron en la ventana del reranker van detrás, en su orden
-    ordenados.extend(resultados[CANDIDATOS:])
+    ordenados.extend(resultados[DOCUMENTOS:])
     return ordenados[:k] if k else ordenados
 
 

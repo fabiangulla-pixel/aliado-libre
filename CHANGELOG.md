@@ -1,5 +1,48 @@
 # Changelog
 
+## 2026-10-06 (noche) — Reordenador local encendido; destilación medida; juez independiente
+
+Giro de producto: las IA de nube solo enseñan y miden; lo que se despliega es local.
+
+### Reordenador local, encendido por defecto con GPU
+El reordenador estaba apagado desde el 12-sep (con una ventana de 40 fragmentos
+empeoraba). Cambiado: el pool es de UN fragmento por documento (60 documentos) y
+cada pasaje va con su título (`index/reordenar.py`, `index/buscar.py`).
+Medido sobre los bancos apartados (`finetune/destilar/evaluar_reordenador.py`):
+
+| banco | hoy @5 | bge @5 | McNemar |
+|---|---|---|---|
+| prueba_200 | 24,5% | **34,0%** | gana 24, pierde 5, p=0,0005 |
+| piloto 95 | 25,3% | 29,5% | gana 10, pierde 6, p=0,45 |
+
+Verificado por la ruta del usuario (`IndiceBusqueda.buscar`, prueba_200): 21,5% ->
+**34,0%**, 0,85 s/consulta en GPU (`finetune/destilar/verificar_ruta_produccion.py`).
+
+### Destilación de Sonnet en un reordenador local — hecha, NO adoptada
+`finetune/destilar/`: 960 consultas en la voz de adulto mayor y baja alfabetización
+(Haiku, 0,74 USD), 3.171 consultas etiquetadas con Sonnet como maestro sobre el pool
+local (Batch, 39,37 USD), bge afinado 1 época (33 min en la 5080; con lote 16 no
+cabía en 16 GB y tardaba 7 h). Acuerdo con el maestro en validación: 28,6% -> 46,5%.
+Por ancla no gana a bge (prueba_200: 32,0% vs 34,0%; piloto 27,4% vs 29,5%). La
+medición de pertinencia con Fable, que es donde podría ganar, no se hizo: **se agotó
+el saldo de la API**. Queda en `modelos/reranker_destilado`, opcional con
+`ALIADO_RERANKER=destilado`.
+
+### Juez independiente de pertinencia
+`finetune/eval/juez_fable.py` (Fable 5.1, Batch, ~10 USD en total): kappa binario
+0,67 con Sonnet; Sonnet se inflaba 5-6 puntos al juzgar sus propias elecciones.
+éxito@5 con Fable: producción 68,4% (índice anterior) / 69,5% (ampliado);
+Sonnet reordenando 60 docs 91,6%, 150 docs 92,6%. Sigue siendo juicio de IA.
+
+### Otros
+- Enrutador: `UMBRAL_PUNTAJE` 0,045 era inalcanzable (RRF máx. 0,030) -> 0,026.
+- `index/salvaguardas.py`: números de norma inventados se borran de las
+  reformulaciones de la búsqueda asistida.
+- Enmascarado ampliado a DIAN, Superfinanciera, Supersociedades y SIC (6.889
+  documentos re-codificados); correos con espacio antes de la arroba.
+- .exe recompilado (37,1 MB) e instalado en `C:\Users\fabia\Programas\AliadoLibre`;
+  el GGUF Q4_K_M se perdió en la migración y se regeneró desde el Q8 (940 MB).
+
 ## 2026-10-06 — Corpus ampliado: Corte sin síntesis, Superservicios y Supersalud
 
 - **Corte Constitucional**: el ingester descartaba toda providencia sin síntesis
