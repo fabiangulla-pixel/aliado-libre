@@ -139,6 +139,8 @@ no falla al usar la GPU: falla al importar, con `WinError 1114` cargando `c10.dl
 que no se parece en nada a la causa. Comprobar con `nvidia-smi` antes de perder
 la tarde. Merece la pena: el reranker pasa de ~57 s por consulta en CPU a 1,5 s
 en una RTX 5080, y con GPU se enciende solo (ver `docs/PROJECT_STATE.md`).
+`ALIADO_RERANKER_ACTIVO=0` lo apaga; `ALIADO_RERANKER=destilado` usa el reordenador
+afinado con Sonnet como maestro (`modelos/reranker_destilado`, experimental).
 
 `llama-cpp-python` (solo para el modelo propio local) **no tiene rueda
 precompilada** en la versión fijada: se compila, así que hace falta las Build
