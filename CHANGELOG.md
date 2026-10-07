@@ -1,5 +1,30 @@
 # Changelog
 
+## 2026-10-06 — Corpus ampliado: Corte sin síntesis, Superservicios y Supersalud
+
+- **Corte Constitucional**: el ingester descartaba toda providencia sin síntesis
+  (`prov_sintesis` vacía o «Sin información»), que en 1992-2004 son casi todas
+  (1995: 622 de 692). `scripts/completar_corte_texto_completo.py` baja el texto
+  completo desde `rutahtml`: **12.069 providencias**, 0 fallos, ~342.000 fragmentos.
+- **Superservicios** (`ingest/fuentes/superservicios.py`): **17.253 conceptos**
+  sobre luz, agua y gas desde el normograma de Avance Jurídico. El mismo ingester,
+  parametrizado, trae **826 conceptos** de Supersalud y MinSalud
+  (`scripts/crawl_supersalud.py`). Colpensiones descartado: su normograma solo
+  recopila unas decenas de conceptos.
+- **`ingest/anonimizar.py`**: enmascara el bloque del destinatario (nombre,
+  dirección, ciudad), el vocativo, correos y teléfonos de quien consultó. Aplicado
+  al ingerir y a lo ya descargado (`scripts/anonimizar_raw.py`): 6.385 conceptos de
+  Superservicios y 66 de Supersalud. Los de la DIAN ya indexados NO se han revisado.
+- Índice ampliado con `--ampliar`: 1.058.654 → **1.605.373 fragmentos**, 175.981
+  documentos; Chroma y FTS5 cuadran. Catálogo de citas (131.500) y vigencias
+  reconstruidos. 517 pruebas.
+- Línea base del piloto: recall@5 27,4% → **25,3%** (26 → 24 de 95, 0 ganados).
+  En los dos perdidos, sentencias completas de la Corte ocupan el top-5: la Corte
+  con texto completo pesa mucho (~28 fragmentos por providencia). La métrica por
+  ancla no ve si lo nuevo también responde; pendiente medir pertinencia.
+- Corte Suprema re-probada: el listado responde, el texto (`getContentSearch`) da
+  502 y `/downloadFile` 404. Sigue ausente.
+
 ## 2026-10-03 (noche, 3) — Índice reparado; banco de preguntas en muestra
 
 - **Doble codificación reparada en el índice** (`scripts/reparar_codificacion_indice.py`,

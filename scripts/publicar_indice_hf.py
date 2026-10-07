@@ -39,8 +39,8 @@ tags:
 
 # Indice legal de Colombia - Aliado Libre
 
-Indice de legislacion y jurisprudencia colombiana: **718.388 fragmentos** de
-**119.708 documentos** oficiales, construido por
+Indice de legislacion y jurisprudencia colombiana: **1.605.373 fragmentos** de
+**175.981 documentos** oficiales, construido por
 [Aliado Libre](https://github.com/fabiangulla-pixel/aliado-libre) - RAG legal
 gratuito y de codigo abierto.
 
@@ -48,8 +48,8 @@ Son **dos piezas**, y la busqueda necesita las dos:
 
 | Archivo | Que es | Tamano |
 |---|---|---|
-| `chroma.sqlite3` + carpetas UUID | Indice vectorial ChromaDB | ~19 GB |
-| `fts_index.db` | Indice lexico SQLite FTS5 (BM25 en disco) | ~1,6 GB |
+| `chroma.sqlite3` + carpetas UUID | Indice vectorial ChromaDB | ~24 GB |
+| `fts_index.db` | Indice lexico SQLite FTS5 (BM25 en disco) | ~3,5 GB |
 
 ## Que embeddings tiene, y por que hay dos colecciones
 
@@ -93,14 +93,19 @@ mv /tmp/indice/* index/chroma_db/
 python mcp_server/server.py
 ```
 
-Necesitas ~21 GB de disco. La memoria RAM necesaria **se esta volviendo a medir**
+Necesitas ~28 GB de disco. La memoria RAM necesaria **se esta volviendo a medir**
 tras el cambio de modelo: la cifra anterior (2,3 GB) correspondia al embedding
 viejo, que pesaba unas cuatro veces menos. Cuenta con mas.
 
 ## Fuentes cubiertas
 
-Corte Constitucional, Gestor Normativo (Funcion Publica), Supersociedades,
-SIC, DIAN, Superfinanciera y el respaldo `legalize-co` de decretos.
+Corte Constitucional (sintesis y, para las providencias sin sintesis, texto
+completo), Gestor Normativo (Funcion Publica), Supersociedades, SIC, DIAN,
+Superfinanciera, Superservicios (conceptos sobre luz, agua y gas), Supersalud y
+Ministerio de Salud (conceptos sobre EPS) y el respaldo `legalize-co` de decretos.
+
+En los conceptos de Superservicios y Supersalud se enmascaran los datos de quien
+consulto (nombre, direccion, correo, telefono) antes de indexar.
 
 **Dos huecos conocidos, y son de origen, no del pipeline:** el Consejo de
 Estado esta bloqueado por el WAF de la Rama Judicial, y la Corte Suprema
@@ -126,10 +131,8 @@ pipeline que construye el indice es software libre (ver el repo de codigo).
 
 
 def main() -> None:
-    token = os.environ.get("HF_TOKEN")
-    if not token:
-        print("Falta HF_TOKEN en el entorno. Generar en huggingface.co -> Settings -> Access Tokens.")
-        sys.exit(1)
+    # HF_TOKEN si esta en el entorno; si no, el token guardado con `hf auth login`.
+    token = os.environ.get("HF_TOKEN") or None
 
     if not DIR_INDICE.exists():
         print(f"No existe {DIR_INDICE} — construir el índice primero con index/build_index.py")
@@ -145,12 +148,9 @@ def main() -> None:
     (DIR_INDICE / "README.md").write_text(tarjeta, encoding="utf-8")
 
     print(f"Subiendo {DIR_INDICE} a {repo_id} (puede tardar según el tamaño del índice)...")
-    api.upload_folder(
-        folder_path=str(DIR_INDICE),
-        repo_id=repo_id,
-        repo_type="dataset",
-        commit_message="Actualizar índice de Aliado Libre",
-    )
+    # upload_large_folder: reanudable y por partes. Son decenas de GB y una
+    # subida de horas que se corta no debe obligar a empezar de cero.
+    api.upload_large_folder(folder_path=str(DIR_INDICE), repo_id=repo_id, repo_type="dataset")
     if RUTA_FTS.exists():
         print(f"Subiendo {RUTA_FTS.name} ({RUTA_FTS.stat().st_size / 1024**3:.1f} GB)...")
         api.upload_file(

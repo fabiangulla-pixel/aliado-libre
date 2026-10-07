@@ -84,6 +84,20 @@ CATALOGO: dict[str, Fuente] = {
         "Superintendencia Financiera de Colombia",
         "Conceptos y jurisprudencia sobre el sistema financiero: créditos, seguros, entidades vigiladas.",
     ),
+    "superservicios": Fuente(
+        "superservicios",
+        "Superservicios",
+        "Superintendencia de Servicios Públicos Domiciliarios",
+        "Conceptos jurídicos sobre luz, agua, gas, aseo y telefonía fija: "
+        "facturación, cortes, reconexión, reclamos y derechos del usuario.",
+    ),
+    "supersalud": Fuente(
+        "supersalud",
+        "Supersalud",
+        "Superintendencia Nacional de Salud y Ministerio de Salud",
+        "Conceptos seleccionados sobre EPS e IPS: afiliación, autorizaciones, "
+        "traslados, cobros y prestación de servicios de salud.",
+    ),
 }
 
 # Lo que NO está, y por qué. Se muestra junto al catálogo a propósito: el

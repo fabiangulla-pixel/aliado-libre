@@ -16,6 +16,8 @@ Fuente = Literal[
     "supersociedades",
     "dian",
     "superfinanciera",
+    "superservicios",
+    "supersalud",
     "sic",
     "leyes_colombianas_github",
     "legalize_co_github",
