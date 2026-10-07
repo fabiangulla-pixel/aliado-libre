@@ -81,6 +81,9 @@ def sistemas() -> dict[str, dict[str, list[str]]]:
             tops[cid] = (elegidos + [f for f in pool if f not in elegidos])[:10]
         if tops:
             salida[nombre] = tops
+    # Reordenadores locales (finetune/destilar/evaluar_reordenador.py): ya traen su top-10.
+    for ruta in sorted((Path(__file__).resolve().parent / "sistemas_locales").glob("*.json")):
+        salida[ruta.stem] = json.loads(ruta.read_text(encoding="utf-8"))
     return salida
 
 

@@ -23,6 +23,7 @@ MESES_HASTA_CADUCAR = 3
 # USD por millón de tokens: (entrada, salida).
 PRECIOS = {
     "claude-haiku-4-5": (1.00, 5.00),
+    "claude-fable-5-1": (10.00, 50.00),
     "claude-sonnet-5": (2.00, 10.00),
     "claude-opus-5": (5.00, 25.00),
     "claude-opus-5-5": (4.00, 20.00),

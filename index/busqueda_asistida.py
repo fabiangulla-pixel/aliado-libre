@@ -140,6 +140,10 @@ def buscar_asistida(indice, consulta: str, k: int, clave: str) -> ResultadoAsist
     texto, uso = _llamar(cliente, nombre, SISTEMA_REESCRIBIR, consulta)
     usd += costos.liquidar(uso, nombre).usd
     reformulaciones = [x.strip(" -•") for x in texto.splitlines() if x.strip()][:REFORMULACIONES]
+    # El prompt pide no inventar números de norma; esto lo garantiza (fallo de HyDE).
+    from index.salvaguardas import quitar_numeros_inventados
+
+    reformulaciones = [r for r in (quitar_numeros_inventados(x, consulta) for x in reformulaciones) if r]
 
     listas = indice.listas_candidatos(consulta, N_MOTOR)
     for r in reformulaciones:

@@ -25,9 +25,11 @@ _SALUDO = re.compile(
     r"^\s*(se[ñn]or(?:a|es|as)?|doctor(?:a)?|dra?\.|ingenier[oa]|apreciad[oa])\s*:?\s*(?:\((?:a|as|es)\))?\s*:?\s*$",
     re.I,
 )
-# «Respetada señora Jannet:» — el vocativo repite el nombre que el bloque ya quitó.
+# «Respetada señora Jannet:», «Atento saludo Señor Carmona.» — el vocativo repite
+# el nombre que el bloque ya quitó.
 _VOCATIVO = re.compile(
-    r"^(\s*(?:respetad|apreciad|estimad)\w*\s+(?:se[ñn]or|doctor|ingenier)\w*(?:\s*\(\w+\))?)\s+[^:\n]{1,60}:",
+    r"^(\s*(?:(?:respetad|apreciad|estimad)\w*|(?:atento|cordial)\s+saludo,?)\s+"
+    r"(?:se[ñn]or|doctor|ingenier)\w*(?:\s*\(\w+\))?)\s+[^:.\n]{1,60}([:.])",
     re.I | re.M,
 )
 _FIN_BLOQUE = re.compile(
@@ -63,6 +65,6 @@ def enmascarar_destinatario(texto: str) -> str:
                 continue
         i += 1
     texto = "\n".join(salida)
-    texto = _VOCATIVO.sub(r"\1:", texto)
+    texto = _VOCATIVO.sub(r"\1\2", texto)
     texto = _CORREO.sub(MARCA_CORREO, texto)
     return _TELEFONO.sub(MARCA_TELEFONO, texto)

@@ -23,16 +23,19 @@ def main() -> None:
     for fuente in sys.argv[1:]:
         ruta = RAIZ / "data" / "raw" / f"{fuente}.json"
         docs = json.loads(ruta.read_text(encoding="utf-8"))
-        cambiados = 0
+        cambiados: list[str] = []
         for d in docs:
             nuevo = enmascarar_destinatario(d["texto"])
             if nuevo != d["texto"]:
                 d["texto"] = nuevo
-                cambiados += 1
+                cambiados.append(d["id"])
         tmp = ruta.with_suffix(".tmp")
         tmp.write_text(json.dumps(docs, ensure_ascii=False, indent=1), encoding="utf-8")
         tmp.replace(ruta)
-        print(f"{fuente}: {cambiados} de {len(docs)} documentos enmascarados")
+        # Los documentos cambiados hay que re-codificarlos: el índice guarda el texto viejo.
+        registro = RAIZ / "_run" / f"anonimizados_{fuente}.json"
+        registro.write_text(json.dumps(cambiados, ensure_ascii=False), encoding="utf-8")
+        print(f"{fuente}: {len(cambiados)} de {len(docs)} documentos enmascarados -> {registro.name}")
 
 
 if __name__ == "__main__":

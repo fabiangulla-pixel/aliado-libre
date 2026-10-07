@@ -18,6 +18,14 @@ def test_variantes_de_saludo_y_vocativo():
     assert "Respetado señor (a):" in salida
 
 
+def test_vocativo_de_la_dian():
+    salida = enmascarar_destinatario(
+        "Señor\nJUAN CARMONA\nRef: x\nAtento saludo Señor Carmona.\nDe conformidad"
+    )
+    assert "Carmona" not in salida
+    assert "Atento saludo Señor." in salida
+
+
 def test_correos_y_telefonos():
     salida = enmascarar_destinatario("escribir a luz@hotmail.com o al cel. 300 123 4567 para más")
     assert "@" not in salida and "4567" not in salida

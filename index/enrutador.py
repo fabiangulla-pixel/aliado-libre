@@ -13,7 +13,7 @@ elección es fácil y el modelo propio basta. Cuando trae ocho fragmentos
 igualados y mediocres, hay que discriminar de verdad, y ahí es donde el modelo
 propio se equivoca.
 
-Los umbrales de abajo son un punto de partida razonable, NO valores medidos.
+Los umbrales de abajo se recalibraron el 6-oct-2026 (ver comentarios).
 Se calibran con `finetune/calibrar_abstencion.py` sobre el conjunto de
 desarrollo, nunca sobre el de prueba.
 """
@@ -24,8 +24,15 @@ import os
 from dataclasses import dataclass
 
 # Puntaje de fusión RRF mínimo del mejor fragmento para fiarse del modelo propio.
-UMBRAL_PUNTAJE = float(os.environ.get("ALIADO_UMBRAL_LOCAL", "0.045"))
+# 6-oct-2026: era 0,045, inalcanzable con los pesos actuales (máximo (1+0,8)/60 =
+# 0,030), así que la rama "claro" no se activaba nunca. 0,026 = los dos motores
+# ponen el mismo fragmento entre los primeros. Calibrado con el juicio de Fable
+# sobre el piloto: top-1 útil 59% vs 50% de base (dev), 52% vs 29% (test). Señal
+# débil; el reordenador destilado debería sustituirla.
+UMBRAL_PUNTAJE = float(os.environ.get("ALIADO_UMBRAL_LOCAL", "0.026"))
 # Cuánto debe destacar el primero sobre el segundo para considerarlo claro.
+# (6-oct: con 44 consultas de desarrollo no se pudo medir si ayuda; se conserva
+# por diseño: documentos igualados = hay que discriminar.)
 VENTAJA_MINIMA = float(os.environ.get("ALIADO_VENTAJA_MINIMA", "1.15"))
 # Por debajo de esto no hay con qué responder, venga de donde venga.
 UMBRAL_ABSTENCION = float(os.environ.get("ALIADO_UMBRAL_ABSTENCION", "0.020"))

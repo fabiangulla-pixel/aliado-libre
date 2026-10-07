@@ -152,12 +152,12 @@ def _res(*puntajes):
 
 
 def test_documento_claro_lo_responde_el_modelo_propio():
-    d = enrutador.decidir(_res(0.09, 0.03), hay_clave_externa=True)
+    d = enrutador.decidir(_res(0.030, 0.020), hay_clave_externa=True)
     assert d.motor == "local"
 
 
 def test_documentos_igualados_escalan_a_ia_externa():
-    d = enrutador.decidir(_res(0.041, 0.040, 0.039), hay_clave_externa=True)
+    d = enrutador.decidir(_res(0.029, 0.028, 0.027), hay_clave_externa=True)
     assert d.motor == "externo"
 
 
