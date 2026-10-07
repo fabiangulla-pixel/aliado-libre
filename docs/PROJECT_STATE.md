@@ -1,5 +1,19 @@
 # PROJECT_STATE — Aliado Libre
 
+> 🆕 **Actualización 7-oct-2026** (lo de abajo es del 12-sep y se conserva como
+> historia; donde choque, manda esto):
+> - Índice: **1.605.055 fragmentos / 175.981 documentos** (Corte con texto completo
+>   para las providencias sin síntesis, Superservicios, Supersalud). Datos de quien
+>   consultó enmascarados en los conceptos. Publicado en Hugging Face.
+> - Reordenador **encendido por defecto con GPU**: bge-reranker-v2-m3 sobre un pool
+>   de un fragmento por documento (60) con título. Banco prueba_200, por la ruta
+>   real de búsqueda: recall@5 **21,5% -> 34,0%**, 0,85 s/consulta.
+> - Pertinencia (¿algún resultado del top-5 responde?), juez Fable 5.1: producción
+>   ~69,5%; Sonnet reordenando ~92%. Juicio de IA, no verdad humana.
+> - Producto final 100% local: las IA de nube solo enseñan y miden. Reordenador
+>   destilado de Sonnet en `modelos/reranker_destilado`, sin adoptar (ver CHANGELOG).
+> - `pytest` → 522 pasan.
+
 Última verificación: **12-sep-2026**, en el MSI. Comprobado, no recordado.
 
 > ✅ **El índice funciona.** Reindexado completo el 12-sep-2026 a las 04:38:
