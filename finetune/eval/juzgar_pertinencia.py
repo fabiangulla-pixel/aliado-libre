@@ -67,7 +67,11 @@ def sistemas() -> dict[str, dict[str, list[str]]]:
     """Top-10 de fragmentos por sistema y consulta."""
     cache = pickle.loads(lab.CACHE.read_bytes())
     salida: dict[str, dict[str, list[str]]] = {
-        "produccion": {cid: lab.fusionar(d["vectorial"], d["fts"], 0.8)[:10] for cid, d in cache.items()}
+        # Híbrida sin reordenar: referencia fija para medir la ganancia del reranker,
+        # NO lo que recibe un usuario con GPU (ver index/buscar.py, que sí reordena).
+        "produccion_sin_rerank": {
+            cid: lab.fusionar(d["vectorial"], d["fts"], 0.8)[:10] for cid, d in cache.items()
+        }
     }
     for ruta in sorted(ra.DIR_SALIDA.glob("avance_*.json")):
         nombre = ruta.stem.removeprefix("avance_")
