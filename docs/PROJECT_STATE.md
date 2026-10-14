@@ -1,6 +1,24 @@
 # PROJECT_STATE — Aliado Libre
 
-> 🆕 **Actualización 7-oct-2026** (lo de abajo es del 12-sep y se conserva como
+> 🆕 **Actualización 13-oct-2026** (lo de abajo es del 7-oct y se conserva como
+> historia; donde choque, manda esto):
+> - **Destilado CERRADO, no adoptar**: confirmado dos veces con jueces
+>   independientes (Sonnet y Fable) que el reranker destilado de Sonnet NO le
+>   gana al bge sin afinar (32,0 vs 34,0 por ancla; 78,9% vs 80,0% con Fable).
+>   No seguir invirtiendo ahí.
+> - **La brecha de "10.346 sentencias de la Corte 1992-2004" estaba obsoleta.**
+>   Resincronizado contra el registro oficial (`scripts/sincronizar_corte_datosgov.py`):
+>   faltan solo **191 de 29.195 (0,7%)**, casi todas recientes (2023: 118,
+>   2026: 68). La ingesta de texto completo del 6-oct ya había cerrado el hueco
+>   histórico. Pendiente real: ingerir esas 191 (requiere reindexar con GPU,
+>   horas de trabajo — no lanzar sin confirmar que no hay otra sesión usando
+>   el índice).
+> - Reranker **verificado en la ruta real de producción** (no solo en el banco
+>   de laboratorio): `IndiceBusqueda.buscar()` con GPU sí reordena y la mejora
+>   sí le llega al usuario (recall@5 21,5%→34,5% por ancla, 0,36→0,94 s/consulta).
+> - 15 commits pusheados a `origin/main` (hasta `af94ce9`). `pytest` → 522 pasan.
+>
+> Actualización 7-oct-2026 (lo de abajo es del 12-sep y se conserva como
 > historia; donde choque, manda esto):
 > - Índice: **1.605.055 fragmentos / 175.981 documentos** (Corte con texto completo
 >   para las providencias sin síntesis, Superservicios, Supersalud). Datos de quien

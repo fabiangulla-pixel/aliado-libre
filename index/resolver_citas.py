@@ -65,8 +65,10 @@ def _cita_de_documento(documento_id: str, titulo: str) -> Cita | None:
         return Cita("constitucion politica", "1", "1991") if anios <= {"1991"} else None
     if documento_id.startswith(("corte_constitucional:", "dian:", "gestor_normativo:")):
         # Solo el comienzo del título: más adelante suelen citarse OTRAS normas
-        # ("Decreto 821 de 2022, que modifica la Ley 909 de 2004").
-        return parsear_cita((titulo or "")[:60])
+        # ("Decreto 821 de 2022, que modifica la Ley 909 de 2004"). 80, no 60:
+        # con 60 un título largo cortaba el año a mitad camino ("...de 202")
+        # y el parser lo leía como año "02" (SU-499/02 en vez de SU-499/24).
+        return parsear_cita((titulo or "")[:80])
     return None
 
 

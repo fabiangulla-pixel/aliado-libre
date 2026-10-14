@@ -138,3 +138,12 @@ def test_catalogo_ignora_constituciones_viejas():
     assert rc._cita_de_documento("legalize_co_github:CONSTITUCION-POLITICA-CP-1886-1886", "x") is None
     assert rc._cita_de_documento("legalize_co_github:CONSTITUCION-POLITICA-CP-1991", "x").anio == "1991"
     assert rc._cita_de_documento("gestor_normativo:1", "Constitución Política de 1886") is None
+
+
+def test_titulo_largo_no_trunca_el_anio():
+    # "Sentencia de Unificación de Revisión de Tutela SU-499 de 2024" tiene 61
+    # caracteres: con el corte viejo en 60 perdía la última cifra del año y
+    # SU-499/24 se catalogaba como SU-499/02.
+    titulo = "Sentencia de Unificación de Revisión de Tutela SU-499 de 2024"
+    cita = rc._cita_de_documento("dian:tributario:su-499_2024", titulo)
+    assert cita.sentencia == "SU-499/24"

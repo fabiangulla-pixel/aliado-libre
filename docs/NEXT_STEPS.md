@@ -1,7 +1,7 @@
 # NEXT_STEPS — Aliado Libre
 
-Estado al 29-sep-2026. El cruce completo con el documento de recomendaciones
-externas está en `docs/RECOMENDACIONES_TRIAGE.md`.
+Estado al 13-oct-2026. El cruce completo con el documento de recomendaciones
+externas está en `docs/RECOMENDACIONES_TRIAGE.md` (histórico, 29-sep).
 
 ## Bloqueado en Fabián
 
@@ -14,21 +14,23 @@ externas está en `docs/RECOMENDACIONES_TRIAGE.md`.
    pendiente desde el 7-sep.
 4. **CSV del Planificador de Palabras Clave de Google Ads** (interfaz web,
    ubicación Colombia) con las 1.276 consultas cosechadas.
-5. **Autorizar el push** de los commits locales.
+5. ~~Autorizar el push~~: hecho el 13-oct (15 commits, hasta `af94ce9`).
 
 ## Siguiente tarea técnica
 
-1. **Medir la guarda de vigencia de punta a punta**: repetir el piloto de 100
-   consultas con `correr_piloto.py --ejecutar` (~0,43 USD con Haiku 4.5; pedir
-   confirmación). El prompt cambió el 29-sep (línea de vigencia y delimitadores
-   `<documento>`): las cifras del 12-sep ya no describen el sistema.
-2. ~~Ingerir por demanda~~: la Ley 142 de 1994 y la 1328 de 2009 YA estaban;
-   el 0/37 es recuperación + umbral. Hecho en cambio: 273 leyes recientes
-   (29-sep). Corpus vigente `1199645cc8a5a1ce`.
+1. **Ingerir las 191 sentencias de la Corte que faltan** (2023: 118, 2026: 68;
+   ver banner del 13-oct en `docs/PROJECT_STATE.md`): crawl acotado
+   (`ingest/fuentes/corte_constitucional.py:crawl(anio_inicio=2023)`), fusionar
+   con el corpus y **reindexar con GPU** — es trabajo de horas, confirmar que
+   no hay otra sesión usando el índice antes de lanzarlo.
+2. **Destilado CERRADO, no retomar** sin una idea nueva de por qué no gana al
+   bge sin afinar (confirmado dos veces, dos jueces independientes).
 3. **Troceo por artículo** como experimento de una sola variable, sobre el
-   corpus `e422ffbae7186cb8`.
-4. ~~Recompilar el .exe~~: hecho el 29-sep, verificado abriendo el PYZ.
-5. **Publicar el índice ampliado** en HF si se va a desplegar el servidor.
+   corpus vigente.
+4. Recompilar el `.exe` si se va a distribuir: lleva 15 commits de cambios
+   desde la última verificación (7-oct, índice reinstalado) sin recompilar.
+5. **Publicar el índice ampliado** en HF si se va a desplegar el servidor
+   (el actual del 7-oct ya incluye Corte con texto completo + Superservicios).
 
 ## Mantenimiento
 
