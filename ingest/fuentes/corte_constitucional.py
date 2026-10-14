@@ -24,7 +24,7 @@ HEADERS = {
         "(KHTML, like Gecko) Chrome/120.0 Safari/537.36"
     )
 }
-MAXPROV_POR_ANIO = 3000  # holgado sobre el máximo observado (~1000/año)
+MAXPROV_POR_ANIO = 8000  # 2023 llegó a 3705 y rompió el tope viejo de 3000 en silencio
 
 
 def _buscar_por_anio(sesion: requests.Session, anio: int) -> list[dict]:
