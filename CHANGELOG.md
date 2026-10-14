@@ -1,5 +1,63 @@
 # Changelog
 
+## 2026-10-13 — Destilación cerrada; bug de truncamiento de título; tope de crawl que truncaba en silencio
+
+### Destilación de Sonnet: cerrada, no adoptar
+Juez Fable corrido con saldo recargado (2,99 USD, menos de los 5,62 estimados):
+confirma con un segundo juez independiente que el reranker destilado NO le gana
+al bge sin afinar (éxito@5 78,9% vs 80,0%, empatado dentro de ruido, igual que
+había dado Sonnet: 32,0% vs 34,0%). Dos jueces, mismo resultado: no es la
+métrica, es que no aporta. No seguir invirtiendo ahí sin una idea nueva.
+
+También verificado con `finetune/destilar/verificar_ruta_produccion.py` (la
+ruta real que usan GUI/MCP/CLI, no el banco de laboratorio): el reranker SÍ
+reordena con GPU y la mejora SÍ le llega al usuario (recall@5 21,5% -> 34,5%
+por ancla). El cableado está bien.
+
+### Bug: título truncado rompía el catálogo de citas
+`index/resolver_citas.py` cortaba el título en 60 caracteres antes de parsear
+la cita. En títulos de 61+ caracteres eso cortaba el año a mitad de camino:
+"Sentencia de Unificación... SU-499 de 2024" se parseaba como `SU-499/02` en
+vez de `SU-499/24`. Encontrado al investigar por qué `sincronizar_corte_datosgov.py`
+reportaba sentencias "sobrantes" que el registro oficial no reconocía. Subido
+a 80 caracteres (commit `58a3daf`), catálogo reconstruido, prueba de
+regresión agregada en `tests/test_citas.py`.
+
+### Bug real: tope de 3.000 providencias/año truncaba el crawl en silencio
+La memoria del proyecto decía que faltaban 10.346 sentencias de la Corte
+1992-2004 — eso estaba obsoleto (la ingesta de texto completo del 6-oct ya
+había cerrado ese hueco). Resincronizando contra el registro oficial el hueco
+real eran 191 (0,7%), casi todas de 2023 y 2026.
+
+Causa encontrada: `MAXPROV_POR_ANIO=3000` en
+`ingest/fuentes/corte_constitucional.py` truncaba en silencio cualquier año
+con más de 3.000 providencias. 2023 ya tiene 3.705 reales: se perdían 705
+documentos de ese año sin ningún aviso ni error. Subido a 8.000 (commit
+`ab28f54`). Esto es más grave que el hueco original porque afecta a
+cualquier año que siga creciendo, no solo a las sentencias que aparecían en
+el cruce con datos.gov.co.
+
+También se encontró que `corte_constitucional.json` no se recrawleaba desde
+el 9-sep: cualquier sentencia nueva con síntesis publicada después quedaba
+fuera. Recrawleado completo (barato, ~35 requests): 36.853 -> 37.823
+documentos. Secuencia corrida: recrawl -> `completar_corte_texto_completo.py`
+(25 nuevas sin síntesis en 2026) -> `reindexar_con_gpu.py --ampliar`
+(1.605.055 -> 1.607.186 fragmentos) -> catálogo de citas y tabla de vigencia
+reconstruidos.
+
+`--ampliar` abortó una vez por su guarda de superconjunto: un documento
+(Auto A-168/04, contenido literal "Sin Información") desapareció del recrawl.
+Reconstruido desde los metadatos del índice vivo y reinsertado tal cual
+estaba, sin fabricar contenido, para no perder el documento ni mentir sobre
+su contenido.
+
+Quedan 45 sentencias sin ingerir (verificado que no es bug nuestro: probado
+en vivo contra el buscador propio de la Corte, p. ej. `C-021/26` da 0
+resultados ahí — el registro oficial ya las lista pero la Corte todavía no
+las publica en su buscador).
+
+523 tests verdes.
+
 ## 2026-10-06 (noche) — Reordenador local encendido; destilación medida; juez independiente
 
 Giro de producto: las IA de nube solo enseñan y miden; lo que se despliega es local.
