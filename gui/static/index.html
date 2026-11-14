@@ -63,8 +63,14 @@
     display: flex;
     gap: 0.6rem;
   }
-  .buscador input {
+  .buscador { align-items: flex-start; }
+  .buscador textarea {
     flex: 1;
+    min-width: 0;
+    resize: none;
+    overflow-y: hidden;
+    line-height: 1.45;
+    max-height: max(14rem, 40vh);
     padding: 0.9rem 1.1rem;
     font-size: 1.05rem;
     border-radius: 10px;
@@ -74,7 +80,7 @@
     font-family: ui-sans-serif, system-ui, sans-serif;
     box-shadow: var(--sombra);
   }
-  .buscador input:focus {
+  .buscador textarea:focus {
     outline: none;
     border-color: var(--acento);
   }
@@ -91,6 +97,10 @@
     transition: filter 0.15s ease;
   }
   .buscador button:hover { filter: brightness(1.08); }
+  @media (max-width: 560px) {
+    .buscador { flex-direction: column; align-items: stretch; padding: 0 1rem; }
+    .buscador textarea { flex: none; }
+  }
   .buscador button:disabled { opacity: 0.6; cursor: default; }
 
   main {
@@ -476,7 +486,7 @@
 </header>
 
 <div class="buscador">
-  <input id="consulta" type="text" placeholder="Ej. requisitos para constituir una fiducia mercantil" autofocus>
+  <textarea id="consulta" rows="1" placeholder="Ej. requisitos para constituir una fiducia mercantil" aria-label="Tu consulta" autofocus></textarea>
   <button id="botonBuscar">Buscar</button>
 </div>
 <div class="config">
@@ -679,6 +689,12 @@ function escaparHtml(s) {
   return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
 
+// El modelo marca negritas con **...**: se escapa primero y solo después se
+// convierte esa marca, así ningún HTML del texto llega a interpretarse.
+function formatearRespuesta(s) {
+  return escaparHtml(s).replace(/\*\*([^*\n]+?)\*\*/g, '<strong>$1</strong>');
+}
+
 /* La vigencia la calcula el servidor leyendo la nota oficial del texto
    (index/vigencia.py). "sin_nota" no se pinta: que no haya nota no prueba que
    la norma rija, y un sello verde lo afirmaria. */
@@ -783,7 +799,7 @@ async function buscar() {
           <div class="respuesta-ia">
             <div class="etiqueta">Respuesta redactada por ${etiquetaIA}</div>
             ${avisoDebil}
-            <p>${escaparHtml(datos.respuesta)}</p>
+            <p>${formatearRespuesta(datos.respuesta)}</p>
             ${avisoAnclaje}
           </div>`;
       } else {
@@ -1143,7 +1159,7 @@ async function responderConIaExterna() {
     bloque.innerHTML = `
       <div class="respuesta-ia">
         <div class="etiqueta">Respuesta de ${escaparHtml(datos.modelo || datos.proveedor)}</div>
-        <p>${escaparHtml(datos.respuesta || '')}</p>
+        <p>${formatearRespuesta(datos.respuesta || '')}</p>
         ${avisoAnclaje}
       </div>
       <div class="costo">${escaparHtml((datos.costo || {}).texto || '')}</div>`;
@@ -1157,7 +1173,19 @@ document.getElementById('proveedor').addEventListener('change', pintarBloqueIaEx
 cargarFuentes();
 
 boton.addEventListener('click', buscar);
-input.addEventListener('keydown', e => { if (e.key === 'Enter') buscar(); });
+// La caja crece con el texto para que una consulta larga se lea entera.
+function ajustarAltura() {
+  input.style.height = 'auto';
+  input.style.height = input.scrollHeight + 2 + 'px';
+  input.style.overflowY = input.scrollHeight > input.clientHeight + 2 ? 'auto' : 'hidden';
+}
+input.addEventListener('input', ajustarAltura);
+window.addEventListener('resize', ajustarAltura);
+input.addEventListener('keydown', e => {
+  // Enter busca; Shift+Enter deja escribir en otra línea.
+  if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); buscar(); }
+});
+ajustarAltura();
 </script>
 
 </body>
