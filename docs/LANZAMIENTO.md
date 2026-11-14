@@ -51,8 +51,20 @@ una beta con enlace compartido a mano, no para anunciar.
 4. [ ] Decidir el enlace de aporte (`ALIADO_ENLACE_PAGO`): Nequi, Daviplata o PSE.
 5. [ ] Pasar el índice de Hugging Face del 7-sep a acceso con registro.
 
-## Después de la beta
+## URL fija con dominio propio
 
-- URL fija: registrar el dominio y crear un túnel con nombre
-  (`cloudflared tunnel create …`), o migrar a un VPS de 16 GB (~15-30 EUR/mes).
+1. Comprar el dominio en Cloudflare (Registrar, precio de costo; `.co` ~30 USD/año).
+   Comprobado libre por WHOIS el 14-nov-2026: `jurisconsulta.co`,
+   `jurisconsulta.com.co`, `normaabierta.co` y otros candidatos de `docs/NOMBRE.md`.
+   El `.com.co` no lo vende Cloudflare: se compra en otro registrador y se
+   cambian los servidores de nombres a Cloudflare (plan gratis).
+2. Una sola vez: `powershell -ExecutionPolicy Bypass -File scripts\configurar_dominio.ps1 -Dominio <dominio>`
+   (abre el navegador para autorizar; las credenciales quedan en
+   `%USERPROFILE%\.cloudflared`, fuera del repo).
+3. Servir: `scripts\lanzar_publico.ps1 -Tunel juris`.
+
+Servir desde el PC y no desde un VPS es deliberado: el reordenador necesita la
+GPU (en CPU ~57 s por consulta). Un VPS sin GPU deja la búsqueda peor o lenta.
+
+## Después de la beta
 - Pasarela de pago y planes (`docs/PLANES.md`) cuando exista la figura jurídica.

@@ -9,10 +9,13 @@
 #
 # Uso:
 #   powershell -ExecutionPolicy Bypass -File scripts\lanzar_publico.ps1
+#   powershell -ExecutionPolicy Bypass -File scripts\lanzar_publico.ps1 -Tunel juris
 #
-# Con "tunel rapido" Cloudflare da una URL aleatoria *.trycloudflare.com que
-# cambia en cada arranque. Para una URL fija hace falta un dominio propio y un
-# tunel con nombre (ver docs/LANZAMIENTO.md).
+# Sin -Tunel, Cloudflare da una URL aleatoria *.trycloudflare.com que cambia en
+# cada arranque. Con -Tunel se usa el tunel con nombre creado por
+# scripts\configurar_dominio.ps1, que sirve siempre en el dominio propio.
+
+param([string]$Tunel = "")
 
 $ErrorActionPreference = "Stop"
 $Raiz = Split-Path -Parent $PSScriptRoot
@@ -47,9 +50,14 @@ $web = Start-Process -FilePath $Python -ArgumentList (Join-Path $Raiz "gui\serve
 
 try {
     Start-Sleep -Seconds 3
-    Write-Host "Abriendo el tunel. La URL publica aparece abajo (https://...trycloudflare.com)."
     Write-Host "Ctrl+C cierra el tunel y la web." -ForegroundColor Cyan
-    & cloudflared tunnel --no-autoupdate --url "http://127.0.0.1:$Puerto"
+    if ($Tunel) {
+        Write-Host "Abriendo el tunel con nombre '$Tunel' (dominio propio)."
+        & cloudflared tunnel --no-autoupdate run --url "http://127.0.0.1:$Puerto" $Tunel
+    } else {
+        Write-Host "Abriendo el tunel rapido. La URL publica aparece abajo (https://...trycloudflare.com)."
+        & cloudflared tunnel --no-autoupdate --url "http://127.0.0.1:$Puerto"
+    }
 }
 finally {
     if ($web -and -not $web.HasExited) { Stop-Process -Id $web.Id -Force }
