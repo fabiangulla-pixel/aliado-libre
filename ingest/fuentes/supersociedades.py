@@ -23,16 +23,13 @@ HEADERS = {
 TAMANIO_PAGINA = 50
 
 
-def _query(desde: int, tamanio: int) -> dict:
-    source = {
-        "from": desde,
-        "size": tamanio,
-        "query": {"match_all": {}},
-        # Sin sort explícito, from/size no garantiza orden estable entre
-        # requests -> paginación profunda puede devolver el mismo documento
-        # dos veces (visto en producción: 1 duplicado en 5.000 documentos).
-        "sort": [{"_id": "asc"}],
-    }
+def _query(despues_de: str | None, tamanio: int) -> dict:
+    # search_after y no from/size: Elasticsearch corta from+size en 10.000 y el
+    # tesauro ya tiene 14.738 (nov-2026). El orden por _id además evita
+    # duplicados entre páginas (visto: 1 en 5.000 con from/size sin sort).
+    source = {"size": tamanio, "query": {"match_all": {}}, "sort": [{"_id": "asc"}]}
+    if despues_de is not None:
+        source["search_after"] = [despues_de]
     url = f"{ES_BASE}?source={urllib.parse.quote(json.dumps(source))}&source_content_type=application/json"
     r = requests.get(url, headers=HEADERS, timeout=30)
     r.raise_for_status()
@@ -74,25 +71,34 @@ def _a_documento(hit: dict) -> Documento | None:
     )
 
 
-def crawl(max_documentos: int = 200, pausa_segundos: float = 1.0, al_guardar=None) -> list[Documento]:
-    documentos: list[Documento] = []
-    ids_vistos: set[str] = set()
-    desde = 0
+def crawl(
+    max_documentos: int = 200,
+    pausa_segundos: float = 1.0,
+    al_guardar=None,
+    documentos_previos: list[Documento] | None = None,
+) -> list[Documento]:
+    """Los previos se conservan tal cual (pueden traer el texto ya anonimizado)
+    y no se reemplazan por la versión recién bajada."""
+    documentos: list[Documento] = list(documentos_previos or [])
+    ids_vistos: set[str] = {d.id for d in documentos}
+    despues_de: str | None = None
 
     while len(documentos) < max_documentos:
-        restante = max_documentos - len(documentos)
-        resultado = _query(desde, min(TAMANIO_PAGINA, restante))
-        hits = resultado["hits"]["hits"]
+        hits = _query(despues_de, TAMANIO_PAGINA)["hits"]["hits"]
         if not hits:
             break
 
         for hit in hits:
+            if len(documentos) >= max_documentos:
+                break
+            if f"supersociedades:{hit['_id']}" in ids_vistos:
+                continue
             doc = _a_documento(hit)
-            if doc is not None and doc.id not in ids_vistos:
+            if doc is not None:
                 ids_vistos.add(doc.id)
                 documentos.append(doc)
 
-        desde += len(hits)
+        despues_de = hits[-1]["_id"]
         if al_guardar is not None:
             al_guardar(documentos)
         time.sleep(pausa_segundos)

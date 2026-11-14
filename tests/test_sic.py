@@ -41,6 +41,46 @@ def test_a_documento_none_si_texto_muy_corto():
     assert doc is None
 
 
+def test_crawl_no_redescarga_previos(monkeypatch):
+    from ingest.fuentes import sic
+    from ingest.schema import Documento
+
+    paginas = {None: [{"_id": "a"}, {"_id": "b"}], "b": []}
+    monkeypatch.setattr(sic, "_query", lambda s, despues_de, t: {"hits": {"hits": paginas[despues_de]}})
+    descargados = []
+
+    def falso_a_documento(sesion, hit):
+        descargados.append(hit["_id"])
+        return Documento(
+            id=f"sic:{hit['_id']}",
+            fuente="sic",
+            tipo="sentencia",
+            identificador=hit["_id"],
+            titulo="t",
+            fecha=None,
+            texto="x" * 200,
+            url_original="",
+            metadata={},
+        )
+
+    monkeypatch.setattr(sic, "_a_documento", falso_a_documento)
+    previo = Documento(
+        id="sic:a",
+        fuente="sic",
+        tipo="sentencia",
+        identificador="a",
+        titulo="t",
+        fecha=None,
+        texto="x" * 200,
+        url_original="",
+        metadata={},
+    )
+    docs = sic.crawl(max_documentos=10, pausa_segundos=0, documentos_previos=[previo])
+
+    assert descargados == ["b"]
+    assert [d.id for d in docs] == ["sic:a", "sic:b"]
+
+
 def test_a_documento_extrae_tesauro():
     with patch("ingest.fuentes.sic._descargar_texto_pdf", return_value="Texto suficientemente largo " * 5):
         doc = _a_documento(None, _hit_fixture())

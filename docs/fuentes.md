@@ -1,7 +1,35 @@
 # Mapa de fuentes jurídicas colombianas
 
 Estado de cada fuente investigada para Aliado Libre, con fecha de verificación
-técnica (no solo búsqueda web). Última actualización: 28-ago-2026.
+técnica (no solo búsqueda web). Última actualización: 14-nov-2026.
+
+## Actualización 14-nov-2026 (manda sobre lo de abajo donde choque)
+
+- **Topes de descarga que cortaban fuentes en silencio** (mismo patrón que el
+  `MAXPROV_POR_ANIO` de la Corte del 13-oct). Totales en vivo frente a lo ingerido:
+  SIC 1.812 (había 500), Superfinanciera 18.957 (3.000), Supersociedades 14.738
+  (4.999). Supersociedades además no podía pasar de 10.000: Elasticsearch corta
+  `from+size` ahí. SIC y Supersociedades usan ahora `search_after` por `_id` y
+  reanudan sin volver a bajar lo que ya hay.
+- **Corte Suprema funciona.** `getContentSearch` solo devuelve un extracto de
+  ~1.000 caracteres y con `"*"` da 502 (ese era el "texto 502" de septiembre).
+  El texto completo sale de `POST /downloadFile {"path": onlinePath}` (.docx o
+  .pdf). Se ingieren solo **sentencias** de Laboral (SL) y Civil (SC), año por
+  año; el filtro `autoSentencia` del API no hace nada, se filtra por prefijo.
+  Laboral 2026: 1.825 resultados, 43 sentencias. Ritmo ~15 sentencias/min.
+- **legalize-co YA está integrado** (`data/raw/legalize_co_github.json`, 71.900
+  normas de SUIN). El repo de origen no se actualiza desde el 5-sep-2026.
+- ⚠️ **Licencia de los normogramas de Avance Jurídico.** Las páginas
+  `compilacion/docs/*.htm` (DIAN, Cancillería, MinTIC, Supersalud, CRA...)
+  declaran `© Avance Jurídico Casa Editorial Ltda.` y algunas "Prohibida su
+  reproducción". Los textos oficiales son reproducibles (Ley 23 de 1982,
+  art. 41), pero las notas de vigencia y la compilación son de la editorial.
+  Afecta a `dian.json` (25.927 documentos, ya en el índice) y es la única vía
+  encontrada para conceptos de **MinTrabajo** (p. ej. `normas.cra.gov.co/Gestor/docs/concepto_mintrabajo_0000791_2020.htm`).
+  Decisión pendiente de Fabián (con abogado) antes de cobrar por los datos.
+- Consejo de Estado anunció en ago-2026 un buscador de relatorías nuevo con
+  descarga masiva; URL sin localizar todavía.
+- Hugging Face, Kaggle, datos.gov.co: nada con texto completo colombiano útil.
 
 **Patrón recurrente a explotar en fuentes nuevas**: varios sitios .gov.co con
 frontend SPA (React/Vue/Angular) hablan directo con un **Elasticsearch expuesto

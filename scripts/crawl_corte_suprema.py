@@ -1,7 +1,11 @@
-"""Crawl de la Corte Suprema de Justicia vía el backend GraphQL propio
-(consultaprovidenciasbk.cortesuprema.gov.co/api). Corpus enorme (>1M
-resultados brutos entre las 4 Salas) y backend inestable (502 intermitente):
-correr en lotes moderados, con pausa generosa, y reanudar seguido."""
+"""Crawl de sentencias de la Corte Suprema (salas Laboral y Civil), año por año.
+
+Reanudable por dos vías: los fallos ya en data/raw/corte_suprema.json no se
+vuelven a bajar, y los (sala, año) terminados quedan en
+corte_suprema_progreso.json y ni se listan. Pensado para dejarlo horas:
+
+    .venv/Scripts/python.exe -u scripts/crawl_corte_suprema.py 200000 0.3
+"""
 
 from __future__ import annotations
 
@@ -21,44 +25,53 @@ from ingest.schema import Documento
 from scripts._crawl_retry import crawl_con_reintentos
 
 SALIDA = Path(__file__).resolve().parent.parent / "data" / "raw" / "corte_suprema.json"
+PROGRESO = SALIDA.with_name("corte_suprema_progreso.json")
+
+
+def _escribir(ruta: Path, datos) -> None:
+    tmp = ruta.with_suffix(".tmp")
+    tmp.write_text(json.dumps(datos, ensure_ascii=False, indent=1), encoding="utf-8")
+    tmp.replace(ruta)
 
 
 def main() -> None:
     max_documentos = int(sys.argv[1]) if len(sys.argv) > 1 else 200
-    pausa = float(sys.argv[2]) if len(sys.argv) > 2 else 1.5
-
+    pausa = float(sys.argv[2]) if len(sys.argv) > 2 else 0.5
     SALIDA.parent.mkdir(parents=True, exist_ok=True)
 
     def cargar_previos() -> list[Documento]:
-        if not SALIDA.exists():
-            return []
-        datos = json.loads(SALIDA.read_text(encoding="utf-8"))
-        return [Documento(**d) for d in datos]
+        return (
+            [Documento(**d) for d in json.loads(SALIDA.read_text(encoding="utf-8"))]
+            if SALIDA.exists()
+            else []
+        )
 
-    previos_iniciales = cargar_previos()
-    if previos_iniciales:
-        print(f"{len(previos_iniciales)} documentos previos cargados, no se vuelven a descargar")
-
-    print(f"Crawl objetivo: {max_documentos} documentos totales, pausa {pausa}s entre providencias")
+    hechos = (
+        {(s, a) for s, a in json.loads(PROGRESO.read_text(encoding="utf-8"))} if PROGRESO.exists() else set()
+    )
 
     def checkpoint(documentos):
-        SALIDA.write_text(
-            json.dumps([d.to_dict() for d in documentos], ensure_ascii=False, indent=2),
-            encoding="utf-8",
-        )
-        print(f"[checkpoint] {len(documentos)} documentos guardados en {SALIDA}", flush=True)
+        _escribir(SALIDA, [d.to_dict() for d in documentos])
+        print(f"[checkpoint] {len(documentos)} documentos", flush=True)
 
-    # El backend GraphQL de la Corte Suprema falla con 502 en ráfagas de
-    # varios minutos (visto en la sesión que escribió este ingester) — el
-    # ingester ya reintenta cada llamada individual 3 veces, pero si la
-    # ráfaga dura más que eso, se reintenta la corrida completa reanudando
-    # desde el último checkpoint en vez de perder todo el lote.
+    def terminar_anio(sala, anio):
+        hechos.add((sala, anio))
+        _escribir(PROGRESO, sorted(hechos))
+        print(f"[año completo] {sala} {anio}", flush=True)
+
+    print(
+        f"{len(cargar_previos())} previos, {len(hechos)} (sala, año) completos; objetivo {max_documentos}",
+        flush=True,
+    )
     documentos = crawl_con_reintentos(
         crawl,
         checkpoint,
         cargar_previos,
+        intentos_agotados=20,
         max_documentos=max_documentos,
         pausa_segundos=pausa,
+        anios_hechos=hechos,
+        al_terminar_anio=terminar_anio,
     )
     checkpoint(documentos)
     print(f"Terminado: {len(documentos)} documentos en {SALIDA}")

@@ -6,30 +6,31 @@ GraphQL propio en un dominio hermano no documentado hasta ahora:
 `consultaprovidenciasbk.cortesuprema.gov.co/api`, sin autenticación ni CORS
 restrictivo (confirmado con curl plano, sin necesidad de navegador).
 
-Dos queries cubren todo:
-- `getSearchResult`: lista resultados (título, ruta, magistrado) para una
-  Sala (Civil/Laboral/Penal/Tutelas) + término de búsqueda, paginado con
-  `start`. El término comodín `"*"` trae TODO el corpus de la sala (a
-  diferencia de `""`, que devuelve 0 resultados) — sin él no hay forma de
-  enumerar exhaustivamente.
-- `getContentSearch`: dado el `onlinePath` devuelto arriba, trae el texto
-  completo ya extraído del PDF/DOCX (campo `contentText`, HTML con <mark>
-  en los términos resaltados — se limpia con BeautifulSoup).
+- `getSearchResult`: lista resultados (título, ruta, magistrado, año) de una
+  Sala, paginado con `start` de 10 en 10. El comodín `"*"` trae todo (`""`
+  da 0) y `year` filtra por año, lo que permite recorrer y reanudar año a año.
+  El filtro `autoSentencia` se ignora en el servidor: las sentencias se
+  distinguen por el prefijo del título (SL laboral, SC civil; AL/AC son
+  autos y STL/STC tutelas).
+- `POST /downloadFile {"path": onlinePath}` devuelve el archivo original.
+  `getContentSearch` NO sirve para ingerir: devuelve solo un extracto
+  (~1.000 caracteres) alrededor del término, y con `"*"` responde 502
+  (verificado 14-nov-2026; así se explica el "texto 502" de septiembre).
 
-Advertencia de escala: cada Sala trae decenas a cientos de miles de
-resultados con "*" (Civil ~109k, Laboral ~302k, Penal ~218k, Tutelas ~394k
-al 29-ago-2026), y cada resultado aparece duplicado en .pdf/.docx — hace
-falta deduplicar por ruta sin extensión. Ingestar el corpus completo implica
-cientos de miles de llamadas a getContentSearch; usar `max_documentos` para
-ir escalando por lotes con checkpoint, igual que Gestor Normativo."""
+Cada fallo aparece como .pdf y .docx (a veces .doc): se agrupa por ruta sin
+extensión y se prefiere el .docx, que se lee sin dependencias nuevas."""
 
 from __future__ import annotations
 
+import html
 import re
 import time
+import zipfile
+from datetime import date
+from io import BytesIO
 
 import requests
-from bs4 import BeautifulSoup
+from pypdf import PdfReader
 
 from ingest.schema import Documento
 
@@ -44,8 +45,12 @@ HEADERS = {
     "Origin": "https://consultaprovidencias.cortesuprema.gov.co",
     "Referer": "https://consultaprovidencias.cortesuprema.gov.co/",
 }
-SALAS = ["Civil", "Laboral", "Penal", "Tutelas"]
-TAMANIO_PAGINA = 25  # observado en el frontend; el API no lo parametriza
+DOWNLOAD_URL = "https://consultaprovidenciasbk.cortesuprema.gov.co/downloadFile"
+SALAS = ["Laboral", "Civil"]
+PREFIJO_SENTENCIA = {"Laboral": "SL", "Civil": "SC"}
+TAMANIO_PAGINA = 10  # lo que devuelve el API por página; no se parametriza
+ANIO_MINIMO = 1990
+PREFERENCIA_EXTENSION = {"docx": 0, "pdf": 1}
 
 
 def _graphql(sesion: requests.Session, query: str, intentos: int = 3) -> dict:
@@ -68,7 +73,7 @@ def _graphql(sesion: requests.Session, query: str, intentos: int = 3) -> dict:
     raise ultimo_error
 
 
-def _buscar_pagina(sesion: requests.Session, sala: str, start: int) -> list[dict]:
+def _buscar_pagina(sesion: requests.Session, sala: str, start: int, anio: int | str = "") -> list[dict]:
     query = f"""
     {{
       getSearchResult(searchQuery:{{
@@ -77,13 +82,13 @@ def _buscar_pagina(sesion: requests.Session, sala: str, start: int) -> list[dict
         start: {start}
         isExact: false
         magistrate: ""
-        year: ""
+        year: "{anio}"
         autoSentencia: ""
         order: "NEW_FIRST"
         roomTutelas: ""
         addedQueries: []
       }}) {{
-        searchResults {{ title onlinePath doctor }}
+        searchResults {{ title onlinePath doctor ano }}
       }}
     }}
     """
@@ -91,28 +96,68 @@ def _buscar_pagina(sesion: requests.Session, sala: str, start: int) -> list[dict
     return data["getSearchResult"]["searchResults"] or []
 
 
-def _texto_completo(sesion: requests.Session, ruta: str, sala: str) -> str | None:
-    ruta_escapada = ruta.replace("\\", "\\\\").replace('"', '\\"')
-    query = f"""
-    {{
-      getContentSearch(previewDocument:{{id: "{ruta_escapada}" room: "{sala}" text: "*"}}) {{
-        contentText
-      }}
-    }}
-    """
-    try:
-        data = _graphql(sesion, query)
-    except Exception:
+def _texto_docx(contenido: bytes) -> str:
+    with zipfile.ZipFile(BytesIO(contenido)) as z:
+        xml = z.read("word/document.xml").decode("utf-8", errors="replace")
+    parrafos = []
+    for p in re.split(r"</w:p>", xml):
+        trozos = re.findall(r"<w:t(?:\s[^>]*)?>([^<]*)</w:t>", p)
+        if trozos:
+            parrafos.append(html.unescape("".join(trozos)).strip())
+    return "\n".join(x for x in parrafos if x)
+
+
+def _texto_pdf(contenido: bytes) -> str:
+    return "\n".join(p.extract_text() or "" for p in PdfReader(BytesIO(contenido)).pages)
+
+
+def _texto_completo(sesion: requests.Session, ruta: str, intentos: int = 3) -> str | None:
+    extension = ruta.rsplit(".", 1)[-1].lower()
+    if extension not in PREFERENCIA_EXTENSION:
         return None
-    html = data.get("getContentSearch", {}).get("contentText")
-    if not html:
-        return None
-    return BeautifulSoup(html, "html.parser").get_text("\n", strip=True)
+    for intento in range(intentos):
+        try:
+            r = sesion.post(DOWNLOAD_URL, json={"path": ruta}, verify=False, timeout=90)
+            r.raise_for_status()
+            texto = _texto_docx(r.content) if extension == "docx" else _texto_pdf(r.content)
+            return texto.strip() or None
+        except requests.exceptions.RequestException:
+            time.sleep(2 * (intento + 1))
+        except Exception:  # noqa: BLE001 - archivo corrupto o formato inesperado: se salta
+            return None
+    return None
 
 
 def _identificador_desde_titulo(titulo: str) -> str:
-    m = re.search(r"([A-Z]{1,3}\d{3,5}-\d{4})", titulo)
+    m = re.search(r"([A-Z]{1,3}\d{1,6}-\d{4})", titulo)
     return m.group(1) if m else titulo.rsplit(".", 1)[0]
+
+
+def es_sentencia(sala: str, titulo: str) -> bool:
+    return re.match(rf"{PREFIJO_SENTENCIA[sala]}\d", titulo) is not None
+
+
+def _listar_anio(sesion: requests.Session, sala: str, anio: int, pausa_segundos: float) -> dict[str, dict]:
+    """Una entrada por fallo (ruta sin extensión), con el archivo preferido."""
+    por_fallo: dict[str, dict] = {}
+    start = 0
+    while True:
+        pagina = _buscar_pagina(sesion, sala, start, anio)
+        if not pagina:
+            return por_fallo
+        for item in pagina:
+            ruta = item.get("onlinePath") or ""
+            if not ruta or not es_sentencia(sala, item.get("title") or ""):
+                continue
+            base, _, ext = ruta.rpartition(".")
+            rango = PREFERENCIA_EXTENSION.get(ext.lower(), 9)
+            actual = por_fallo.get(base)
+            if actual is None or rango < PREFERENCIA_EXTENSION.get(
+                actual["onlinePath"].rsplit(".", 1)[-1].lower(), 9
+            ):
+                por_fallo[base] = item
+        start += TAMANIO_PAGINA
+        time.sleep(pausa_segundos / 4)
 
 
 def crawl(
@@ -120,70 +165,70 @@ def crawl(
     pausa_segundos: float = 1.0,
     al_guardar=None,
     documentos_previos: list[Documento] | None = None,
+    salas: list[str] | None = None,
+    anios: list[int] | None = None,
+    anios_hechos: set[tuple[str, int]] | None = None,
+    al_terminar_anio=None,
 ) -> list[Documento]:
-    """Si se pasa `documentos_previos`, no se vuelve a pedir el texto completo
-    de rutas ya vistas (dedupe exacto vía `metadata["ruta"]`), y por cada Sala
-    se salta el listado hasta un `start` estimado a partir de cuántos
-    documentos de esa Sala ya se tienen — el orden `NEW_FIRST` es estable
-    entre corridas cercanas en el tiempo, así que no hace falta re-listar
-    desde cero (cada documento real aparece ~2 veces en los resultados,
-    .pdf y .docx, de ahí el factor 2 en la estimación)."""
+    """Recorre sala por sala y año por año (del más reciente al más viejo).
+    Los fallos ya presentes en `documentos_previos` no se vuelven a bajar y los
+    pares (sala, año) de `anios_hechos` ni se listan. `al_terminar_anio(sala,
+    anio)` se llama solo si el año quedó completo, no al cortar por tope."""
     sesion = requests.Session()
     sesion.headers.update(HEADERS)
+    anios = anios or list(range(date.today().year, ANIO_MINIMO - 1, -1))
+    anios_hechos = anios_hechos or set()
 
-    documentos_previos = documentos_previos or []
-    documentos: list[Documento] = list(documentos_previos)
-    vistos: set[str] = {
-        d.metadata["ruta"].rsplit(".", 1)[0] for d in documentos_previos if d.metadata.get("ruta")
-    }
+    documentos: list[Documento] = list(documentos_previos or [])
+    vistos = {d.metadata["ruta"].rsplit(".", 1)[0] for d in documentos if d.metadata.get("ruta")}
+    ids = {d.id for d in documentos}
 
-    documentos_previos_por_sala: dict[str, int] = {}
-    for d in documentos_previos:
-        sala_previa = d.metadata.get("sala", "")
-        documentos_previos_por_sala[sala_previa] = documentos_previos_por_sala.get(sala_previa, 0) + 1
-
-    for sala in SALAS:
-        start = documentos_previos_por_sala.get(sala, 0) * 2
-        while len(documentos) < max_documentos:
-            resultados = _buscar_pagina(sesion, sala, start)
-            if not resultados:
-                break
-
-            for item in resultados:
-                if len(documentos) >= max_documentos:
-                    break
-                ruta = item.get("onlinePath") or ""
-                clave = ruta.rsplit(".", 1)[0]  # dedupe .pdf / .docx del mismo fallo
-                if not ruta or clave in vistos:
+    for sala in salas or SALAS:
+        for anio in anios:
+            if (sala, anio) in anios_hechos:
+                continue
+            if len(documentos) >= max_documentos:
+                return documentos
+            nuevos_en_anio = 0
+            for base, item in _listar_anio(sesion, sala, anio, pausa_segundos).items():
+                # el mismo fallo a veces está bajo dos carpetas (p. ej. sala de descongestión)
+                if (
+                    base in vistos
+                    or f"corte_suprema:{sala.lower()}:{_identificador_desde_titulo(item['title'])}" in ids
+                ):
                     continue
-                vistos.add(clave)
-
-                texto = _texto_completo(sesion, ruta, sala)
+                if len(documentos) >= max_documentos:
+                    if al_guardar is not None:
+                        al_guardar(documentos)
+                    return documentos
+                ruta = item["onlinePath"]
+                texto = _texto_completo(sesion, ruta)
                 time.sleep(pausa_segundos)
                 if not texto or len(texto) < 100:
                     continue
-
+                vistos.add(base)
                 titulo = item.get("title", ruta)
                 identificador = _identificador_desde_titulo(titulo)
+                ids.add(f"corte_suprema:{sala.lower()}:{identificador}")
                 documentos.append(
                     Documento(
                         id=f"corte_suprema:{sala.lower()}:{identificador}",
                         fuente="corte_suprema",
                         tipo="sentencia",
                         identificador=identificador,
-                        titulo=f"Corte Suprema - Sala {sala} - {titulo}",
-                        fecha=None,
+                        titulo=f"Corte Suprema - Sala {sala} - Sentencia {identificador}",
+                        fecha=str(item.get("ano") or anio),
                         texto=texto,
-                        url_original="https://consultaprovidencias.cortesuprema.gov.co/busqueda",
+                        url_original="https://consultaprovidencias.cortesuprema.gov.co/",
                         metadata={"sala": sala, "magistrado": item.get("doctor"), "ruta": ruta},
                     )
                 )
-
-            start += TAMANIO_PAGINA
+                nuevos_en_anio += 1
+                if al_guardar is not None and nuevos_en_anio % 50 == 0:
+                    al_guardar(documentos)
             if al_guardar is not None:
                 al_guardar(documentos)
-
-        if len(documentos) >= max_documentos:
-            break
+            if al_terminar_anio is not None:
+                al_terminar_anio(sala, anio)
 
     return documentos

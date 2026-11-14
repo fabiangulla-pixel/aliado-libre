@@ -30,8 +30,10 @@ HEADERS = {
 TAMANIO_PAGINA = 25
 
 
-def _query(sesion: requests.Session, desde: int, tamanio: int) -> dict:
-    source = {"query": {"match_all": {}}, "from": desde, "size": tamanio}
+def _query(sesion: requests.Session, despues_de: str | None, tamanio: int) -> dict:
+    source = {"query": {"match_all": {}}, "size": tamanio, "sort": [{"_id": "asc"}]}
+    if despues_de is not None:
+        source["search_after"] = [despues_de]
     url = f"{ES_BASE}?source={urllib.parse.quote(json.dumps(source))}&source_content_type=application/json"
     r = sesion.get(url, timeout=30)
     r.raise_for_status()
@@ -95,27 +97,37 @@ def _a_documento(sesion: requests.Session, hit: dict) -> Documento | None:
     )
 
 
-def crawl(max_documentos: int = 200, pausa_segundos: float = 1.5, al_guardar=None) -> list[Documento]:
+def crawl(
+    max_documentos: int = 200,
+    pausa_segundos: float = 1.5,
+    al_guardar=None,
+    documentos_previos: list[Documento] | None = None,
+) -> list[Documento]:
+    """Los previos no se vuelven a descargar: cada uno cuesta un PDF."""
     sesion = requests.Session()
     sesion.headers.update(HEADERS)
 
-    documentos: list[Documento] = []
-    desde = 0
+    documentos: list[Documento] = list(documentos_previos or [])
+    ids_vistos: set[str] = {d.id for d in documentos}
+    despues_de: str | None = None
 
     while len(documentos) < max_documentos:
-        restante = max_documentos - len(documentos)
-        resultado = _query(sesion, desde, min(TAMANIO_PAGINA, restante))
-        hits = resultado["hits"]["hits"]
+        hits = _query(sesion, despues_de, TAMANIO_PAGINA)["hits"]["hits"]
         if not hits:
             break
 
         for hit in hits:
+            if len(documentos) >= max_documentos:
+                break
+            if f"sic:{hit['_id']}" in ids_vistos:
+                continue
             doc = _a_documento(sesion, hit)
             if doc is not None:
+                ids_vistos.add(doc.id)
                 documentos.append(doc)
             time.sleep(pausa_segundos)
 
-        desde += len(hits)
+        despues_de = hits[-1]["_id"]
         if al_guardar is not None:
             al_guardar(documentos)
 

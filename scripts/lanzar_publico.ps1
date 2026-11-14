@@ -37,8 +37,8 @@ $env:ALIADO_TOPE_DIARIO_IP = "30"       # desde la 31, pausa hasta medianoche
 $env:ALIADO_REDACCIONES_DIARIAS = "3"   # respuestas redactadas por IA gratis al dia
 $env:ALIADO_TOPE_GASTO_MES_USD = "10"   # tope de gasto de IA del mes
 $env:ALIADO_CONFIAR_PROXY = "1"         # la IP real llega en CF-Connecting-IP
-$env:ALIADO_RERANKER_ACTIVO = "0"
-$env:ALIADO_BUSQUEDA_ASISTIDA = "1"     # Sonnet 5 reformula y reordena (~0,027 USD/busqueda; recall@5 27->47%)
+$env:ALIADO_RERANKER_ACTIVO = "1"       # reordenador local en GPU (recall@5 21,5->34,5% en la ruta real)
+$env:ALIADO_BUSQUEDA_ASISTIDA = "0"     # con 1, Sonnet en cada busqueda (~0,027 USD) agota el tope y apaga la redaccion
 $env:PYTHONWARNINGS = "ignore"
 
 Write-Host "Arrancando la web en modo publico en http://127.0.0.1:$Puerto ..."
