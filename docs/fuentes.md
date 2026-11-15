@@ -26,7 +26,8 @@ técnica (no solo búsqueda web). Última actualización: 14-nov-2026.
   art. 41), pero las notas de vigencia y la compilación son de la editorial.
   Afecta a `dian.json` (25.927 documentos, ya en el índice) y es la única vía
   encontrada para conceptos de **MinTrabajo** (p. ej. `normas.cra.gov.co/Gestor/docs/concepto_mintrabajo_0000791_2020.htm`).
-  Decisión pendiente de Fabián (con abogado) antes de cobrar por los datos.
+  **Decidido por Fabián el 15-nov-2026: la DIAN sigue indexada.** Los
+  conceptos de MinTrabajo por esa vía no se han ingerido.
 - **Consejo de Estado ACCESIBLE (15-nov).** La relatoría clásica (JSF) responde en
   `servicios.consejodeestado.gov.co/WebRelatoria/ce/index.xhtml`, sin el WAF de
   la Rama Judicial. No hace falta el buscador: cada providencia se baja directo

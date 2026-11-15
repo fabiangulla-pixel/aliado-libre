@@ -190,6 +190,38 @@ def un_fragmento_por_documento(resultados: list[dict]) -> list[dict]:
     return salida
 
 
+# Tope de sentencias en el top-k (15-nov-2026). Con 880.000 fragmentos de la
+# Corte Suprema, "vivo en unión libre, ¿qué derechos tengo si nos separamos?"
+# devolvía cinco sentencias laborales de pensión de compañera permanente y
+# ninguna norma. Un tope POR FUENTE (2 de 5) lo arreglaba pero rompía lo que
+# funciona: a "compré una moto con fallas" le quitaba los conceptos de la SIC,
+# que son justo los pertinentes. El tope se pone a las sentencias en conjunto.
+# Medido con k=5: recall@5 sin cambio en dev (piloto_100: 0 ganados, 0
+# perdidos) ni en prueba (banco_prueba_200: 32,5% -> 32,5%). Ver
+# _run/exp_diversidad.py. No se aplica si el usuario filtra por fuente.
+FUENTES_JUDICIALES = frozenset({"corte_suprema", "corte_constitucional", "consejo_estado"})
+PROPORCION_SENTENCIAS = float(os.environ.get("ALIADO_PROPORCION_SENTENCIAS", "0.4"))
+
+
+def limitar_sentencias(
+    resultados: list[dict], k: int, proporcion: float = PROPORCION_SENTENCIAS
+) -> list[dict]:
+    """Los k primeros con a lo sumo `proporcion`·k sentencias; las que sobran
+    bajan detrás, en su orden, y solo vuelven si no hay otra cosa con qué llenar."""
+    tope = max(1, int(k * proporcion))
+    elegidos, diferidos, sentencias = [], [], 0
+    for r in resultados:
+        if (r.get("id") or "").split(":", 1)[0] in FUENTES_JUDICIALES:
+            if sentencias >= tope:
+                diferidos.append(r)
+                continue
+            sentencias += 1
+        elegidos.append(r)
+        if len(elegidos) == k:
+            return elegidos
+    return (elegidos + diferidos)[:k]
+
+
 class IndiceBusqueda:
     def __init__(self) -> None:
         self._modelo = SentenceTransformer(MODELO_EMBEDDINGS)
@@ -259,7 +291,9 @@ class IndiceBusqueda:
             return anotar(self._buscar_crudo(consulta, k=k, fuentes=fuentes))
 
         crudos = self._buscar_crudo(consulta, k=max(k, CANDIDATOS), fuentes=fuentes)
-        return anotar(reordenar(consulta, un_fragmento_por_documento(crudos), k=k))
+        if fuentes:
+            return anotar(reordenar(consulta, un_fragmento_por_documento(crudos), k=k))
+        return anotar(limitar_sentencias(reordenar(consulta, un_fragmento_por_documento(crudos)), k))
 
     def listas_candidatos(self, consulta: str, n: int) -> list[list[str]]:
         """Las dos listas de ids sin fusionar, [vectorial, léxica], n por motor.

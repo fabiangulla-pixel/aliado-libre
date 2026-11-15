@@ -1,5 +1,33 @@
 # Changelog
 
+## 2026-11-14/15 — Fuentes destapadas, etapa 2 indexada, OCR de la Corte Suprema, tope de sentencias
+
+### Corpus
+- SIC y Supersociedades: los topes de 10.000 de Elasticsearch cortaban en
+  silencio; ahora `search_after` y reanudables. Superfinanciera completa
+  (18.417). Corte Suprema por el backend GraphQL + `/downloadFile`: 21.727
+  sentencias Laboral y Civil con texto digital.
+- Etapa 2 indexada: 224.651 documentos, 2.648.958 fragmentos. Recall@5 32,5%
+  (base 13-oct 34,5%; dentro del ruido con n=200).
+- Consejo de Estado: relatoría accesible por número (`FileReferenceServlet`),
+  121.844 providencias descargadas, aún sin indexar.
+
+### OCR de la Corte Suprema (scripts/ocr_cs_*)
+- 17.907 sentencias publicadas sin texto (escaneadas, o .docx inexistente con
+  .pdf disponible: todo Laboral 2024). PaddleOCR en GPU, reanudable ante
+  apagones (fsync por sentencia, línea a medias recortada), relanzado por la
+  tarea programada AliadoLibre-OCR. Recall de palabras 99,0% contra la capa de
+  texto de PDF digitales. 2 procesos: ~600 sentencias/h.
+- Un tope por defecto mal escrito (`"0" or 10**9` es `"0"`) habría hecho salir
+  al trabajador tras cada sentencia; lo cazó la prueba de corte forzado.
+
+### Tope de sentencias en el top-k
+- "Unión libre, derechos si nos separamos" devolvía 5 sentencias laborales de
+  pensión. Tope por fuente descartado (le quitaba a "moto con fallas" los
+  conceptos de la SIC). Adoptado: a lo sumo 40% de sentencias en el top-k
+  (`limitar_sentencias`). Recall sin cambio en dev y en prueba.
+- Decidido por Fabián: la DIAN (normogramas de Avance Jurídico) sigue indexada.
+
 ## 2026-10-13 — Destilación cerrada; bug de truncamiento de título; tope de crawl que truncaba en silencio
 
 ### Destilación de Sonnet: cerrada, no adoptar

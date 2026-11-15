@@ -13,8 +13,8 @@ está en `docs/RECOMENDACIONES_TRIAGE.md` (histórico, 29-sep).
    pendiente desde el 7-sep.
 3. **Términos y privacidad** (`gui/static/terminos.html`, `privacidad.html`):
    siguen siendo borradores; idealmente con abogado.
-4. **Licencia de los normogramas de Avance Jurídico** (ver `docs/fuentes.md`,
-   14-nov): afecta a la DIAN ya indexada y a los conceptos de MinTrabajo.
+4. **Dominio**: comprarlo (Cloudflare, ~30 USD/año) y luego
+   `scripts/configurar_dominio.ps1 -Dominio <dominio>`. La compra la hace Fabián.
 5. Enlace de aporte (`ALIADO_ENLACE_PAGO`), prueba desde el celular con datos
    móviles y pasar el índice de Hugging Face a acceso con registro.
 6. CSV del Planificador de Palabras Clave de Google Ads (1.276 consultas).
@@ -57,8 +57,13 @@ el .pdf). Corre solo en la GPU:
 
 ## Siguiente tarea técnica
 
-1. **Diversidad por fuente en el top-k** antes de sumar Consejo de Estado y el
-   OCR: medir con el banco de 200 y con las consultas de demostración.
+1. **Tope de sentencias en el top-k: HECHO (15-nov)** (`index/buscar.py`,
+   `limitar_sentencias`, 40% del top-k). Sin cambio de recall en dev ni prueba.
+   Con eso queda libre sumar Consejo de Estado y el OCR: **un solo reindexado
+   con `--ampliar` cuando el OCR termine** (`_terminado`), después de
+   `ocr_cs_integrar.py`. No antes: reindexado (~9 GB) + 2 procesos de OCR
+   (~14 GB) no caben juntos en los 16 GB de la GPU. Luego volver a medir con
+   `_run/medir_etapa2.py` y `_run/exp_diversidad.py`.
 2. Recompilar el `.exe` y publicar el índice ampliado en HF (decidir antes el
    acceso con registro).
 3. **Troceo por artículo** como experimento de una sola variable.
