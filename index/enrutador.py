@@ -115,7 +115,7 @@ def decidir(resultados: list[dict], hay_clave_externa: bool = False) -> Decision
     )
 
 
-def mensaje_abstencion(total_fragmentos: int | None = None, fuentes: int = 7) -> str:
+def mensaje_abstencion(total_fragmentos: int | None = None, fuentes: int = 12) -> str:
     """Explica por qué no se responde, distinguiendo 'no está' de 'no sé'.
 
     Un vacío de cobertura declarado es información útil; un "no sé" pelado
@@ -128,10 +128,10 @@ def mensaje_abstencion(total_fragmentos: int | None = None, fuentes: int = 7) ->
     ).replace(",", ".")
     return (
         f"No encontré nada suficientemente cercano a tu consulta. {alcance}\n\n"
-        "Ten en cuenta dos huecos conocidos de cobertura: el Consejo de Estado no está "
-        "en el índice porque su portal bloquea el acceso automatizado, y la Corte Suprema "
-        "tampoco porque su servidor de consulta lleva meses fallando. Además el índice es "
-        "una instantánea: no refleja normas ni sentencias posteriores a su última "
+        "Ten en cuenta dos huecos conocidos de cobertura: de la Corte Suprema solo están "
+        "las sentencias con texto digital de las salas Laboral y Civil (las antiguas están "
+        "escaneadas), y no están los conceptos del Ministerio del Trabajo. Además el índice "
+        "es una instantánea: no refleja normas ni sentencias posteriores a su última "
         "actualización.\n\n"
         "Prueba a reformular con los términos que usaría la norma "
         "(por ejemplo «terminación unilateral del contrato» en vez de «me echaron»)."

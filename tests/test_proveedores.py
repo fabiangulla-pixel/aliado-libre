@@ -186,7 +186,7 @@ def test_sin_resultados_se_abstiene():
 def test_el_mensaje_de_abstencion_distingue_no_esta_de_no_se():
     m = enrutador.mensaje_abstencion(718388)
     assert "718.388" in m
-    assert "Consejo de Estado" in m and "Corte Suprema" in m
+    assert "Corte Suprema" in m and "Ministerio del Trabajo" in m
     assert "instantánea" in m
 
 

@@ -27,8 +27,18 @@ técnica (no solo búsqueda web). Última actualización: 14-nov-2026.
   Afecta a `dian.json` (25.927 documentos, ya en el índice) y es la única vía
   encontrada para conceptos de **MinTrabajo** (p. ej. `normas.cra.gov.co/Gestor/docs/concepto_mintrabajo_0000791_2020.htm`).
   Decisión pendiente de Fabián (con abogado) antes de cobrar por los datos.
-- Consejo de Estado anunció en ago-2026 un buscador de relatorías nuevo con
-  descarga masiva; URL sin localizar todavía.
+- **Consejo de Estado ACCESIBLE (15-nov).** La relatoría clásica (JSF) responde en
+  `servicios.consejodeestado.gov.co/WebRelatoria/ce/index.xhtml`, sin el WAF de
+  la Rama Judicial. No hace falta el buscador: cada providencia se baja directo
+  por su número de relatoría en `/WebRelatoria/FileReferenceServlet?corp=ce&ext=html&file=<NR>`
+  (sin sesión; un NR inexistente da 200 vacío). Hay documentos en NR
+  2.000.000-2.025.000 y 2.075.000-2.200.000. Ingester `ingest/fuentes/consejo_estado.py`,
+  ~59 NR/s con 4 hilos.
+- **Corte Suprema, límite real:** las sentencias anteriores a ~2017 (y buena parte
+  de 2016-2019) son PDF escaneados (productor "EPSON Scan", "PaperPort") y sus
+  `.doc` dan "Not Found". Laboral 2019 lista 10.458 sentencias y solo ~150 traen
+  texto. Ingerido: 20.505 Laboral (sobre todo 2020-2025) + 1.222 Civil. El resto
+  exige OCR.
 - Hugging Face, Kaggle, datos.gov.co: nada con texto completo colombiano útil.
 
 **Patrón recurrente a explotar en fuentes nuevas**: varios sitios .gov.co con

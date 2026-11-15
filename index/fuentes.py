@@ -43,6 +43,21 @@ CATALOGO: dict[str, Fuente] = {
         "Sentencias de constitucionalidad, tutela y unificación desde 1992. "
         "Es la fuente para derechos fundamentales, tutelas y salud.",
     ),
+    "corte_suprema": Fuente(
+        "corte_suprema",
+        "Corte Suprema",
+        "Corte Suprema de Justicia",
+        "Sentencias de casación de las salas Laboral y Civil con texto digital "
+        "(sobre todo desde 2017): contratos de trabajo, liquidaciones, pensiones, "
+        "familia, contratos y responsabilidad civil.",
+    ),
+    "consejo_estado": Fuente(
+        "consejo_estado",
+        "Consejo de Estado",
+        "Consejo de Estado",
+        "Sentencias y autos de lo contencioso administrativo: demandas contra el "
+        "Estado, servicios públicos, contratación estatal, empleo público y tutelas.",
+    ),
     "gestor_normativo": Fuente(
         "gestor_normativo",
         "Gestor Normativo",
@@ -104,16 +119,15 @@ CATALOGO: dict[str, Fuente] = {
 # usuario tiene que poder saber cuándo el índice no puede ayudarle.
 AUSENTES = (
     {
-        "nombre": "Consejo de Estado",
-        "motivo": "Su portal bloquea el acceso automatizado (firewall de la Rama Judicial). "
-        "Se intentó por varias vías, incluida la más reciente; el bloqueo es de "
-        "infraestructura, no de una dirección concreta.",
+        "nombre": "Corte Suprema: sentencias antiguas y salas Penal y de Tutelas",
+        "motivo": "Las sentencias anteriores a ~2017 están publicadas como PDF escaneado, "
+        "sin texto: no se pueden buscar sin reconocimiento óptico de caracteres. "
+        "Las salas Penal y de Tutelas no se han incorporado.",
     },
     {
-        "nombre": "Corte Suprema de Justicia",
-        "motivo": "Su servidor de consulta de providencias responde con error de forma "
-        "persistente desde hace meses. El acceso funciona cuando el servidor "
-        "responde, así que se reintenta periódicamente.",
+        "nombre": "Conceptos del Ministerio del Trabajo",
+        "motivo": "El Ministerio no publica un repositorio propio; las únicas copias "
+        "encontradas están en compilaciones de una editorial privada con derechos reservados.",
     },
     {
         "nombre": "Diario Oficial (Imprenta Nacional)",
