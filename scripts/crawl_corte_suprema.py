@@ -2,7 +2,7 @@
 
 Reanudable por dos vías: los fallos ya en data/raw/corte_suprema.json no se
 vuelven a bajar, y los (sala, año) terminados quedan en
-corte_suprema_progreso.json y ni se listan. Pensado para dejarlo horas:
+_corte_suprema_progreso.json y ni se listan. Pensado para dejarlo horas:
 
     .venv/Scripts/python.exe -u scripts/crawl_corte_suprema.py 200000 0.3
 """
@@ -25,7 +25,8 @@ from ingest.schema import Documento
 from scripts._crawl_retry import crawl_con_reintentos
 
 SALIDA = Path(__file__).resolve().parent.parent / "data" / "raw" / "corte_suprema.json"
-PROGRESO = SALIDA.with_name("corte_suprema_progreso.json")
+# Con "_" delante: reindexar_con_gpu.py lee todo data/raw/*.json como documentos salvo esos.
+PROGRESO = SALIDA.with_name("_corte_suprema_progreso.json")
 
 
 def _escribir(ruta: Path, datos) -> None:

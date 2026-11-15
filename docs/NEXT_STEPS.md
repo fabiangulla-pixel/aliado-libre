@@ -23,7 +23,7 @@ está en `docs/RECOMENDACIONES_TRIAGE.md` (histórico, 29-sep).
 
 - Descargas completas en segundo plano, reanudables, logs en `_run/crawl_*_14nov.log`:
   Superfinanciera (~17 h), Corte Suprema Laboral+Civil (días; progreso por año
-  en `data/raw/corte_suprema_progreso.json`). Relanzar el mismo comando si se
+  en `data/raw/_corte_suprema_progreso.json`). Relanzar el mismo comando si se
   cortan: no repiten trabajo.
 - Tras cada tanda: `scripts/anonimizar_raw.py sic supersociedades superfinanciera`
   y `reindexar_con_gpu.py --ampliar`, luego `python -m index.resolver_citas --construir`
