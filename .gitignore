@@ -55,3 +55,4 @@ index/catalogo_citas.json
 
 # Destilación: pools grandes y regenerables
 finetune/destilar/pools.json
+data/ocr_corte_suprema/
