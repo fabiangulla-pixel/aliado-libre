@@ -64,10 +64,18 @@ el .pdf). Corre solo en la GPU:
    `ocr_cs_integrar.py`. No antes: reindexado (~9 GB) + 2 procesos de OCR
    (~14 GB) no caben juntos en los 16 GB de la GPU. Luego volver a medir con
    `_run/medir_etapa2.py` y `_run/exp_diversidad.py`.
-2. Recompilar el `.exe` y publicar el índice ampliado en HF (decidir antes el
+2. **¿Servir sin GPU? (plan acordado con Fabián el 15-nov).** Con el túnel, la
+   web depende de que el PC esté prendido. Fase 1: piloto desde el PC con el
+   dominio. Fase 2: medir cuánta calidad se pierde con el reordenador en CPU
+   (`finetune/medir_reordenador_cpu.py`: bge-m3 con 60/20/10 candidatos, int8,
+   mMiniLM; 4 hilos; elegir en piloto_100, comprobar una vez en prueba_200).
+   Si la pérdida es pequeña, servidor sin GPU de ~30-80 USD/mes. Correr las
+   variantes **con el OCR terminado y la máquina quieta** (los candidatos ya
+   están fijados en `finetune/eval/reordenador_cpu/pools_*.json`).
+3. Recompilar el `.exe` y publicar el índice ampliado en HF (decidir antes el
    acceso con registro).
-3. **Troceo por artículo** como experimento de una sola variable.
-4. **Destilado CERRADO**, no retomar sin una idea nueva.
+4. **Troceo por artículo** como experimento de una sola variable.
+5. **Destilado CERRADO**, no retomar sin una idea nueva.
 
 ## Mantenimiento
 
