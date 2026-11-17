@@ -1,5 +1,5 @@
 # Lanza (o no) el trabajador de OCR de la Corte Suprema. Lo llama la tarea
-# programada "AliadoLibre-OCR" al iniciar sesion y cada 15 minutos; es seguro
+# programada "AliadoLibre-OCR" al iniciar sesion y cada 5 minutos; es seguro
 # llamarlo de mas: si ya hay un trabajador vivo, no hace nada.
 #
 #   Pausar:   crear data\ocr_corte_suprema\PAUSA  (el trabajador termina la

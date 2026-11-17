@@ -81,6 +81,7 @@ DPI = 200
 MAX_PAGINAS = 200
 TEXTO_NATIVO_MINIMO = 200  # caracteres no blancos para confiar en la capa de texto
 CONFIANZA_MINIMA = 0.5  # por línea; filtra restos de la marca de agua
+HORAS_POR_CORRIDA = float(os.environ.get("OCR_HORAS_POR_CORRIDA", "3"))
 SALAS_POR_ANIO = 2 * (2026 - 1990 + 1)  # pares (sala, año) que lista el paso 1
 
 
@@ -378,6 +379,12 @@ def main() -> int:
                 )
             if (motivo := debe_parar()) is not None:
                 log(f"Pauso: {motivo}. Retomo desde aquí la próxima vez.")
+                break
+            # Tras horas, cada proceso pasa de ~1,7 a ~0,8 pág/s (RAM de 3 a 6 GB y la
+            # VRAM al tope; medido 16-nov). Reiniciar lo devuelve al ritmo inicial: se
+            # sale y la tarea programada lo relanza en <= 5 min.
+            if time.time() - t0 > HORAS_POR_CORRIDA * 3600:
+                log(f"Llevo {HORAS_POR_CORRIDA} h: salgo para liberar memoria; la tarea me relanza.")
                 break
             if tope and docs >= tope:
                 log("Tope OCR_MAX_DOCS alcanzado (prueba).")
