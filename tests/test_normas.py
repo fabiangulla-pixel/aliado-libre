@@ -30,3 +30,11 @@ def test_codigos_por_nombre_y_la_primera_mencion_manda():
         "2002",
     )
     assert norma("no se") is None
+
+
+def test_normas_en_orden_sin_repetir():
+    from index.normas import normas
+
+    texto = "Decreto 1074 de 2015\nLey 1480 de 2011 (Estatuto del Consumidor)\nLey 1480 de 2011"
+    assert normas(texto) == [("dec", 1074, "2015"), ("ley", 1480, "2011")]
+    assert normas("no se") == []

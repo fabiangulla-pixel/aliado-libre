@@ -67,6 +67,15 @@ Enrutador vs sin él: #1 gana 17, pierde 5 (p=0.017).
   (`think:false` y `/no_think` ignorados en esta versión de Ollama) y no
   produce respuesta en 40 tokens. **El enrutador necesita gemma4:26b en GPU.**
 
+- Enrutador por ELECCIÓN (el LLM elige entre las normas que trajo la
+  búsqueda, finetune/expansion/elegir_norma.py): #1 25.3%, peor que el
+  libre (44.2%). Prompt v2 (hasta 3 normas, de la más específica a la más
+  general): #1 34.7%. Gana el prompt corto v1.
+- Adaptador lineal de consulta (finetune/adaptador/entrenar.py, sin
+  reindexar): memoriza las normas de entrenamiento (recall@10 35.6% -> 75.7%)
+  y no generaliza a normas apartadas (27.8% -> 28.6%); ruta real @5 51.6% ->
+  42.1% (gana 1, pierde 10, p=0.012).
+
 ### En curso
 - Generación ampliada de preguntas: 50 normas más (laboral, familia,
   pensiones, salud, educación, penal, tránsito, Tributario, Comercio, CGP),

@@ -32,7 +32,12 @@ está en `docs/RECOMENDACIONES_TRIAGE.md` (histórico, 29-sep).
 
 La norma correcta en el puesto 1 en 9 de cada 10 preguntas coloquiales. Hoy,
 ruta real, dev: **44,2%** en el puesto 1, 58,9% en el top-5 (desplegado: ~19% y
-34,7%). Ver CHANGELOG 2026-11-20/21. Siguiente:
+34,7%). Con confianza "alta" (LLM y búsqueda coinciden) acierta 19 de 23 en
+dev, y los 4 "fallos" parecen respuestas válidas que el banco no acepta (Ley
+1480 para reversión del pago; Código Civil para retroventa y para divorcio de
+matrimonio religioso; el decreto único de salud para repatriados). Si la
+adjudicación de Fabián lo confirma, al afirmar se cumple la meta del 90%; lo
+que falta es COBERTURA (hoy afirma en 1 de cada 4 preguntas). Siguiente:
 
 1. Terminar la generación ampliada de preguntas (`_run/cadena_v3.ps1`,
    `finetune/doc2query/generar.py`, reanudable), `python -m index.preguntas
@@ -40,7 +45,12 @@ ruta real, dev: **44,2%** en el puesto 1, 58,9% en el top-5 (desplegado: ~19% y
 2. Afinar e5 con las preguntas sintéticas (BSARD: el denso afinado gana).
 3. Confianza: afirmar solo con "alta" (86% en dev) y mostrar opciones si no.
    Necesita la GUI.
-4. Verificación ÚNICA en banco_prueba_200 de la configuración final:
+4. Recalibrar `index/enrutador.py` (UMBRAL_ABSTENCION, UMBRAL_PUNTAJE,
+   VENTAJA_MINIMA) para el modo fusión: se calibraron con DOS listas en el RRF
+   y el modo fusión usa tres, más la norma promovida al puesto 1 (que puede
+   tener menos puntaje que el segundo). La GUI ya pinta la confianza del
+   primer resultado (`selloConfianza`); "alta" podría pasar a decidir "local".
+5. Verificación ÚNICA en banco_prueba_200 de la configuración final:
    `ALIADO_MODO_ORDEN=fusion ALIADO_PESO_PREGUNTAS=1 ALIADO_LLM_NORMA=gemma4:26b`,
    con la máquina quieta (D-07), y entonces cambiar los defectos.
 

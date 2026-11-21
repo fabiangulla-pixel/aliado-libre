@@ -32,13 +32,21 @@ PROMPT = """Una persona en Colombia pregunta:
 ¿Que ley, decreto o codigo colombiano vigente regula directamente su situacion? Responde SOLO con su nombre y numero, por ejemplo "Ley 1480 de 2011 (Estatuto del Consumidor)" o "Codigo Sustantivo del Trabajo". Si no lo sabes con seguridad, responde "no se"."""  # noqa: E501
 
 
+PROMPT_V2 = """Una persona en Colombia pregunta:
+"{consulta}"
+
+¿Que normas colombianas vigentes regulan su situacion? Escribe hasta 3, de la MAS ESPECIFICA a la mas general: primero el decreto reglamentario o la ley especial que trata el tema en detalle, si existe; despues la ley o el codigo general. Una por linea, solo nombre y numero (por ejemplo "Decreto 1074 de 2015" o "Ley 1480 de 2011 (Estatuto del Consumidor)"). Si no sabes, responde "no se"."""  # noqa: E501
+PROMPTS = {"v1": PROMPT, "v2": PROMPT_V2}
+VERSION = os.environ.get("NORMA_PROMPT", "v1")
+
+
 def preguntar(consulta: str, modelo: str, cpu: bool = False) -> str:
-    opciones = {"temperature": 0, "num_predict": 40, "num_ctx": 1024}
+    opciones = {"temperature": 0, "num_predict": 40 if VERSION == "v1" else 90, "num_ctx": 1024}
     if cpu:
         opciones["num_gpu"] = 0
     cuerpo = {
         "model": modelo,
-        "messages": [{"role": "user", "content": PROMPT.format(consulta=consulta)}],
+        "messages": [{"role": "user", "content": PROMPTS[VERSION].format(consulta=consulta)}],
         "think": False,
         "stream": False,
         "options": opciones,
@@ -60,7 +68,8 @@ def main(banco: str, modelo: str, cpu: bool) -> None:
     carpeta = RAIZ / "finetune" / "eval" / "expansion"
     carpeta.mkdir(parents=True, exist_ok=True)
     salida = (
-        carpeta / f"{banco}_norma_{re.sub(r'[^a-z0-9.]+', '_', modelo.lower())}{'_cpu' if cpu else ''}.json"
+        carpeta
+        / f"{banco}_norma_{re.sub(r'[^a-z0-9.]+', '_', modelo.lower())}{'_cpu' if cpu else ''}{'' if VERSION == 'v1' else '_' + VERSION}.json"  # noqa: E501
     )
     hechos = json.loads(salida.read_text(encoding="utf-8")) if salida.exists() else {}
     tiempos = []

@@ -63,3 +63,4 @@ finetune/eval/reordenador_cpu/pools_*.json
 # preguntas.jsonl SI (cuesta horas de GPU generarlo).
 finetune/doc2query/fragmentos.jsonl
 index/preguntas_sinteticas.npz
+index/adaptador_consulta.npz

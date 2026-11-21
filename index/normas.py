@@ -62,6 +62,24 @@ def norma(*textos: str | None) -> Norma | None:
     return None
 
 
+def normas(texto: str | None) -> list[Norma]:
+    """Todas las normas que nombra el texto, en orden de aparicion, sin repetir."""
+    if not texto:
+        return []
+    hallazgos = []
+    for m in _PATRON.finditer(texto):
+        tipo = m.group(1).lower().replace("ó", "o")[:3]
+        hallazgos.append((m.start(), (tipo, int(m.group(2)), m.group(3))))
+    for patron, n in _CODIGOS:
+        for mc in patron.finditer(texto):
+            hallazgos.append((mc.start(), n))
+    salida: list[Norma] = []
+    for _, n in sorted(hallazgos):
+        if n not in salida:
+            salida.append(n)
+    return salida
+
+
 def norma_de_resultado(r: dict) -> Norma | None:
     """Que norma ES este documento (no cual menciona).
 

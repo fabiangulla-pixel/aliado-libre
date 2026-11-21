@@ -227,6 +227,9 @@
   .vigencia { margin-left: 0.6rem; padding: 0.1rem 0.5rem; border-radius: 4px; font-size: 0.8rem; font-weight: 600; }
   .vigencia.no-rige { background: #b3261e; color: #fff; }
   .vigencia.parcial, .vigencia.incierta { background: #f2c94c; color: #3a2e00; }
+  .confianza { margin-left: 0.6rem; padding: 0.1rem 0.5rem; border-radius: 4px; font-size: 0.8rem; font-weight: 600; }
+  .confianza.alta { background: #1e6b3a; color: #fff; }
+  .confianza.media { background: #e8eef7; color: #1c3d6e; }
   .aviso-cobertura {
     background: var(--panel);
     border: 1px solid var(--dorado);
@@ -711,6 +714,21 @@ function selloVigencia(v) {
   return `<span class="vigencia parcial" title="${nota}">Parte del texto ${estado}</span>`;
 }
 
+/* Confianza del primer resultado (index/enrutador_norma.py): "alta" cuando la
+   busqueda y el modelo local coinciden en la norma (86% de acierto en dev,
+   21-nov-2026); "media" cuando el modelo la subio desde mas abajo (36%: no
+   se presenta como LA norma). "baja" no se pinta. Nunca dice "es la norma":
+   la medida no llega a tanto. */
+function selloConfianza(c) {
+  if (c === 'alta') {
+    return `<span class="confianza alta" title="La búsqueda y el modelo coinciden en esta norma">Muy probablemente la norma que regula tu caso</span>`;
+  }
+  if (c === 'media') {
+    return `<span class="confianza media" title="Revisa también los demás resultados">Posible norma aplicable — revisa las demás</span>`;
+  }
+  return '';
+}
+
 function resaltar(texto, consulta) {
   const palabras = consulta.trim().split(/\s+/).filter(p => p.length > 2).map(p =>
     p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
@@ -830,6 +848,7 @@ async function buscar() {
         <div class="meta">
           <span class="puntaje">Relevancia ${r.puntaje}</span>
           ${selloVigencia(r.vigencia)}
+          ${selloConfianza(r.confianza)}
         </div>
         <div class="fragmento-preview">${htmlPreview}${tieneExtension ? ' […]' : ''}</div>
         ${tieneExtension ? `
