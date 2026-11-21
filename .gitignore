@@ -57,3 +57,9 @@ index/catalogo_citas.json
 finetune/destilar/pools.json
 data/ocr_corte_suprema/
 finetune/eval/reordenador_cpu/pools_*.json
+
+# doc2query: lo regenerable no se versiona. fragmentos.jsonl sale de
+# seleccionar.py en segundos; el .npz, de `python -m index.preguntas construir`.
+# preguntas.jsonl SI (cuesta horas de GPU generarlo).
+finetune/doc2query/fragmentos.jsonl
+index/preguntas_sinteticas.npz

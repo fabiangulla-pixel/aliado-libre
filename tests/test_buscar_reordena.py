@@ -124,3 +124,41 @@ def test_el_cliente_remoto_no_reordena_por_su_cuenta():
     usuario. Quien decide allí es el servidor."""
     fuente = (RAIZ / "index" / "cliente_remoto.py").read_text(encoding="utf-8")
     assert "reordenar" not in fuente
+
+
+def test_modo_fusion_pide_profundo_y_no_reordena(indice, monkeypatch):
+    """ALIADO_MODO_ORDEN=fusion: la fusión es profunda (CANDIDATOS_FUSION por
+    lista) y el cross-encoder no interviene. Con la fusión de 3*k, la de
+    siempre sin reordenar, la tercera lista (preguntas sintéticas) apenas
+    entraba: el orden medido el 21-nov sale de 600 candidatos."""
+    globales = type(indice).buscar.__globals__
+    monkeypatch.setitem(globales, "MODO_ORDEN", "fusion")
+    monkeypatch.setattr(R, "reordenar", lambda *a, **k: pytest.fail("en modo fusion no se reordena"))
+
+    salida = indice.buscar("me echaron del trabajo", k=5)
+
+    assert indice.pedidos == [(globales["CANDIDATOS_FUSION"], None)]
+    assert [r["id"] for r in salida] == ["f0", "f1", "f2", "f3", "f4"]
+
+
+def test_modo_fusion_respeta_el_filtro_de_fuentes(indice, monkeypatch):
+    """Con fuentes acotadas no hay lista de preguntas: se usa el camino de siempre."""
+    globales = type(indice).buscar.__globals__
+    monkeypatch.setitem(globales, "MODO_ORDEN", "fusion")
+    monkeypatch.setattr(R, "activo", lambda: False)
+
+    indice.buscar("tutela", k=3, fuentes=["sic"])
+    assert indice.pedidos == [(3, ["sic"])]
+
+
+def test_modo_fusion_con_enrutador_marca_la_confianza(indice, monkeypatch):
+    from index import enrutador_norma as E
+
+    globales = type(indice).buscar.__globals__
+    monkeypatch.setitem(globales, "MODO_ORDEN", "fusion")
+    monkeypatch.setattr(E, "activo", lambda: True)
+    monkeypatch.setattr(E, "norma_sugerida", lambda consulta: None)
+
+    salida = indice.buscar("me echaron del trabajo", k=3)
+    assert salida[0]["confianza"] == "baja"
+    assert "confianza" not in salida[1]

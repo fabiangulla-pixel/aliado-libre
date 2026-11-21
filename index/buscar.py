@@ -200,6 +200,11 @@ def un_fragmento_por_documento(resultados: list[dict]) -> list[dict]:
 # perdidos) ni en prueba (banco_prueba_200: 32,5% -> 32,5%). Ver
 # _run/exp_diversidad.py. No se aplica si el usuario filtra por fuente.
 FUENTES_JUDICIALES = frozenset({"corte_suprema", "corte_constitucional", "consejo_estado"})
+# "reordenador" (defecto: cross-encoder si hay GPU) o "fusion" (fusión
+# profunda de vectorial + FTS5 + preguntas sintéticas, sin cross-encoder).
+MODO_ORDEN = os.environ.get("ALIADO_MODO_ORDEN", "reordenador").strip().lower()
+CANDIDATOS_FUSION = int(os.environ.get("ALIADO_CANDIDATOS_FUSION", "600"))
+
 PROPORCION_SENTENCIAS = float(os.environ.get("ALIADO_PROPORCION_SENTENCIAS", "0.4"))
 
 
@@ -287,6 +292,25 @@ class IndiceBusqueda:
         # Cada resultado sale con su `vigencia` (ver index/vigencia.py): la nota
         # oficial de derogación o inexequibilidad pasa de texto que el modelo
         # tenía que notar a dato que la GUI, el MCP y el enrutador leen.
+        if MODO_ORDEN == "fusion" and not fuentes:
+            # Fusión PROFUNDA sin cross-encoder. Medido el 21-nov-2026 en dev
+            # (piloto, 95): con las preguntas sintéticas como tercera lista, el
+            # orden de la fusión pone la norma correcta primera más veces que
+            # bge o Qwen3-Reranker, que suben conceptos que "hablan del tema"
+            # por encima de la norma que lo regula.
+            from index import enrutador_norma
+
+            crudos = self._buscar_crudo(consulta, k=CANDIDATOS_FUSION)
+            documentos = un_fragmento_por_documento(crudos)
+            confianza = None
+            if enrutador_norma.activo():
+                documentos, confianza = enrutador_norma.promover(
+                    documentos, enrutador_norma.norma_sugerida(consulta)
+                )
+            salida = limitar_sentencias(documentos, k)
+            if confianza and salida:
+                salida[0] = {**salida[0], "confianza": confianza}
+            return anotar(salida)
         if not activo():
             return anotar(self._buscar_crudo(consulta, k=k, fuentes=fuentes))
 
@@ -364,11 +388,21 @@ class IndiceBusqueda:
                     prefijos = tuple(f"{f}:" for f in fuentes)
                     ids_fts = [i for i in ids_fts if i.startswith(prefijos)][: k * 3]
 
+        # Tercera lista: preguntas coloquiales sintéticas (index/preguntas.py).
+        # Apagada por defecto; no se usa al filtrar por fuente.
+        ids_preguntas: list[str] = []
+        if not fuentes:
+            from index.preguntas import PESO_PREGUNTAS, lista_preguntas
+
+            ids_preguntas = lista_preguntas(embedding_consulta[0], n_candidatos)
+
         rango_reciproco: dict[str, float] = {}
         for rango, doc_id in enumerate(ids_vectorial):
             rango_reciproco[doc_id] = rango_reciproco.get(doc_id, 0) + PESO_VECTORIAL / (K_RRF + rango)
         for rango, doc_id in enumerate(ids_fts):
             rango_reciproco[doc_id] = rango_reciproco.get(doc_id, 0) + PESO_BM25 / (K_RRF + rango)
+        for rango, doc_id in enumerate(ids_preguntas):
+            rango_reciproco[doc_id] = rango_reciproco.get(doc_id, 0) + PESO_PREGUNTAS / (K_RRF + rango)
 
         mejores = sorted(rango_reciproco.items(), key=lambda x: x[1], reverse=True)[:k]
         if not mejores:

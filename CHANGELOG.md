@@ -1,5 +1,89 @@
 # Changelog
 
+## 2026-11-20/21 — Precisión con preguntas coloquiales: la norma correcta en el puesto 1
+
+Meta de Fabián (21-nov): la norma correcta PRIMERA en 9 de cada 10 preguntas
+coloquiales. Todo medido en dev (banco_piloto_100, 95 casos); banco_prueba_200
+sin tocar hasta la verificación única (D-06). Todo lo desplegable es local.
+
+### Métrica (finetune/eval/acierto.py, index/normas.py)
+- Tres medidas: exacta, equivalente (la misma norma en otra fuente) y
+  **norma correcta en el puesto 1** (la meta).
+- Los códigos se reconocen por su nombre ("Código de Comercio, art. 1058" =
+  Decreto 410 de 1971): las respuestas de referencia los citan así.
+- Vale la norma del documento anclado **o** la que cita la respuesta de
+  referencia ("licencia de conducción": anclada a la Ley 33 de 1986, la
+  referencia dice Ley 769 de 2002, Código vigente).
+- Un documento ES una norma por su id o si su título EMPIEZA por ella; un
+  oficio "sobre el art. 51 de la Ley 1480" no cuenta como la Ley 1480.
+- `aceptables`: documentos que una persona revisó y juzgó válidos. Hoja para
+  Fabián: finetune/eval/revision/adjudicar_piloto.csv (134 filas, 82 casos).
+  Al revisar a mano hay "fallos" que son respuestas correctas (Estatuto del
+  Consumidor para una compra por internet mal entregada).
+- Definición única en index/normas.py: el programa y la medición no divergen.
+
+### Adoptado en código (apagado por defecto, se enciende por variable)
+- **Preguntas sintéticas (doc2query)** como tercera lista de la fusión
+  (`ALIADO_PESO_PREGUNTAS=1`): 16.500 preguntas coloquiales de 26 normas
+  ciudadanas generadas con gemma4:26b local. Peso 1-1.2 es meseta; con 2 se
+  desploma (las normas cubiertas empujan aunque el tema sea otro); un umbral
+  de similitud (`ALIADO_UMBRAL_PREGUNTAS`) no lo arregla.
+- **Fusión profunda sin cross-encoder** (`ALIADO_MODO_ORDEN=fusion`, 600
+  candidatos por lista). Sin reordenador la búsqueda pedía 3*k = 15: la
+  tercera lista apenas entraba.
+- **Enrutador de norma** (index/enrutador_norma.py, `ALIADO_LLM_NORMA`): un
+  LLM local nombra la norma que regula el caso; si ya está entre los
+  candidatos, pasa al puesto 1. Nunca inyecta lo que la búsqueda no trajo
+  (medido: en esos casos el LLM acierta 1 de 12). Marca la confianza del
+  primer resultado: "alta" si coinciden LLM y búsqueda (86% de acierto en
+  dev), "media" si la subió, "baja" si no hay coincidencia.
+
+| Ruta real, dev (95) | norma #1 | @5 equivalente |
+|---|---|---|
+| desplegado (bge, sin preguntas) | ~19% | 34.7% |
+| fusión + preguntas | 31.6% | 51.6% |
+| fusión + preguntas + enrutador gemma4:26b | **44.2%** | **58.9%** |
+
+Fusión+preguntas vs sin preguntas: @5 gana 13, pierde 0 (McNemar p<0.001).
+Enrutador vs sin él: #1 gana 17, pierde 5 (p=0.017).
+
+### Descartado (D-09: queda el script, no el cableado)
+- Qwen3-Reranker-4B: mejor top-5 que bge (+9 puntos en pool de 60) pero
+  baja el puesto 1: sube conceptos que "hablan del tema" sobre la norma que
+  lo regula. Qwen3-Reranker-0.6B y mMiniLM, peores que bge.
+- Cascadas bge→Qwen, mezclas de rangos, MaxP (3 fragmentos por documento):
+  ninguna supera a la fusión en el puesto 1.
+- Pool de 120/200 documentos para bge: pierde 1-2 casos.
+- Enrutador por fuente (regresión logística): precisión inútil.
+- Votación por norma sobre las preguntas sintéticas: 77% en #1 en los casos
+  cubiertos, pero fuera de ellos vota igual por una cubierta (20% global).
+- HyDE / Query2Doc con gemma4:26b: buscar con el pasaje hipotético BAJA el
+  puesto 1 de 31.6% a 16-17% (p<0.01). Lo útil del pasaje era la norma que
+  nombra: de ahí el enrutador.
+- Juez final con gemma sobre el top-10: baja el #1 de 31.6% a 27.4%.
+- Enrutador con modelos chicos en CPU (para un servidor sin GPU): gemma3:4b
+  inventa normas ("Ley 100 de 2004 (Estatuto del Consumidor)") y deja el #1
+  en 27.4% (peor que sin enrutador); qwen3:4b razona aunque se le pida que no
+  (`think:false` y `/no_think` ignorados en esta versión de Ollama) y no
+  produce respuesta en 40 tokens. **El enrutador necesita gemma4:26b en GPU.**
+
+### En curso
+- Generación ampliada de preguntas: 50 normas más (laboral, familia,
+  pensiones, salud, educación, penal, tránsito, Tributario, Comercio, CGP),
+  10.711 fragmentos; normas cortas primero.
+
+## 2026-11-17/20 — OCR terminado, etapa 3 indexada, Consejo de Estado aplazado
+
+- OCR de la Corte Suprema terminado el 19-nov: 17.647 sentencias
+  (`scripts/ocr_cs_integrar.py` → `data/raw/corte_suprema_ocr.json`), 260 sin
+  archivo en el servidor. El reinicio cada 3 h mantuvo ~1,8 pág/s por proceso.
+- Etapa 3 indexada: 242.298 documentos, 3.296.273 fragmentos. Recall@5 31,5%
+  (etapa 2: 32,5%; 2 casos sobre 200, no se detecta diferencia). Corte Suprema
+  6% del top-5 con el tope del 40%.
+- Consejo de Estado NO indexado: el primer intento lo incluía y daba 7,1 M
+  fragmentos y 37 GB de RAM solo en la carga; se paró antes de escribir en el
+  índice. Queda pendiente decidir un subconjunto.
+
 ## 2026-11-14/15 — Fuentes destapadas, etapa 2 indexada, OCR de la Corte Suprema, tope de sentencias
 
 ### Corpus

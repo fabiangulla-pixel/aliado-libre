@@ -1,6 +1,6 @@
 # NEXT_STEPS — Aliado Libre
 
-Estado al 15-nov-2026. El cruce con el documento de recomendaciones externas
+Estado al 21-nov-2026. El cruce con el documento de recomendaciones externas
 está en `docs/RECOMENDACIONES_TRIAGE.md` (histórico, 29-sep).
 
 ## Bloqueado en Fabián
@@ -18,6 +18,48 @@ está en `docs/RECOMENDACIONES_TRIAGE.md` (histórico, 29-sep).
 5. Enlace de aporte (`ALIADO_ENLACE_PAGO`), prueba desde el celular con datos
    móviles y pasar el índice de Hugging Face a acceso con registro.
 6. CSV del Planificador de Palabras Clave de Google Ads (1.276 consultas).
+7. **Adjudicar respuestas válidas** (`finetune/eval/revision/adjudicar_piloto.csv`,
+   134 filas): marcar "si/no" en *sirve*. El banco anota UNA respuesta por
+   pregunta y hay "fallos" que son respuestas correctas; sin esto no se sabe
+   cuánto de la distancia a la meta (90% en el puesto 1) es error del sistema.
+8. **~20 preguntas reales** (de personas, no de IA): las preguntas del banco y
+   las sintéticas las escribió una IA y pueden parecerse de más.
+9. **Servidor**: el enrutador de norma necesita un LLM local (gemma4:26b en
+   GPU). ¿El servidor público tendrá GPU? Si no, ver el resultado de los
+   modelos chicos en CPU (qwen3:4b, gemma3:4b).
+
+## Meta de precisión (21-nov)
+
+La norma correcta en el puesto 1 en 9 de cada 10 preguntas coloquiales. Hoy,
+ruta real, dev: **44,2%** en el puesto 1, 58,9% en el top-5 (desplegado: ~19% y
+34,7%). Ver CHANGELOG 2026-11-20/21. Siguiente:
+
+1. Terminar la generación ampliada de preguntas (`_run/cadena_v3.ps1`,
+   `finetune/doc2query/generar.py`, reanudable), `python -m index.preguntas
+   construir` y remedir (`finetune/medir_dev.py`).
+2. Afinar e5 con las preguntas sintéticas (BSARD: el denso afinado gana).
+3. Confianza: afirmar solo con "alta" (86% en dev) y mostrar opciones si no.
+   Necesita la GUI.
+4. Verificación ÚNICA en banco_prueba_200 de la configuración final:
+   `ALIADO_MODO_ORDEN=fusion ALIADO_PESO_PREGUNTAS=1 ALIADO_LLM_NORMA=gemma4:26b`,
+   con la máquina quieta (D-07), y entonces cambiar los defectos.
+
+## Estado al 20-nov
+
+- **Etapa 3 indexada (19-nov)**: etapa 2 + las sentencias de la Corte Suprema
+  por OCR (`data/raw/corte_suprema_ocr.json`, 17.647; 260 sin archivo en el
+  servidor). 242.298 documentos, **3.296.273 fragmentos**. Recall@5 en el
+  banco de 200: **31,5%** (etapa 2: 32,5%; 2 casos, no se detecta diferencia).
+  Corte Suprema: 6% del top-5. Se indexó desde `_run/raw_etapa3` (enlaces
+  duros a `data/raw` **sin** `consejo_estado.json`).
+- **Consejo de Estado aplazado (19-nov)**: con él, el corpus daba 7,1 M
+  fragmentos (×2,2), 37 GB de RAM solo para cargar, índice >100 GB y ~30 GB de
+  RAM para servir los vectores: descarta el servidor sin GPU y aprieta el PC.
+  Propuesta: indexar un subconjunto (unificación + Sala de Consulta, o los
+  últimos 10 años). Decide Fabián.
+- OCR de la Corte Suprema **terminado** (17-nov… 19-nov 14:08); la tarea
+  AliadoLibre-OCR ya no hace nada (`_terminado`), se puede quitar con
+  `scripts/ocr_cs_tarea.ps1 -Quitar`.
 
 ## Estado al 15-nov
 

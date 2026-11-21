@@ -44,8 +44,12 @@ VARIANTES = {
 }
 
 
-def pools() -> None:
-    """Candidatos fijos por consulta: búsqueda híbrida + un fragmento por documento."""
+def pools(tam: int = 60, bancos: tuple[str, ...] = ("piloto", "prueba"), maxp: int = 1) -> None:
+    """Candidatos fijos por consulta: búsqueda híbrida + `tam` documentos.
+
+    maxp > 1: hasta `maxp` fragmentos por documento (MaxP: el documento vale
+    lo que su mejor fragmento; con uno solo, el articulo equivocado de la ley
+    correcta la hunde)."""
     os.environ["ALIADO_RERANKER_ACTIVO"] = "0"
     from index.buscar import IndiceBusqueda, un_fragmento_por_documento
     from index.reordenar import CANDIDATOS
@@ -53,6 +57,8 @@ def pools() -> None:
     ix = IndiceBusqueda()
     SALIDA.mkdir(parents=True, exist_ok=True)
     for nombre, archivo in BANCOS.items():
+        if nombre not in bancos:
+            continue
         casos = [
             c
             for c in json.loads((RAIZ / "finetune" / "eval" / archivo).read_text(encoding="utf-8"))
@@ -60,7 +66,16 @@ def pools() -> None:
         ]
         filas = []
         for c in casos:
-            pool = un_fragmento_por_documento(ix._buscar_crudo(c["consulta"], k=CANDIDATOS))[:60]
+            crudo = ix._buscar_crudo(c["consulta"], k=max(CANDIDATOS, 4 * tam * maxp))
+            pool = un_fragmento_por_documento(crudo)[:tam]
+            if maxp > 1:
+                docs, cuenta = {r["documento_id"] for r in pool}, {}
+                pool = []
+                for r in crudo:
+                    d = r["documento_id"]
+                    if d in docs and cuenta.get(d, 0) < maxp:
+                        cuenta[d] = cuenta.get(d, 0) + 1
+                        pool.append(r)
             filas.append(
                 {
                     "consulta": c["consulta"],
@@ -76,7 +91,10 @@ def pools() -> None:
                     ],
                 }
             )
-        (SALIDA / f"pools_{nombre}.json").write_text(json.dumps(filas, ensure_ascii=False), encoding="utf-8")
+        sufijo = (str(tam) if tam != 60 else "") + (f"m{maxp}" if maxp > 1 else "")
+        (SALIDA / f"pools_{nombre}{sufijo}.json").write_text(
+            json.dumps(filas, ensure_ascii=False), encoding="utf-8"
+        )
         print(f"{nombre}: {len(filas)} consultas", flush=True)
 
 
@@ -136,6 +154,10 @@ def medir(banco: str, nombres: list[str]) -> None:
 
 if __name__ == "__main__":
     if sys.argv[1] == "pools":
-        pools()
+        # pools <tam> [maxp] <bancos...>
+        args = sys.argv[2:]
+        tam = int(args.pop(0)) if args else 60
+        maxp = int(args.pop(0)) if args and args[0].isdigit() else 1
+        pools(tam, tuple(args) or ("piloto", "prueba"), maxp)
     else:
         medir(sys.argv[2], sys.argv[3:])
