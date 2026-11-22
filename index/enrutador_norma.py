@@ -9,11 +9,15 @@ la busqueda no encontro seria inventar.
 
 Tambien da la CONFIANZA del primer resultado, para que quien muestre la
 respuesta decida si afirmarla o presentar opciones:
-  "alta"  el LLM y la busqueda coinciden en el puesto 1 (86% de acierto en dev)
+  "alta"  el LLM y la busqueda coinciden en el puesto 1 (dev: 86% el 21-nov,
+          73% estricta el 22-nov; prueba_200: 2/25 estricta, casi todo temas
+          cuya respuesta anotada es un oficio y no la ley general que nombra
+          el LLM; pendiente de adjudicacion humana)
   "media" la norma del LLM estaba mas abajo y se subio
   "baja"  el LLM no nombro norma o no estaba entre los candidatos
 
-Apagado por defecto. ALIADO_LLM_NORMA=<modelo de Ollama> lo enciende;
+Apagado por defecto: la verificacion en prueba_200 (22-nov) no confirmo la
+mejora de dev (12,0% #1 frente a 17,5% desplegado). ALIADO_LLM_NORMA=<modelo de Ollama> lo enciende;
 ALIADO_LLM_URL (defecto http://localhost:11434/api/chat) debe ser LOCAL: la
 consulta no sale del equipo y Ollama no la guarda. Si el LLM no responde a
 tiempo, la busqueda sigue igual (confianza "baja").
@@ -61,6 +65,31 @@ def norma_sugerida(consulta: str) -> Norma | None:
     except (OSError, ValueError, KeyError):
         return None  # una mejora opcional no puede tumbar la busqueda
     return norma(texto)
+
+
+def afirmacion(resultados: list[dict]) -> dict | None:
+    """Que decir del primer resultado, para quien muestra la respuesta.
+
+    Politica (22-nov-2026): se AFIRMA una norma solo cuando la medida dice que
+    acierta al menos 9 de cada 10 veces (confianza "alta"). En el resto se
+    presentan opciones, sin nombrar ninguna como la norma del caso: equivocarse
+    con aplomo es peor que pedir que se revisen tres resultados.
+
+    None si el enrutador no corrio (no hay confianza que reportar).
+    """
+    if not resultados:
+        return None
+    marcados = [r for r in resultados if r.get("confianza")]
+    if not marcados:
+        return None
+    r = marcados[0]
+    if r["confianza"] == "alta":
+        return {
+            "tipo": "afirma",
+            "documento": r.get("identificador_documento"),
+            "titulo": r.get("titulo_documento"),
+        }
+    return {"tipo": "opciones", "documento": None, "titulo": None}
 
 
 def promover(documentos: list[dict], sugerida: Norma | None) -> tuple[list[dict], str]:

@@ -65,6 +65,20 @@ def buscar_normativa(consulta: str, max_resultados: int = 5) -> str:
         return "Sin resultados en el índice actual para esta consulta."
 
     partes = []
+    # Misma politica que la GUI: nombrar UNA norma solo con confianza alta.
+    from index.enrutador_norma import afirmacion
+
+    af = afirmacion(resultados)
+    if af and af["tipo"] == "afirma":
+        partes.append(
+            f"CONFIANZA ALTA: la busqueda y el modelo local coinciden en que la norma del caso es "
+            f"{af['titulo'] or af['documento']}. Aun asi, cita el articulo concreto."
+        )
+    elif af:
+        partes.append(
+            "CONFIANZA BAJA sobre cual norma aplica: presenta los resultados como opciones, "
+            "no afirmes que una sola regula el caso."
+        )
     for r in resultados:
         partes.append(
             f"### {r.get('titulo_documento')}\n"

@@ -49,3 +49,28 @@ def test_apagado_por_defecto(monkeypatch):
     monkeypatch.setattr(E, "MODELO", "")
     assert not E.activo()
     assert E.norma_sugerida("me echaron del trabajo") is None
+
+
+def test_afirma_solo_con_confianza_alta():
+    alta = [{**DOCS[2], "confianza": "alta", "identificador_documento": "LEY-1480-2011"}] + DOCS[:2]
+    af = E.afirmacion(alta)
+    assert af["tipo"] == "afirma"
+    assert af["titulo"] == "Estatuto del Consumidor"
+
+
+def test_confianza_media_o_baja_presenta_opciones_sin_nombrar_norma():
+    for conf in ("media", "baja"):
+        af = E.afirmacion([{**DOCS[0], "confianza": conf}] + DOCS[1:])
+        assert af == {"tipo": "opciones", "documento": None, "titulo": None}
+
+
+def test_sin_enrutador_no_hay_afirmacion():
+    assert E.afirmacion(DOCS) is None
+    assert E.afirmacion([]) is None
+
+
+def test_la_cita_exacta_antepuesta_no_hereda_la_afirmacion():
+    # si otra cosa pasa al puesto 1, se afirma el documento marcado, no el primero
+    marcado = {**DOCS[2], "confianza": "alta", "identificador_documento": "LEY-1480-2011"}
+    af = E.afirmacion([{"titulo_documento": "Art. 64 CST", "cita_exacta": True}, marcado])
+    assert af["documento"] == "LEY-1480-2011"

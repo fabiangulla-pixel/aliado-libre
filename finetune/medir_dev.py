@@ -58,9 +58,20 @@ def correr(etiqueta: str, banco: str = "piloto") -> None:
                 "equiv": posicion(res, c, equivalente=True),
                 "uno": posicion(res[:1], c, equivalente=True),
                 "s": round(time.time() - t, 3),
+                # para calibrar cuando AFIRMAR el primer resultado
+                "confianza": res[0].get("confianza") if res else None,
+                "puntajes": [round(r.get("puntaje") or 0.0, 5) for r in res],
+                "ids": [r.get("identificador_documento") for r in res],
             }
         )
     n = len(filas)
+    por_conf: dict = {}
+    for f in filas:
+        a = por_conf.setdefault(f["confianza"], [0, 0])
+        a[0] += 1
+        a[1] += f["uno"] is not None
+    for conf, (tot, ok) in sorted(por_conf.items(), key=lambda x: str(x[0])):
+        print(f"  confianza {conf}: {ok}/{tot} con la norma correcta #1 ({ok / tot * 100:.0f}%)")
     ex = sum(f["exacto"] is not None for f in filas)
     eq = sum(f["equiv"] is not None for f in filas)
     uno = sum(f["uno"] is not None for f in filas)

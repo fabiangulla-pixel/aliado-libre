@@ -1,5 +1,61 @@
 # Changelog
 
+## 2026-11-22 — Verificación única en prueba: la mejora de dev NO se confirma
+
+**Resultado principal, negativo.** La configuración elegida en dev (fusión
+profunda + preguntas sintéticas ampliadas + enrutador de norma con gemma4:26b)
+se midió UNA vez en banco_prueba_200, en la misma máquina y quieta, contra lo
+desplegado:
+
+| prueba_200 | desplegado | fusión + gemma |
+|---|---|---|
+| norma correcta #1 | 17,5% | 12,0% (gana 9, pierde 20, p=0,061) |
+| recall@5 exacto | 31,5% | 25,5% (p=0,036) |
+| equivalente @5 | 33,0% | 27,0% (gana 10, pierde 22, p=0,050) |
+| confianza "alta" | — | 2/25 en el puesto 1 (estricta) |
+
+En dev (piloto, 95) la misma configuración daba 44,2% #1 y 60,0% @5 frente a
+~19% y 34,7%. **No se cambian los defectos** (D-06): `ALIADO_MODO_ORDEN`,
+`ALIADO_PESO_PREGUNTAS` y `ALIADO_LLM_NORMA` siguen apagados.
+
+Por qué, hasta donde se ve (sin ajustar nada sobre prueba):
+- prueba_200 son **24 temas x 8 redacciones** (muestra efectiva ~24), y en 112
+  de 200 la respuesta anotada es un documento concreto (oficio de
+  Supersociedades, resolución DIAN, sentencia), no una norma. Varios temas son
+  administrativos y estrechos (planta de personal del Decreto 947/1982,
+  ministro de la Economía Nacional en 1943, condecoraciones).
+- El enrutador nombra la LEY GENERAL y empuja abajo el decreto u oficio
+  específico — el mismo patrón de fallo ya visto en dev. En prueba pesa más.
+  Aun en los 88 casos cuya respuesta es una norma, queda por debajo (23,9% vs
+  29,5% #1).
+- 21 de los 23 "fallos" con confianza alta son 3-4 temas repetidos; varios
+  parecen la norma que de verdad regula el caso (Ley 1116 de 2006 para
+  "reorganizar la empresa"; Estatuto Tributario para recurrir un acto de la
+  DIAN). Eso lo decide una persona: `finetune/eval/revision/adjudicar_prueba_afirmaciones.csv`
+  (10 pares tema→norma).
+
+### Hecho
+- **Generación ampliada terminada**: 53.814 preguntas sintéticas de 8.969
+  fragmentos (antes 16.500). En dev sin enrutador: @5 51,6% → 55,8% (gana 5,
+  pierde 1, p=0,22); #1 31,6% → 28,4% (p=0,58). Con enrutador, igual que antes.
+- **Política de afirmar** (recomendación aceptada por Fabián): se nombra UNA
+  norma solo con confianza "alta"; si no, "hay varias normas posibles".
+  `enrutador_norma.afirmacion()`, campo `afirmacion` en `/buscar` (nunca si la
+  decisión es abstenerse), aviso en la GUI (claro y oscuro) y en el MCP. Solo
+  actúa con el enrutador encendido: el comportamiento desplegado no cambia.
+- **Bug corregido** en `index/enrutador.decidir`: con el enrutador, la norma
+  promovida al #1 trae menos puntaje RRF y 42/95 consultas de dev pasaban a
+  "coincidencia débil" (sin él, 3). Ahora, si corrió el enrutador, decide con
+  el mejor puntaje del conjunto; sin él, nada cambia (el reordenador tampoco
+  ordena por RRF y su abstención no se toca sin medirla).
+- `finetune/medir_dev.py` guarda confianza, puntajes e ids por caso e imprime
+  el acierto por confianza. `finetune/precision_afirmacion.py`: precisión de
+  las afirmaciones, estricta y con la adjudicación humana.
+- `adjudicar_piloto.csv`: +4 filas (afirmaciones de confianza alta sin
+  adjudicar), 138.
+- En dev, confianza alta con el índice ampliado: 16/22 (73%) estricta; los 6
+  fallos parecen respuestas válidas, pendiente de adjudicar.
+
 ## 2026-11-20/21 — Precisión con preguntas coloquiales: la norma correcta en el puesto 1
 
 Meta de Fabián (21-nov): la norma correcta PRIMERA en 9 de cada 10 preguntas

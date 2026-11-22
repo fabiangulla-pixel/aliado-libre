@@ -1,6 +1,6 @@
 # NEXT_STEPS — Aliado Libre
 
-Estado al 21-nov-2026. El cruce con el documento de recomendaciones externas
+Estado al 22-nov-2026. El cruce con el documento de recomendaciones externas
 está en `docs/RECOMENDACIONES_TRIAGE.md` (histórico, 29-sep).
 
 ## Bloqueado en Fabián
@@ -19,7 +19,7 @@ está en `docs/RECOMENDACIONES_TRIAGE.md` (histórico, 29-sep).
    móviles y pasar el índice de Hugging Face a acceso con registro.
 6. CSV del Planificador de Palabras Clave de Google Ads (1.276 consultas).
 7. **Adjudicar respuestas válidas** (`finetune/eval/revision/adjudicar_piloto.csv`,
-   134 filas): marcar "si/no" en *sirve*. El banco anota UNA respuesta por
+   138 filas, y `adjudicar_prueba_afirmaciones.csv`, 10 pares): marcar "si/no" en *sirve*. El banco anota UNA respuesta por
    pregunta y hay "fallos" que son respuestas correctas; sin esto no se sabe
    cuánto de la distancia a la meta (90% en el puesto 1) es error del sistema.
 8. **~20 preguntas reales** (de personas, no de IA): las preguntas del banco y
@@ -28,31 +28,30 @@ está en `docs/RECOMENDACIONES_TRIAGE.md` (histórico, 29-sep).
    GPU). ¿El servidor público tendrá GPU? Si no, ver el resultado de los
    modelos chicos en CPU (qwen3:4b, gemma3:4b).
 
-## Meta de precisión (21-nov)
+## Meta de precisión (actualizado 22-nov)
 
-La norma correcta en el puesto 1 en 9 de cada 10 preguntas coloquiales. Hoy,
-ruta real, dev: **44,2%** en el puesto 1, 58,9% en el top-5 (desplegado: ~19% y
-34,7%). Con confianza "alta" (LLM y búsqueda coinciden) acierta 19 de 23 en
-dev, y los 4 "fallos" parecen respuestas válidas que el banco no acepta (Ley
-1480 para reversión del pago; Código Civil para retroventa y para divorcio de
-matrimonio religioso; el decreto único de salud para repatriados). Si la
-adjudicación de Fabián lo confirma, al afirmar se cumple la meta del 90%; lo
-que falta es COBERTURA (hoy afirma en 1 de cada 4 preguntas). Siguiente:
+Meta: la norma correcta en el puesto 1 en 9 de cada 10 preguntas coloquiales.
+Acordado con Fabián el 22-nov: **afirmar una norma solo cuando acierta >= 9 de
+10, y presentar opciones en el resto** (implementado, ver CHANGELOG 22-nov).
 
-1. Terminar la generación ampliada de preguntas (`_run/cadena_v3.ps1`,
-   `finetune/doc2query/generar.py`, reanudable), `python -m index.preguntas
-   construir` y remedir (`finetune/medir_dev.py`).
-2. Afinar e5 con las preguntas sintéticas (BSARD: el denso afinado gana).
-3. Confianza: afirmar solo con "alta" (86% en dev) y mostrar opciones si no.
-   Necesita la GUI.
-4. Recalibrar `index/enrutador.py` (UMBRAL_ABSTENCION, UMBRAL_PUNTAJE,
-   VENTAJA_MINIMA) para el modo fusión: se calibraron con DOS listas en el RRF
-   y el modo fusión usa tres, más la norma promovida al puesto 1 (que puede
-   tener menos puntaje que el segundo). La GUI ya pinta la confianza del
-   primer resultado (`selloConfianza`); "alta" podría pasar a decidir "local".
-5. Verificación ÚNICA en banco_prueba_200 de la configuración final:
-   `ALIADO_MODO_ORDEN=fusion ALIADO_PESO_PREGUNTAS=1 ALIADO_LLM_NORMA=gemma4:26b`,
-   con la máquina quieta (D-07), y entonces cambiar los defectos.
+**La verificación única en prueba_200 NO confirmó la mejora de dev**: fusión +
+gemma 12,0% #1 frente a 17,5% de lo desplegado; confianza alta 2/25 estricta.
+Los defectos no cambian. banco_prueba_200 ya se miró: **no se puede volver a
+usar para elegir**. Siguiente, en orden:
+
+1. **Fabián adjudica** `adjudicar_prueba_afirmaciones.csv` (10 pares, ~20 min)
+   y `adjudicar_piloto.csv`. Con eso, `python finetune/precision_afirmacion.py
+   fusion_enr prueba` dice si la confianza alta cumple el 90% de verdad.
+2. **Un banco de prueba nuevo** de preguntas ciudadanas, apartado antes de
+   mirar nada: idealmente las ~20 preguntas reales de personas (ítem 8) más
+   un banco generado con el mismo método que piloto. Si se genera con API de
+   pago: estimar costo y confirmar antes.
+3. Atacar el fallo medido en los dos bancos: el enrutador nombra la ley
+   general en vez del decreto u oficio específico. Ideas: no promover cuando
+   el documento del #1 original es un decreto reglamentario de la misma
+   materia; pedir al LLM la norma "más específica". Medir en dev, verificar
+   en el banco nuevo.
+4. Afinar e5 con las preguntas sintéticas (BSARD: el denso afinado gana).
 
 ## Estado al 20-nov
 

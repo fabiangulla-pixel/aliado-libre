@@ -65,7 +65,15 @@ def decidir(resultados: list[dict], hay_clave_externa: bool = False) -> Decision
     if not resultados:
         return Decision("abstenerse", "La búsqueda no encontró nada en el índice.")
 
+    # Si corrio el enrutador de norma (index/enrutador_norma.py), ordenados por
+    # puntaje y no por posicion: sube al puesto 1 un documento con menos
+    # puntaje RRF, y con el del primero 42 de 95 consultas de dev pasaban a
+    # "coincidencia debil" (sin el enrutador, 3). Solo entonces: el modo
+    # desplegado (reordenador) tampoco ordena por RRF, y cambiarle la
+    # abstencion sin medirla no se justifica (22-nov-2026).
     puntajes = _puntajes(resultados)
+    if any(r.get("confianza") for r in resultados):
+        puntajes = sorted(puntajes, reverse=True)
     mejor = puntajes[0]
     segundo = puntajes[1] if len(puntajes) > 1 else 0.0
 

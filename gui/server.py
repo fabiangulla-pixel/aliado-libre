@@ -355,6 +355,14 @@ class Handler(BaseHTTPRequestHandler):
             if decision.responde
             else ("condicional" if decision.puede_redactar else "ninguno"),
         }
+        # Afirmar una norma solo con confianza alta (index/enrutador_norma.py).
+        # Sin respaldo no se afirma nada, coincida el modelo o no.
+        from index.enrutador_norma import afirmacion
+
+        af = afirmacion(resultados)
+        if af and af["tipo"] == "afirma" and decision.motor == "abstenerse":
+            af = {"tipo": "opciones", "documento": None, "titulo": None}
+        salida["afirmacion"] = af
         if quiere_respuesta and not decision.puede_redactar:
             # Redactar sobre fragmentos que no responden es la forma más cara de
             # inventar cobertura: sale una respuesta con aspecto de buena.

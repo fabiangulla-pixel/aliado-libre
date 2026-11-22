@@ -230,6 +230,14 @@
   .confianza { margin-left: 0.6rem; padding: 0.1rem 0.5rem; border-radius: 4px; font-size: 0.8rem; font-weight: 600; }
   .confianza.alta { background: #1e6b3a; color: #fff; }
   .confianza.media { background: #e8eef7; color: #1c3d6e; }
+  .afirmacion { margin: 0 0 1rem; padding: 0.8rem 1rem; border-radius: 6px; border-left: 4px solid; }
+  .afirmacion p { margin: 0.3rem 0; }
+  .afirmacion.alta { background: #e9f5ee; border-color: #1e6b3a; color: #123d22; }
+  .afirmacion.opciones { background: #f3f5f8; border-color: #8a97a8; color: #2b3440; }
+  @media (prefers-color-scheme: dark) {
+    .afirmacion.alta { background: #16301f; border-color: #3fa065; color: #d6efdf; }
+    .afirmacion.opciones { background: var(--panel); border-color: var(--borde); color: var(--texto); }
+  }
   .aviso-cobertura {
     background: var(--panel);
     border: 1px solid var(--dorado);
@@ -715,8 +723,8 @@ function selloVigencia(v) {
 }
 
 /* Confianza del primer resultado (index/enrutador_norma.py): "alta" cuando la
-   busqueda y el modelo local coinciden en la norma (86% de acierto en dev,
-   21-nov-2026); "media" cuando el modelo la subio desde mas abajo (36%: no
+   busqueda y el modelo local coinciden en la norma (86% en dev el 21-nov;
+   en prueba_200 no se confirmo: ver CHANGELOG 22-nov); "media" cuando el modelo la subio desde mas abajo (36%: no
    se presenta como LA norma). "baja" no se pinta. Nunca dice "es la norma":
    la medida no llega a tanto. */
 function selloConfianza(c) {
@@ -832,7 +840,28 @@ async function buscar() {
 
     const bloqueAporte = pintarAporte(datos.aviso_aporte);
 
-    contenedor.innerHTML = bloqueAporte + bloqueCobertura + bloqueRespuesta + datos.resultados.map(r => {
+    /* 22-nov-2026: se nombra UNA norma solo con confianza alta (la busqueda y
+       el modelo local coinciden; acierto medido >= 9 de 10). En los demas
+       casos se dice que hay opciones: no se adivina con aplomo. */
+    let bloqueAfirmacion = '';
+    const af = datos.afirmacion;
+    if (af && af.tipo === 'afirma' && datos.hay_respaldo !== false) {
+      bloqueAfirmacion = `
+        <div class="afirmacion alta">
+          <strong>La norma que regula tu caso es, muy probablemente:</strong>
+          <p>${escaparHtml(af.titulo || af.documento || '')}</p>
+          <small>Está marcada en verde en los resultados. Lee el artículo antes de actuar.</small>
+        </div>`;
+    } else if (af && af.tipo === 'opciones' && datos.hay_respaldo !== false) {
+      bloqueAfirmacion = `
+        <div class="afirmacion opciones">
+          <strong>Hay varias normas posibles para tu caso.</strong>
+          <p>No puedo señalar una sola con seguridad: revisa los primeros resultados
+          y quédate con la que describa tu situación.</p>
+        </div>`;
+    }
+
+    contenedor.innerHTML = bloqueAporte + bloqueCobertura + bloqueAfirmacion + bloqueRespuesta + datos.resultados.map(r => {
       const textoCompleto = r.texto || '';
       const preview = textoCompleto.slice(0, 400);
       const tieneExtension = textoCompleto.length > 400;
