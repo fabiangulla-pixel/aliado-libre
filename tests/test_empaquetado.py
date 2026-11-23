@@ -124,3 +124,12 @@ def test_el_dockerfile_hornea_el_mismo_embedding_que_usa_el_buscador():
     hallado = patron.search(buscar)
     assert hallado, "El sed del Dockerfile ya no casa con index/buscar.py"
     assert hallado.group(1) == modelo
+
+
+def test_el_spec_incluye_los_modulos_que_el_servidor_importa_tarde():
+    """gui/server.py importa index.providencias dentro de la búsqueda: si el
+    .spec no lo declara, el .exe falla en CADA búsqueda con ModuleNotFoundError."""
+    spec = (Path(__file__).resolve().parent.parent / "aliado_libre.spec").read_text(encoding="utf-8")
+    servidor_gui = (Path(__file__).resolve().parent.parent / "gui" / "server.py").read_text(encoding="utf-8")
+    assert "from index import providencias" in servidor_gui
+    assert '"index.providencias"' in spec

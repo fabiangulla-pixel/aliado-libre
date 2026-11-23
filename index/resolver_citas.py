@@ -146,10 +146,97 @@ def _fragmentos(coleccion, documento_id: str) -> list[dict]:
     return sorted(frags, key=lambda f: f.get("orden", 0))
 
 
+_RE_RADICADO_INTERNO = re.compile(
+    r"\brad(?:icado|icaci[oó]n|\.)\s*(?:n(?:[uú]mero|o|\.)?\s*[°º]?\s*\.?\s*)?:?\s*(\d{4,7})(?![\d-])", re.I
+)
+
+
+def _resolver_suprema(texto: str, coleccion, k: int) -> Resolucion | None:
+    """Providencias de la Corte Suprema por identificador (SL131-2026) o radicado.
+
+    Identificador y radicado son cosas distintas: el identificador nombra LA
+    providencia; el radicado nombra el PROCESO, que puede tener varias. None si
+    el texto no trae ninguno de los dos (sigue la resolución de normas)."""
+    from index import providencias as P
+    from index.citas import parsear_radicado
+    from index.vigencia import anotar
+
+    ref = P.parsear(texto)
+    docs: list[str] = []
+    aviso = ""
+    if ref is not None:
+        cita = Cita(tipo=ref.tipo, numero=str(ref.numero), anio=ref.anio, sentencia=ref.canonica)
+        if not P.disponible():
+            return Resolucion(
+                cita,
+                aviso="Falta el catálogo de la Corte Suprema (python -m index.providencias --construir).",
+            )
+        if not ref.completa:
+            pref = ref.canonica + "-"
+            cands = sorted(c for c in P.catalogo().get("por_canonica", {}) if c.startswith(pref))
+            if not cands:
+                return Resolucion(
+                    cita, aviso=f"«{ref.original}» no trae año y no hay ninguna {ref.canonica} en el índice."
+                )
+            if len(cands) > 1:
+                return Resolucion(
+                    cita,
+                    aviso=f"«{ref.original}» no trae año y hay {len(cands)} providencias con ese número. "
+                    "¿De qué año?",
+                    candidatos=[
+                        {"anio": c.rsplit("-", 1)[1], "documento_id": P.documentos_de(c)[0], "titulo": c}
+                        for c in cands
+                    ],
+                )
+            docs = P.documentos_de(cands[0])
+            aviso = f"«{ref.original}» no trae año; la única en el índice es {cands[0]}."
+        else:
+            docs = P.documentos_de(ref.canonica)
+            if len(docs) > 1:
+                aviso = f"Hay {len(docs)} documentos con el identificador {ref.canonica}: revisa cuál es."
+        if not docs:
+            return Resolucion(
+                cita,
+                aviso=f"La providencia {ref.canonica} no está en el índice (no quiere decir que no exista). "
+                "Puedes buscarla en Ojeador, el buscador oficial de la Corte Suprema.",
+            )
+    else:
+        rad = parsear_radicado(texto)
+        if rad and rad.corporacion == "consejo-de-estado":
+            return None  # no es de la Suprema: no se le responde con la Suprema
+        m = None if rad else _RE_RADICADO_INTERNO.search(texto)
+        if not rad and not m:
+            return None
+        if not P.disponible():
+            return None
+        buscado = rad.formateado if rad else m.group(1)
+        cita = Cita(tipo="radicado", numero=buscado)
+        docs = [d for d, f in P.catalogo().get("documentos", {}).items() if f.get("radicado") == buscado]
+        if not docs:
+            return Resolucion(
+                cita, aviso=f"No hay providencias de la Corte Suprema con el radicado {buscado} en el índice."
+            )
+        if len(docs) > 1:
+            aviso = (
+                f"El radicado {buscado} corresponde a {len(docs)} providencias del índice: "
+                "un radicado identifica el proceso, no una decisión."
+            )
+    salida: list[dict] = []
+    for d in docs[:k]:
+        salida.extend(_fragmentos(coleccion, d)[:1])
+    for f in salida:
+        f["puntaje"] = 1.0
+        f["cita_exacta"] = True
+    return Resolucion(cita, P.anotar(anotar(salida[:k])), aviso)
+
+
 def resolver(texto: str, coleccion, k: int = 5) -> Resolucion:
     """Resuelve la cita de `texto` contra el corpus. Sin cita, devuelve Resolucion(None)."""
     from index.vigencia import anotar
 
+    suprema = _resolver_suprema(texto, coleccion, k)
+    if suprema is not None:
+        return suprema
     cita = parsear_cita(texto)
     if cita is None:
         return Resolucion(None)

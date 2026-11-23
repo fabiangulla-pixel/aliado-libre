@@ -63,3 +63,20 @@ def test_verificar_vigencia_distingue_sin_nota_de_vigente(monkeypatch):
     )
     assert "DEROGADA" in srv.verificar_vigencia("dian:x:decreto_1_2000")
     assert "No prueba que esté vigente" in srv.verificar_vigencia("dian:x:otra_1_2000")
+
+
+def test_relaciones_providencia_con_catalogo_real_si_existe():
+    """Con el catálogo local construido: SL131-2026 (real) trae su ficha y sus
+    citas. Sin catálogo (CI), la herramienta lo dice en vez de fallar."""
+    from index import providencias
+
+    texto = srv.relaciones_providencia("SL131-2026")
+    if providencias.disponible():
+        assert "SL131-2026" in texto and "Cita a (" in texto and "radicado" in texto
+    else:
+        assert "Falta el catálogo" in texto
+
+
+def test_relaciones_providencia_rechaza_identificadores_incompletos():
+    assert "no reconocido" in srv.relaciones_providencia("SL131")
+    assert "no reconocido" in srv.relaciones_providencia("Ley 100 de 1993")

@@ -230,6 +230,32 @@
   .confianza { margin-left: 0.6rem; padding: 0.1rem 0.5rem; border-radius: 4px; font-size: 0.8rem; font-weight: 600; }
   .confianza.alta { background: #1e6b3a; color: #fff; }
   .confianza.media { background: #e8eef7; color: #1c3d6e; }
+  .ficha-providencia { margin: 0.6rem 0; font-size: 0.9rem; }
+  .ficha-providencia summary { cursor: pointer; color: var(--acento); }
+  .ficha-providencia dl { display: grid; grid-template-columns: max-content 1fr; gap: 0.2rem 0.8rem; margin: 0.5rem 0; }
+  .ficha-providencia dt { color: var(--texto-suave); }
+  .ficha-providencia dd { margin: 0; overflow-wrap: anywhere; }
+  .enlaces-oficiales { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+  .boton-oficial { padding: 0.3rem 0.7rem; border-radius: 4px; background: var(--acento); color: #fff; text-decoration: none; }
+  .boton-oficial.secundario { background: transparent; color: var(--acento); border: 1px solid var(--acento); }
+  .nota-enlace, .nota-filtros { font-size: 0.8rem; color: var(--texto-suave); margin: 0.3rem 0; }
+  .ver-relaciones { margin-top: 0.3rem; font-size: 0.85rem; }
+  .relaciones h4 { margin: 0.6rem 0 0.2rem; font-size: 0.9rem; }
+  .relaciones ul { margin: 0; padding-left: 1.1rem; }
+  .estado-relacion { font-size: 0.75rem; padding: 0 0.35rem; border-radius: 3px; background: var(--acento-suave); }
+  .estado-relacion.no_resuelta, .estado-relacion.ambigua { background: transparent; border: 1px dashed var(--borde); }
+  .contexto-cita { font-size: 0.85rem; margin: 0.2rem 0; overflow-wrap: anywhere; }
+  .pie-fragmento { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0.5rem; color: var(--texto-suave); margin: 0.3rem 0; }
+  .navegar-coincidencias button { padding: 0 0.4rem; }
+  mark.actual { outline: 2px solid var(--acento); }
+  .filtros-providencia { max-width: 720px; margin: -1rem auto 1.4rem; padding: 0 1.5rem; font-family: ui-sans-serif, system-ui, sans-serif; font-size: 0.85rem; color: var(--texto-suave); }
+  .aviso-cita { margin: 0 0 1rem; padding: 0.6rem 0.9rem; border-radius: 6px; background: var(--panel); border: 1px solid var(--borde); font-size: 0.9rem; }
+  .filtros-providencia summary { cursor: pointer; }
+  .filtros-fila { display: flex; flex-wrap: wrap; gap: 0.6rem; margin-top: 0.4rem; }
+  .filtros-fila input { width: 5.5rem; }
+  .nota textarea { width: 100%; font: inherit; font-size: 0.8rem; margin-top: 0.3rem; }
+  .nota select { font-size: 0.75rem; max-width: 100%; }
+  .tablero-opciones { padding: 0.3rem 0.9rem; font-size: 0.78rem; display: flex; flex-direction: column; gap: 0.3rem; }
   .afirmacion { margin: 0 0 1rem; padding: 0.8rem 1rem; border-radius: 6px; border-left: 4px solid; }
   .afirmacion p { margin: 0.3rem 0; }
   .afirmacion.alta { background: #e9f5ee; border-color: #1e6b3a; color: #123d22; }
@@ -564,6 +590,23 @@
   </label>
 </div>
 
+<details class="filtros-providencia" id="filtrosProvidencia">
+  <summary>Filtrar jurisprudencia de la Corte Suprema</summary>
+  <div class="filtros-fila">
+    <label>Sala
+      <select id="filtroSala"><option value="">Todas</option><option>Laboral</option><option>Civil</option><option>Penal</option></select>
+    </label>
+    <label>Tipo
+      <select id="filtroTipo"><option value="">Todos</option><option value="sentencia">Sentencia</option><option value="auto">Auto</option><option value="sentencia de tutela">Sentencia de tutela</option><option value="auto de tutela">Auto de tutela</option></select>
+    </label>
+    <label>Desde <input id="filtroDesde" type="number" min="1990" max="2100" inputmode="numeric" placeholder="año"></label>
+    <label>Hasta <input id="filtroHasta" type="number" min="1990" max="2100" inputmode="numeric" placeholder="año"></label>
+  </div>
+  <p class="nota-filtros">Con un filtro, la búsqueda se limita a la Corte Suprema. Hoy el índice tiene
+    providencias de las salas Laboral y Civil; de la Penal todavía no.</p>
+</details>
+<div id="avisoFiltros" style="max-width:780px;margin:0 auto;padding:0 1.5rem"></div>
+
 <div id="bloqueIaExterna" style="max-width:780px;margin:0 auto;padding:0 1.5rem"></div>
 
 <main id="resultados">
@@ -577,13 +620,14 @@
   </header>
   <div id="tableroCuerpo"></div>
   <div class="tablero-nota-privacidad">
-    Este tablero vive solo en tu navegador y desaparece al cerrar la pesta&ntilde;a.
+    Este tablero vive solo en tu navegador y desaparece al cerrar la pesta&ntilde;a,
+    salvo que marques &laquo;Recordar en este equipo&raquo;.
     Nada de esto se env&iacute;a ni se guarda en el servidor. Exp&oacute;rtalo antes de irte.
   </div>
   <div class="tablero-pie">
     <button id="exportarMd" class="principal">Exportar (.md)</button>
     <button id="exportarTxt">Texto</button>
-    <button id="vaciarTablero">Vaciar</button>
+    <button id="vaciarTablero">Borrar todo</button>
   </div>
 </aside>
 
@@ -737,16 +781,137 @@ function selloConfianza(c) {
   return '';
 }
 
+/* Resalta sobre el texto CRUDO y escapa cada trozo por separado. Antes se
+   escapaba primero y se reemplazaba despues sobre el HTML: una palabra como
+   "amp" o "quot" partia las entidades ("&<mark>amp</mark>;"). Cada coincidencia
+   lleva su numero (data-n) para recorrerlas con anterior/siguiente. */
 function resaltar(texto, consulta) {
   const palabras = consulta.trim().split(/\s+/).filter(p => p.length > 2).map(p =>
     p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
   );
-  let html = escaparHtml(texto);
-  if (palabras.length) {
-    const patron = new RegExp('(' + palabras.join('|') + ')', 'gi');
-    html = html.replace(patron, '<mark>$1</mark>');
+  if (!palabras.length) return escaparHtml(texto);
+  const patron = new RegExp(palabras.join('|'), 'gi');
+  let html = '', ultimo = 0, n = 0, m;
+  while ((m = patron.exec(texto)) !== null) {
+    if (!m[0]) { patron.lastIndex++; continue; }
+    html += escaparHtml(texto.slice(ultimo, m.index)) + `<mark data-n="${n++}">` + escaparHtml(m[0]) + '</mark>';
+    ultimo = m.index + m[0].length;
   }
-  return html;
+  return html + escaparHtml(texto.slice(ultimo));
+}
+
+/* Ficha de una providencia de la Corte Suprema (index/providencias.py). Solo
+   muestra lo que hay; la fecha incompleta se dice incompleta. */
+const ORIGEN_TEXTO = {
+  digital: 'Texto digital del archivo oficial',
+  ocr: 'Texto reconocido por OCR (puede tener errores)',
+  mixto: 'Texto digital con páginas reconocidas por OCR',
+};
+function fichaProvidencia(f) {
+  if (!f) return '';
+  const filas = [];
+  const fila = (k, v) => { if (v) filas.push(`<dt>${k}</dt><dd>${escaparHtml(String(v))}</dd>`); };
+  fila('Corporación', f.corporacion);
+  fila('Sala', f.sala);
+  fila('Tipo', f.tipo_providencia);
+  fila('Número', f.numerador);
+  if (f.radicado) fila('Radicado', f.radicado + (f.radicado_tipo === 'interno' ? ' (número interno de la Corte)' : ''));
+  if (f.fecha) fila('Fecha', f.fecha_precision === 'dia' ? f.fecha : `${f.fecha} (solo se conoce el año)`);
+  fila('Ponente', f.ponente);
+  if (f.clase_actuacion) fila('Actuación', f.clase_actuacion);
+  let origen = ORIGEN_TEXTO[f.origen_texto] || '';
+  if (origen && f.confianza_ocr != null) origen += ` — confianza media del OCR ${Math.round(f.confianza_ocr * 100)} %`;
+  fila('Origen del texto', origen);
+  const e = f.enlaces || {};
+  const botones = [];
+  if (e.ficha) {
+    botones.push(`<a class="boton-oficial" href="${escaparHtml(e.ficha)}" target="_blank" rel="noopener noreferrer">Abrir providencia oficial</a>`);
+    if (e.archivo) botones.push(`<a href="${escaparHtml(e.archivo)}" target="_blank" rel="noopener noreferrer">Descargar archivo original</a>`);
+  } else if (e.buscar_en_ojeador) {
+    botones.push(`<a class="boton-oficial secundario" href="${escaparHtml(e.buscar_en_ojeador)}" target="_blank" rel="noopener noreferrer">Buscar en Ojeador (Corte Suprema)</a>`);
+  }
+  if (e.buscador_general) botones.push(`<a href="${escaparHtml(e.buscador_general)}" target="_blank" rel="noopener noreferrer">Buscador general antiguo</a>`);
+  const nota = e.ficha
+    ? `Enlace verificado en Ojeador${e.verificado_el ? ' el ' + escaparHtml(String(e.verificado_el).slice(0, 10)) : ''}.`
+    : 'No hay enlace verificado a la ficha de esta providencia: el botón abre una búsqueda por su número en el buscador oficial.';
+  return `
+    <details class="ficha-providencia">
+      <summary>Ficha de la providencia</summary>
+      <dl>${filas.join('')}</dl>
+      <div class="enlaces-oficiales">${botones.join(' ')}</div>
+      <p class="nota-enlace">${nota}</p>
+      <button type="button" class="ver-relaciones" data-doc="${escaparHtml(f.documento_id || '')}">Ver qué providencias cita y cuáles la citan</button>
+      <div class="relaciones" hidden></div>
+    </details>`;
+}
+
+const ESTADO_RELACION = {
+  confirmada: 'en el índice',
+  ambigua: 'identificador ambiguo',
+  no_resuelta: 'no está en el índice',
+};
+function listaRelaciones(items, campoId) {
+  if (!items.length) return '<p class="nota-enlace">Ninguna en el índice.</p>';
+  return '<ul>' + items.map(c => `
+    <li>
+      <strong>${escaparHtml(c.identificador || '')}</strong>
+      <span class="estado-relacion ${escaparHtml(c.estado || '')}">${escaparHtml(ESTADO_RELACION[c.estado] || c.estado || '')}</span>
+      ${c.veces > 1 ? `<small>(${c.veces} veces)</small>` : ''}
+      <details><summary>Dónde aparece</summary><p class="contexto-cita">${escaparHtml(c.contexto || '')}</p></details>
+    </li>`).join('') + '</ul>';
+}
+
+async function cargarRelaciones(boton) {
+  const caja = boton.nextElementSibling;
+  caja.hidden = false;
+  caja.innerHTML = '<p class="nota-enlace">Cargando…</p>';
+  try {
+    const datos = await leerJson(await fetch('/api/providencia?id=' + encodeURIComponent(boton.dataset.doc)));
+    if (datos.error) { caja.innerHTML = `<p class="nota-enlace">${escaparHtml(datos.error)}</p>`; return; }
+    const r = datos.relaciones;
+    caja.innerHTML = `
+      <p class="nota-enlace">Relaciones por coincidencia del número de la providencia en el texto. No dicen si
+      la reitera, la cambia o se aparta de ella: eso exige leerlas.</p>
+      <h4>Cita a (${r.total_cita_a})</h4>${listaRelaciones(r.cita_a)}
+      ${r.total_cita_a > r.cita_a.length ? `<p class="nota-enlace">Se muestran ${r.cita_a.length}.</p>` : ''}
+      <h4>Es citada por (${r.total_citada_por} en el índice)</h4>${listaRelaciones(r.citada_por)}
+      ${r.total_citada_por > r.citada_por.length ? `<p class="nota-enlace">Se muestran ${r.citada_por.length}.</p>` : ''}`;
+    boton.hidden = true;
+  } catch (e) {
+    caja.innerHTML = `<p class="nota-enlace">No se pudieron cargar las relaciones: ${escaparHtml(String(e))}</p>`;
+  }
+}
+
+function parametrosFiltrosProvidencia() {
+  const p = [];
+  const v = id => (document.getElementById(id) || {}).value || '';
+  if (v('filtroSala')) p.push('sala=' + encodeURIComponent(v('filtroSala')));
+  if (v('filtroTipo')) p.push('tipo_providencia=' + encodeURIComponent(v('filtroTipo')));
+  if (/^\d{4}$/.test(v('filtroDesde'))) p.push('anio_desde=' + v('filtroDesde'));
+  if (/^\d{4}$/.test(v('filtroHasta'))) p.push('anio_hasta=' + v('filtroHasta'));
+  return p.length ? '&' + p.join('&') : '';
+}
+
+function pintarAvisoFiltros(info) {
+  const caja = document.getElementById('avisoFiltros');
+  if (!caja) return;
+  caja.innerHTML = info ? `<div class="aviso">${escaparHtml(info.nota || '')}</div>` : '';
+}
+
+/* Anterior / siguiente entre las coincidencias resaltadas del fragmento. */
+function navegarCoincidencias(articulo, paso) {
+  const detalles = articulo.querySelector('.fragmento-expandible');
+  if (detalles) detalles.open = true;
+  const caja = articulo.querySelector('.fragmento-completo') || articulo.querySelector('.fragmento-preview');
+  const marcas = caja ? [...caja.querySelectorAll('mark')] : [];
+  if (!marcas.length) return;
+  let i = Number(articulo.dataset.coincidencia || -1) + paso;
+  i = (i + marcas.length) % marcas.length;
+  articulo.dataset.coincidencia = i;
+  marcas.forEach((m, j) => m.classList.toggle('actual', j === i));
+  marcas[i].scrollIntoView({ block: 'center', behavior: 'smooth' });
+  const contador = articulo.querySelector('.contador-coincidencias');
+  if (contador) contador.textContent = `${i + 1} de ${marcas.length}`;
 }
 
 async function buscar() {
@@ -766,7 +931,8 @@ async function buscar() {
     const filtro = fuentesSeleccionadas();
     const url = '/api/buscar?q=' + encodeURIComponent(consulta) + '&k=8'
       + (quiereRespuesta ? '&conversacional=1' : '')
-      + (filtro.length ? '&fuentes=' + encodeURIComponent(filtro.join(',')) : '');
+      + (filtro.length ? '&fuentes=' + encodeURIComponent(filtro.join(',')) : '')
+      + parametrosFiltrosProvidencia();
     const resp = await fetch(url);
     const datos = await leerJson(resp);
 
@@ -785,8 +951,27 @@ async function buscar() {
        padres" mostraba un decreto de 1938 sobre la Caja de Auxilios de la
        Policia como si fuera la respuesta. Los fragmentos se siguen mostrando
        —pueden servir de pista— pero encabezados por lo que son. */
+    /* La cita reconocida (index/resolver_citas.py) se dice: si se encontró,
+       el primer resultado es ESE documento y no una coincidencia por parecido;
+       si no, "no está en el índice" no quiere decir que no exista. */
+    const cita = datos.cita;
+    const citaEncontrada = !!(cita && cita.encontrada);
+    let bloqueCita = '';
+    if (cita) {
+      const candidatos = (cita.candidatos || []).map(c => escaparHtml(String(c.titulo || c.anio || ''))).join(', ');
+      bloqueCita = `
+        <div class="aviso-cita">
+          <strong>Cita reconocida: ${escaparHtml(cita.reconocida || '')}</strong> —
+          ${citaEncontrada ? 'encontrada en el índice: es el primer resultado.' : 'no la encontré en el índice.'}
+          ${cita.aviso ? `<br><small>${escaparHtml(cita.aviso)}</small>` : ''}
+          ${candidatos ? `<br><small>Posibles: ${candidatos}</small>` : ''}
+        </div>`;
+    }
+
     let bloqueCobertura = '';
-    if (datos.hay_respaldo === false && datos.respaldo === 'condicional') {
+    if (citaEncontrada) {
+      bloqueCobertura = '';   // el documento citado está: no es una coincidencia débil
+    } else if (datos.hay_respaldo === false && datos.respaldo === 'condicional') {
       /* 29-sep-2026: solo uno de los dos métodos de búsqueda los encontró. No
          es "no hay nada" (en el piloto, 21 de 48 de estas consultas tenían una
          norma con cita literal), pero tampoco es una coincidencia clara. */
@@ -861,15 +1046,17 @@ async function buscar() {
         </div>`;
     }
 
-    contenedor.innerHTML = bloqueAporte + bloqueCobertura + bloqueAfirmacion + bloqueRespuesta + datos.resultados.map(r => {
+    contenedor.innerHTML = bloqueAporte + bloqueCita + bloqueCobertura + bloqueAfirmacion + bloqueRespuesta + datos.resultados.map(r => {
       const textoCompleto = r.texto || '';
       const preview = textoCompleto.slice(0, 400);
       const tieneExtension = textoCompleto.length > 400;
       const htmlCompleto = resaltar(textoCompleto, consulta);
       const htmlPreview = resaltar(preview, consulta);
+      const coincidencias = (htmlCompleto.match(/<mark /g) || []).length;
+      const numFragmento = Number.isInteger(r.orden) ? `el fragmento n.º ${r.orden + 1} del documento` : 'un fragmento del documento';
 
       return `
-      <article class="resultado">
+      <article class="resultado" data-id="${escaparHtml(r.id)}">
         <div class="resultado-decreto">${escaparHtml((r.fuente || '').replace(/_/g, ' '))} ${escaparHtml(r.identificador_documento || '')}</div>
         <div class="resultado-cabecera">
           <h2><a href="${escaparHtml(r.url_original || '#')}" target="_blank" rel="noopener">${escaparHtml(r.titulo_documento || 'Sin título')}</a></h2>
@@ -882,10 +1069,20 @@ async function buscar() {
         <div class="fragmento-preview">${htmlPreview}${tieneExtension ? ' […]' : ''}</div>
         ${tieneExtension ? `
         <details class="fragmento-expandible">
-          <summary>Ver texto completo (${textoCompleto.length} caracteres)</summary>
+          <summary>Ver el fragmento entero (${textoCompleto.length} caracteres)</summary>
           <div class="fragmento-completo">${htmlCompleto}</div>
         </details>
         ` : ''}
+        <div class="pie-fragmento">
+          <small>Es ${numFragmento}, no el documento completo.</small>
+          ${coincidencias > 1 ? `
+          <span class="navegar-coincidencias">
+            <button type="button" data-paso="-1" aria-label="Coincidencia anterior">&#9664;</button>
+            <span class="contador-coincidencias">${coincidencias} coincidencias</span>
+            <button type="button" data-paso="1" aria-label="Coincidencia siguiente">&#9654;</button>
+          </span>` : ''}
+        </div>
+        ${fichaProvidencia(r.ficha)}
         <button class="guardar" data-id="${escaparHtml(r.id)}">+ Guardar en mi tablero</button>
       </article>`;
     }).join('');
@@ -896,17 +1093,32 @@ async function buscar() {
       b.addEventListener('click', () => {
         const r = datos.resultados.find(x => x.id === b.dataset.id);
         if (!r) return;
+        const f = r.ficha || null;
+        const enl = (f && f.enlaces) || {};
         agregarNota({
           id: r.id,
           titulo: r.titulo_documento || '',
           identificador: r.identificador_documento || '',
           fuente: r.fuente || '',
-          url: r.url_original || '',
+          // la ficha oficial si se verifico; si no, el enlace de siempre
+          url: enl.ficha || r.url_original || '',
+          url_busqueda_oficial: enl.ficha ? '' : (enl.buscar_en_ojeador || ''),
+          radicado: (f && f.radicado) || '',
+          fecha: f ? (f.fecha_precision === 'dia' ? f.fecha : (f.fecha ? f.fecha + ' (solo el año)' : '')) : '',
+          ponente: (f && f.ponente) || '',
+          sala: (f && f.sala) || '',
           texto: r.texto || '',
           consulta: consulta,
         });
       });
     });
+    contenedor.querySelectorAll('.ver-relaciones').forEach(b => {
+      b.addEventListener('click', () => cargarRelaciones(b));
+    });
+    contenedor.querySelectorAll('.navegar-coincidencias button').forEach(b => {
+      b.addEventListener('click', () => navegarCoincidencias(b.closest('.resultado'), Number(b.dataset.paso)));
+    });
+    pintarAvisoFiltros(datos.filtros_providencia);
     pintarTablero();
     // se guarda lo ultimo buscado para poder ofrecer la redaccion
     // con IA externa sin repetir la busqueda
@@ -924,63 +1136,202 @@ async function buscar() {
 /* ---------------------------------------------------------------------------
    Tablero de notas - 100% en el navegador.
 
-   Se usa sessionStorage y no localStorage a proposito: asi el tablero muere al
+   Por defecto se usa sessionStorage y no localStorage: asi el tablero muere al
    cerrar la pestana. En un computador compartido o de un cafe internet -que es
    donde va a estar buena parte de quien use esto- dejar las consultas
    guardadas en el disco seria exactamente el rastro que el servicio promete no
    dejar. El usuario exporta lo que quiera conservar y el archivo queda en su
    equipo, bajo su control.
 
+   23-nov-2026: quien investiga varios dias puede pedir EXPRESAMENTE que se
+   recuerde en este equipo (casilla "Recordar en este equipo", apagada por
+   defecto, con advertencia). Solo entonces se usa localStorage; al
+   desmarcarla o al vaciar, se borra. Nunca sale del navegador.
+
+   Datos versionados: {version: 2, colecciones: [...], notas: [...]}. Lo de la
+   version 1 (una lista de notas) se migra; lo ilegible se descarta avisando.
+
    Ninguna funcion de este modulo hace fetch: el tablero nunca sale del navegador.
 --------------------------------------------------------------------------- */
 const CLAVE_TABLERO = 'aliado_tablero';
+const CLAVE_RECORDAR = 'aliado_tablero_recordar';
+const VERSION_TABLERO = 2;
+const COLECCION_INICIAL = 'General';
 const tablero = document.getElementById('tablero');
 const tableroCuerpo = document.getElementById('tableroCuerpo');
 const tableroConteo = document.getElementById('tableroConteo');
+let avisoTablero = '';
 
-function leerNotas() {
+function recordarActivo() {
   try {
-    return JSON.parse(sessionStorage.getItem(CLAVE_TABLERO) || '[]');
+    return localStorage.getItem(CLAVE_RECORDAR) === '1';
   } catch (e) {
-    return [];   // almacenamiento bloqueado o dato corrupto: se empieza limpio
+    return false;   // almacenamiento bloqueado: nunca se persiste
   }
 }
 
-function guardarNotas(notas) {
+function almacen() {
+  return recordarActivo() ? localStorage : sessionStorage;
+}
+
+function estadoVacio() {
+  return { version: VERSION_TABLERO, colecciones: [COLECCION_INICIAL], activa: COLECCION_INICIAL, notas: [] };
+}
+
+function migrarEstado(dato) {
+  if (Array.isArray(dato)) {   // version 1: solo la lista de notas
+    const e = estadoVacio();
+    e.notas = dato.filter(n => n && n.id).map(n => ({ ...n, coleccion: COLECCION_INICIAL, nota_usuario: '' }));
+    return e;
+  }
+  if (dato && dato.version === VERSION_TABLERO && Array.isArray(dato.notas) && Array.isArray(dato.colecciones)) {
+    const e = { ...estadoVacio(), ...dato };
+    e.notas = dato.notas.filter(n => n && n.id);
+    if (!e.colecciones.length) e.colecciones = [COLECCION_INICIAL];
+    if (!e.colecciones.includes(e.activa)) e.activa = e.colecciones[0];
+    return e;
+  }
+  avisoTablero = 'Lo guardado en el tablero era de otra versión o estaba dañado: se empezó de cero.';
+  return estadoVacio();
+}
+
+function leerEstado() {
   try {
-    sessionStorage.setItem(CLAVE_TABLERO, JSON.stringify(notas));
+    const crudo = almacen().getItem(CLAVE_TABLERO);
+    return crudo ? migrarEstado(JSON.parse(crudo)) : estadoVacio();
+  } catch (e) {
+    return estadoVacio();   // almacenamiento bloqueado o dato corrupto: se empieza limpio
+  }
+}
+
+function guardarEstado(estado) {
+  try {
+    almacen().setItem(CLAVE_TABLERO, JSON.stringify(estado));
   } catch (e) {
     /* modo privado o cuota llena: no se rompe nada, solo no persiste */
   }
   pintarTablero();
 }
 
+function leerNotas() {
+  try {
+    return leerEstado().notas;
+  } catch (e) {
+    return [];
+  }
+}
+
+function guardarNotas(notas) {
+  try {
+    guardarEstado({ ...leerEstado(), notas: notas });
+  } catch (e) {
+    /* idem */
+  }
+}
+
 function agregarNota(nota) {
-  const notas = leerNotas();
-  if (notas.some(n => n.id === nota.id)) return;
-  notas.push(nota);
-  guardarNotas(notas);
+  const estado = leerEstado();
+  if (estado.notas.some(n => n.id === nota.id)) return;
+  estado.notas.push({ ...nota, coleccion: estado.activa, nota_usuario: '' });
+  guardarEstado(estado);
 }
 
 function quitarNota(id) {
   guardarNotas(leerNotas().filter(n => n.id !== id));
 }
 
+function cambiarNota(id, cambios) {
+  const estado = leerEstado();
+  estado.notas = estado.notas.map(n => (n.id === id ? { ...n, ...cambios } : n));
+  guardarEstado(estado);
+}
+
+function nuevaColeccion() {
+  const nombre = (prompt('Nombre de la colección (por ejemplo, el caso o el tema):') || '').trim().slice(0, 60);
+  if (!nombre) return;
+  const estado = leerEstado();
+  if (!estado.colecciones.includes(nombre)) estado.colecciones.push(nombre);
+  estado.activa = nombre;
+  guardarEstado(estado);
+}
+
+function cambiarRecordar(activar) {
+  const estado = leerEstado();
+  try {
+    if (activar) {
+      if (!confirm('El tablero quedará guardado en este navegador aunque cierres la pestaña. ' +
+                   'No lo actives en un computador compartido. ¿Continuar?')) { pintarTablero(); return; }
+      localStorage.setItem(CLAVE_TABLERO, JSON.stringify(estado));
+      localStorage.setItem(CLAVE_RECORDAR, '1');
+      sessionStorage.removeItem(CLAVE_TABLERO);
+    } else {
+      sessionStorage.setItem(CLAVE_TABLERO, JSON.stringify(estado));
+      localStorage.removeItem(CLAVE_TABLERO);
+      localStorage.removeItem(CLAVE_RECORDAR);
+    }
+  } catch (e) {
+    avisoTablero = 'Este navegador no deja guardar datos: el tablero solo dura mientras la pestaña esté abierta.';
+  }
+  pintarTablero();
+}
+
+function borrarTodo() {
+  try { sessionStorage.removeItem(CLAVE_TABLERO); } catch (e) { /* nada que borrar */ }
+  try {
+    localStorage.removeItem(CLAVE_TABLERO);
+    localStorage.removeItem(CLAVE_RECORDAR);
+  } catch (e) { /* idem */ }
+  pintarTablero();
+}
+
+function opcionesColeccion(colecciones, actual) {
+  return colecciones.map(c =>
+    `<option value="${escaparHtml(c)}"${c === actual ? ' selected' : ''}>${escaparHtml(c)}</option>`).join('');
+}
+
 function pintarTablero() {
-  const notas = leerNotas();
+  const estado = leerEstado();
+  const notas = estado.notas;
   tableroConteo.textContent = notas.length;
   tablero.hidden = notas.length === 0;
-  tableroCuerpo.innerHTML = notas.map(n => `
+  const opciones = `
+    <div class="tablero-opciones">
+      <label>Guardar en <select id="coleccionActiva">${opcionesColeccion(estado.colecciones, estado.activa)}</select></label>
+      <button type="button" id="nuevaColeccion">+ Nueva colección</button>
+      <label><input type="checkbox" id="recordarTablero"${recordarActivo() ? ' checked' : ''}>
+        Recordar en este equipo (no en computadores compartidos)</label>
+      ${avisoTablero ? `<small>${escaparHtml(avisoTablero)}</small>` : ''}
+    </div>`;
+  const porColeccion = estado.colecciones.map(c => {
+    const delGrupo = notas.filter(n => (n.coleccion || COLECCION_INICIAL) === c);
+    if (!delGrupo.length) return '';
+    return `<h3 class="coleccion">${escaparHtml(c)} (${delGrupo.length})</h3>` + delGrupo.map(n => `
     <div class="nota">
       <div class="nota-texto">
         <strong>${escaparHtml(n.identificador || n.titulo || 'Sin titulo')}</strong><br>
-        <small>${escaparHtml((n.fuente || '').replace(/_/g, ' '))} &middot; consulta: ${escaparHtml(n.consulta)}</small>
+        <small>${escaparHtml((n.fuente || '').replace(/_/g, ' '))}${n.fecha ? ' &middot; ' + escaparHtml(n.fecha) : ''} &middot; consulta: ${escaparHtml(n.consulta || '')}</small>
+        <select data-mover="${escaparHtml(n.id)}" aria-label="Colección">${opcionesColeccion(estado.colecciones, n.coleccion || COLECCION_INICIAL)}</select>
+        <textarea data-anotar="${escaparHtml(n.id)}" rows="2" placeholder="Tu nota sobre este documento">${escaparHtml(n.nota_usuario || '')}</textarea>
       </div>
       <button title="Quitar" data-quitar="${escaparHtml(n.id)}">&times;</button>
     </div>`).join('');
+  }).join('');
+  tableroCuerpo.innerHTML = opciones + porColeccion;
   tableroCuerpo.querySelectorAll('[data-quitar]').forEach(b => {
     b.addEventListener('click', () => quitarNota(b.dataset.quitar));
   });
+  tableroCuerpo.querySelectorAll('[data-mover]').forEach(s => {
+    s.addEventListener('change', () => cambiarNota(s.dataset.mover, { coleccion: s.value }));
+  });
+  tableroCuerpo.querySelectorAll('[data-anotar]').forEach(t => {
+    t.addEventListener('change', () => cambiarNota(t.dataset.anotar, { nota_usuario: t.value.slice(0, 4000) }));
+  });
+  const activa = document.getElementById('coleccionActiva');
+  if (activa) activa.addEventListener('change', () => guardarEstado({ ...leerEstado(), activa: activa.value }));
+  const nueva = document.getElementById('nuevaColeccion');
+  if (nueva) nueva.addEventListener('click', nuevaColeccion);
+  const recordar = document.getElementById('recordarTablero');
+  if (recordar) recordar.addEventListener('change', () => cambiarRecordar(recordar.checked));
   document.querySelectorAll('.guardar').forEach(b => {
     const guardada = notas.some(n => n.id === b.dataset.id);
     b.disabled = guardada;
@@ -991,16 +1342,26 @@ function pintarTablero() {
 function componerMarkdown(notas) {
   const fecha = new Date().toLocaleDateString('es-CO');
   const cabecera = '# Notas de consulta juridica\n\nExportado el ' + fecha + '.\n' +
-    'Fuentes oficiales recuperadas con esta herramienta. Verifica cada cita en el enlace original.\n';
-  const cuerpo = notas.map((n, i) => {
-    const partes = ['\n## ' + (i + 1) + '. ' + (n.titulo || n.identificador || 'Sin titulo')];
+    'Fuentes oficiales recuperadas con esta herramienta. Verifica cada cita en el enlace original.\n' +
+    'Los textos son FRAGMENTOS de los documentos, no los documentos completos.\n';
+  const colecciones = [...new Set(notas.map(n => n.coleccion || COLECCION_INICIAL))];
+  let i = 0;
+  const cuerpo = colecciones.map(c => '\n# ' + c + '\n' + notas.filter(n => (n.coleccion || COLECCION_INICIAL) === c).map(n => {
+    i += 1;
+    const partes = ['\n## ' + i + '. ' + (n.titulo || n.identificador || 'Sin titulo')];
     if (n.identificador) partes.push('\n**Identificador:** ' + n.identificador);
     partes.push('\n**Fuente:** ' + (n.fuente || '').replace(/_/g, ' '));
+    if (n.sala) partes.push('\n**Sala:** ' + n.sala);
+    if (n.radicado) partes.push('\n**Radicado:** ' + n.radicado);
+    if (n.fecha) partes.push('\n**Fecha:** ' + n.fecha);
+    if (n.ponente) partes.push('\n**Ponente:** ' + n.ponente);
     if (n.url) partes.push('\n**Enlace:** ' + n.url);
+    if (n.url_busqueda_oficial) partes.push('\n**Búsqueda en el buscador oficial:** ' + n.url_busqueda_oficial);
     partes.push('\n**Consulta que lo encontro:** ' + n.consulta);
-    partes.push('\n\n> ' + (n.texto || '').replace(/\n+/g, '\n> ') + '\n');
+    partes.push('\n\n**Fragmento:**\n\n> ' + (n.texto || '').replace(/\n+/g, '\n> ') + '\n');
+    if (n.nota_usuario) partes.push('\n**Nota:** ' + n.nota_usuario + '\n');
     return partes.join('');
-  }).join('');
+  }).join('')).join('');
   return cabecera + cuerpo;
 }
 
@@ -1040,8 +1401,8 @@ document.getElementById('exportarTxt').addEventListener('click', () => {
   descargar('notas-juridicas-' + marcaDeTiempo() + '.txt', componerTexto(leerNotas()));
 });
 document.getElementById('vaciarTablero').addEventListener('click', () => {
-  if (leerNotas().length && confirm('Vaciar el tablero? Lo que no hayas exportado se pierde.')) {
-    guardarNotas([]);
+  if (leerNotas().length && confirm('Borrar todo el tablero de este navegador? Lo que no hayas exportado se pierde.')) {
+    borrarTodo();
   }
 });
 

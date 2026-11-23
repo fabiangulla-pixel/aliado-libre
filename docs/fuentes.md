@@ -52,6 +52,9 @@ que hace falta navegador para todo — si aparece un dominio tipo `admin.es.*` o
 
 ## ✅ Accesibles con contenido real confirmado
 
+> **23-nov-2026 — OJEADOR.** La Corte reemplazó este buscador por OJEADOR (ojeador.cortesuprema.gov.co); según un tercero, el antiguo dejó de recibir providencias en abril de 2026 (julio en Penal). OJEADOR usa un servicio propio SIN documentación pública (/docs responde 401) y sin términos que autoricen descarga masiva: aquí solo se usa para verificar enlaces y medir cobertura, opcional y a mano. La ingesta actual trae solo sentencias de casación (SL, SC): ni tutelas, ni autos, ni Sala Penal. Ver docs/OJEADOR.md.
+
+
 | Fuente | URL | Tipo de contenido | Notas técnicas |
 |---|---|---|---|
 > **Techo del método BFS confirmado (28-ago-2026)**: el crawler vía "Vigencias" se

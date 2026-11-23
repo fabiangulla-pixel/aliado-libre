@@ -1,5 +1,16 @@
 # PROJECT_STATE — Aliado Libre
 
+> 🆕 **Actualización 23-nov-2026** (rama `feat/ojeador-suprema`; donde choque, manda esto):
+> - **Corte Suprema, local y sin reindexar**: `python -m index.providencias --construir`
+>   (≈35 s) genera `index/catalogo_suprema.json` (39.374 fichas) e
+>   `index/relaciones_suprema.db` (297.684 citas entre providencias). La GUI, `/api/buscar`,
+>   `/api/providencia` y el MCP (`resolver_cita`, `relaciones_providencia`, `buscar_normativa`)
+>   los usan si existen; sin ellos todo sigue como antes.
+> - Citas de la Suprema por identificador: primera en 60/60 (antes 19/60), 0 falsos
+>   positivos en 180 consultas reales. Ficha, enlaces verificados con OJEADOR (opcional),
+>   relaciones, filtros, tablero con colecciones. Detalle y evidencia: `docs/OJEADOR.md`.
+> - La búsqueda por defecto NO cambió. `pytest` -> ver CHANGELOG 23-nov.
+
 > 🆕 **Actualización 13-oct-2026** (lo de abajo es del 7-oct y se conserva como
 > historia; donde choque, manda esto):
 > - **Destilado CERRADO, no adoptar**: confirmado dos veces con jueces

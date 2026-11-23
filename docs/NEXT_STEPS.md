@@ -1,6 +1,6 @@
 # NEXT_STEPS — Aliado Libre
 
-Estado al 22-nov-2026. El cruce con el documento de recomendaciones externas
+Estado al 23-nov-2026. El cruce con el documento de recomendaciones externas
 está en `docs/RECOMENDACIONES_TRIAGE.md` (histórico, 29-sep).
 
 ## Bloqueado en Fabián
@@ -27,6 +27,22 @@ está en `docs/RECOMENDACIONES_TRIAGE.md` (histórico, 29-sep).
 9. **Servidor**: el enrutador de norma necesita un LLM local (gemma4:26b en
    GPU). ¿El servidor público tendrá GPU? Si no, ver el resultado de los
    modelos chicos en CPU (qwen3:4b, gemma3:4b).
+
+## Corte Suprema / OJEADOR (23-nov)
+
+Hecho en la rama `feat/ojeador-suprema` (ver `docs/OJEADOR.md`). Siguiente:
+
+1. **Pedir a la Corte autorización o un acceso oficial** para ingerir desde OJEADOR.
+   El buscador antiguo dejó de recibir en abril de 2026. Sin eso, el índice no
+   tendrá 2026 ni tutelas ni autos, y no conviene descargar en masa un servicio
+   no documentado.
+2. Si se autoriza: ampliar `ingest/fuentes/corte_suprema.py` a tutelas y autos
+   y a la Sala Penal, con checkpoint, y medir si mejoran las respuestas antes de
+   reindexar todo.
+3. Reconocer citas antiguas por fecha y radicado («CSJ SL, 5 ago. 2014, rad.
+   45678»).
+4. Servidor del índice remoto: anotar la ficha del lado del servidor, para
+   que el `.exe` la muestre sin llevar el catálogo de 28 MB.
 
 ## Meta de precisión (actualizado 22-nov)
 

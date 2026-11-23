@@ -59,18 +59,54 @@ def test_la_logica_del_tablero_no_hace_peticiones():
         assert not apariciones, f"el tablero usa {prohibido}: {apariciones}"
 
 
-def test_usa_sessionstorage_y_no_localstorage():
-    """localStorage sobreviviría a cerrar la pestaña, y eso deja rastro en un
-    computador compartido."""
+def test_por_defecto_sessionstorage_y_localstorage_solo_si_se_pide():
+    """localStorage sobrevive a cerrar la pestaña y deja rastro en un computador
+    compartido. Desde el 23-nov-2026 se usa SOLO si la persona marca
+    "Recordar en este equipo" (apagado por defecto): el almacén se elige en
+    `almacen()` según esa marca, y desmarcarla o borrar todo lo elimina."""
     codigo = _sin_comentarios(_bloque_tablero())
-    assert "sessionStorage" in codigo
-    assert "localStorage" not in codigo, "localStorage sobrevive a cerrar la pestaña"
+    assert "return recordarActivo() ? localStorage : sessionStorage;" in codigo
+    assert "localStorage.getItem(CLAVE_RECORDAR) === '1'" in codigo  # la marca es explícita
+    # fuera de la marca, de cambiarRecordar y de borrarTodo no se toca localStorage
+    sin_permitidos = codigo
+    for funcion in (
+        "function recordarActivo",
+        "function almacen",
+        "function cambiarRecordar",
+        "function borrarTodo",
+    ):
+        inicio = sin_permitidos.index(funcion)
+        fin = sin_permitidos.index("\n}", inicio)
+        sin_permitidos = sin_permitidos[:inicio] + sin_permitidos[fin:]
+    assert "localStorage" not in sin_permitidos, "localStorage usado fuera de la opción explícita"
+    # desmarcar o borrar todo elimina la copia persistente
+    borrar = codigo[codigo.index("function borrarTodo") :]
+    assert "localStorage.removeItem(CLAVE_TABLERO)" in borrar[: borrar.index("\n}")]
+    cambiar = codigo[codigo.index("function cambiarRecordar") :]
+    assert "localStorage.removeItem(CLAVE_TABLERO)" in cambiar[: cambiar.index("\n}")]
+    # la casilla arranca desmarcada salvo que ya se haya pedido
+    assert "recordarTablero\"${recordarActivo() ? ' checked' : ''}" in codigo
+
+
+def test_datos_del_tablero_versionados_y_migrables():
+    codigo = _bloque_tablero()
+    assert "VERSION_TABLERO" in codigo and "function migrarEstado" in codigo
+    assert "Array.isArray(dato)" in codigo  # versión 1 (lista) se migra
+    assert "se empezó de cero" in codigo  # lo ilegible se descarta avisando
+
+
+def test_colecciones_y_notas_propias_se_exportan():
+    codigo = _bloque_tablero()
+    for campo in ("coleccion", "nota_usuario", "**Radicado:**", "**Fragmento:**", "**Nota:**"):
+        assert campo in codigo
 
 
 def test_el_servidor_no_recibe_notas():
     """Ningún endpoint del servidor acepta el contenido del tablero."""
     rutas = set(re.findall(r'ruta\.path == "([^"]+)"', SERVIDOR_GUI))
-    permitidos = {"/api/buscar", "/api/estado", "/api/fuentes"}
+    # /api/providencia: GET de solo lectura sobre el catálogo local (ficha y
+    # relaciones de la Corte Suprema); no recibe nada del tablero.
+    permitidos = {"/api/buscar", "/api/estado", "/api/fuentes", "/api/providencia"}
     assert rutas <= permitidos, f"endpoints inesperados: {rutas - permitidos}"
     for sospechoso in ("notas", "tablero", "favoritos"):
         assert sospechoso not in SERVIDOR_GUI.lower(), (

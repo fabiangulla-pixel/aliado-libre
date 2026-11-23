@@ -79,16 +79,42 @@ def buscar_normativa(consulta: str, max_resultados: int = 5) -> str:
             "CONFIANZA BAJA sobre cual norma aplica: presenta los resultados como opciones, "
             "no afirmes que una sola regula el caso."
         )
-    for r in resultados:
+    from index import providencias
+
+    for r in providencias.anotar(resultados):
         partes.append(
             f"### {r.get('titulo_documento')}\n"
             f"Fuente: {r.get('fuente')} | Identificador: {r.get('identificador_documento')}"
             f" | Fragmento: {r.get('id')}\n"
             f"URL: {r.get('url_original')}\n"
+            f"{_ficha_lineas(r.get('ficha'))}"
             f"Vigencia: {_vigencia_linea(r)}\n"
             f"<fragmento>\n{r.get('texto', '')}\n</fragmento>\n"
         )
     return "\n---\n".join(partes)
+
+
+def _ficha_lineas(f: dict | None) -> str:
+    """Ficha de una providencia de la Suprema, con el enlace según lo verificado."""
+    if not f:
+        return ""
+    fecha = f.get("fecha") or ""
+    if fecha and f.get("fecha_precision") != "dia":
+        fecha += " (solo el año)"
+    datos = [
+        f"{f.get('tipo_providencia') or ''} {f.get('numerador') or ''}".strip(),
+        f"Sala {f['sala']}" if f.get("sala") else "",
+        f"radicado {f['radicado']}" if f.get("radicado") else "",
+        f"fecha {fecha}" if fecha else "",
+        f"ponente {f['ponente']}" if f.get("ponente") else "",
+        "texto por OCR" if f.get("origen_texto") in ("ocr", "mixto") else "",
+    ]
+    e = f.get("enlaces") or {}
+    if e.get("ficha"):
+        enlace = f"Ficha oficial (verificada): {e['ficha']}"
+    else:
+        enlace = f"Ficha oficial no verificada; búsqueda en Ojeador: {e.get('buscar_en_ojeador')}"
+    return "Providencia: " + "; ".join(d for d in datos if d) + f"\n{enlace}\n"
 
 
 @mcp.tool()
@@ -138,7 +164,8 @@ def leer_fragmento(fragmento_id: str) -> str:
 def resolver_cita(cita: str) -> str:
     """Busca una norma o sentencia por su cita exacta, sin búsqueda por
     significado: "art. 64 del CST", "artículo 1058 del Código de Comercio",
-    "T-760/08", "Ley 1480 de 2011 art. 51", "artículo 86 de la Constitución".
+    "T-760/08", "Ley 1480 de 2011 art. 51", "artículo 86 de la Constitución",
+    providencias de la Corte Suprema ("SL131-2026", "STC6026-2021") o su radicado.
     Úsala cuando la pregunta nombra una norma concreta; para preguntas en
     lenguaje llano usa buscar_normativa. Si la cita no trae año y hay varias
     normas con ese número, devuelve los candidatos: pregunta el año, no elijas."""
@@ -160,9 +187,39 @@ def resolver_cita(cita: str) -> str:
     for f in r.resultados:
         partes.append(
             f"### {f.get('titulo_documento')}\nFragmento: {f.get('id')} | URL: {f.get('url_original')}\n"
+            f"{_ficha_lineas(f.get('ficha'))}"
             f"Vigencia: {_vigencia_linea(f)}\n<fragmento>\n{f.get('texto', '')}\n</fragmento>"
         )
     return "\n---\n".join(partes) or "Sin resultados."
+
+
+@mcp.tool()
+def relaciones_providencia(identificador: str) -> str:
+    """Ficha de una providencia de la Corte Suprema del índice ("SL131-2026") y
+    sus relaciones: qué providencias cita y cuáles del índice la citan, con el
+    texto donde aparece cada cita. Es coincidencia del número en el texto, NO
+    análisis jurídico: no indica si reitera, cambia o se aparta del precedente.
+    "Es citada por" cuenta solo lo que está en el índice."""
+    from index import providencias
+
+    ref = providencias.parsear((identificador or "").strip()[:60])
+    if ref is None or not ref.completa:
+        return "Identificador no reconocido: usa la forma SL131-2026 (prefijo, número y año)."
+    if not providencias.disponible():
+        return "Falta el catálogo de la Corte Suprema en este servidor."
+    docs = providencias.documentos_de(ref.canonica)
+    if not docs:
+        return f"{ref.canonica} no está en el índice (no quiere decir que no exista)."
+    partes = []
+    for did in docs:
+        f = providencias.ficha(did)
+        rel = providencias.relaciones(did, limite=30)
+        partes.append(f"### {f.get('numerador')}\n{_ficha_lineas(f)}")
+        partes.append(f"Cita a ({rel['total_cita_a']}):")
+        partes.extend(f"- {c['identificador']} [{c['estado']}]: «{c['contexto']}»" for c in rel["cita_a"])
+        partes.append(f"Es citada por, en el índice ({rel['total_citada_por']}):")
+        partes.extend(f"- {c['identificador']} [{c['estado']}]: «{c['contexto']}»" for c in rel["citada_por"])
+    return "\n".join(partes)
 
 
 if __name__ == "__main__":

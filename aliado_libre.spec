@@ -77,6 +77,9 @@ hiddenimports = [
     "index.responder",
     "index.vigencia",
     "index.respaldo",
+    # gui/server.py lo importa en cada búsqueda (ficha de la Corte Suprema).
+    # Solo usa la biblioteca estándar; sin el catálogo al lado no anota nada.
+    "index.providencias",
     # gui/ no es paquete y publico se importa dentro de las funciones: sin esto
     # el .exe fallaría en /api/estado con ModuleNotFoundError.
     "gui.publico",

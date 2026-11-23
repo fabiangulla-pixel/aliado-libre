@@ -134,6 +134,10 @@ class Handler(BaseHTTPRequestHandler):
             )
             return
 
+        if ruta.path == "/api/providencia":
+            self._responder_providencia(ruta)
+            return
+
         if ruta.path == "/api/fuentes":
             # Se sirve sin cargar el índice: sale del índice léxico, que es
             # barato de leer. Así la lista de entidades aparece de inmediato
@@ -269,6 +273,28 @@ class Handler(BaseHTTPRequestHandler):
             }
         )
 
+    def _responder_providencia(self, ruta):
+        """Ficha y relaciones de una providencia de la Suprema. Solo lectura y
+        solo local: sale del catálogo construido con `python -m index.providencias
+        --construir`; no consulta ningún servicio externo."""
+        from index import providencias
+
+        documento_id = (parse_qs(ruta.query).get("id") or [""])[0].strip()
+        if not documento_id.startswith("corte_suprema:") or len(documento_id) > 120:
+            self._responder_json({"error": "Identificador de providencia no válido"}, status=400)
+            return
+        if not providencias.disponible():
+            self._responder_json(
+                {"error": "Falta el catálogo de la Corte Suprema (python -m index.providencias --construir)"},
+                status=503,
+            )
+            return
+        ficha = providencias.ficha(documento_id)
+        if ficha is None:
+            self._responder_json({"error": "Esa providencia no está en el catálogo del índice"}, status=404)
+            return
+        self._responder_json({"ficha": ficha, "relaciones": providencias.relaciones(documento_id, limite=40)})
+
     def _responder_busqueda(self, ruta):
         params = parse_qs(ruta.query)
         consulta = (params.get("q") or [""])[0].strip()
@@ -306,12 +332,38 @@ class Handler(BaseHTTPRequestHandler):
             crudas.extend(p.strip() for p in valor.split(",") if p.strip())
         fuentes = normalizar(crudas)
 
+        # Filtros de providencias (sala, tipo, año): el índice vectorial no
+        # guarda esos campos, así que se buscan más candidatos de la Corte
+        # Suprema y se filtran con el catálogo local. Se dice así en la
+        # respuesta: es un filtro sobre los primeros candidatos, no sobre todo.
+        from index import providencias
+
+        filtros = providencias.filtros_desde_parametros(params)
+        k_busqueda = k
+        if filtros:
+            fuentes = ["corte_suprema"]
+            k_busqueda = min(max(k * 6, 30), 60)
+
         try:
             indice = _obtener_indice()
-            resultados = indice.buscar(consulta, k=k, fuentes=fuentes)
+            resultados = indice.buscar(consulta, k=k_busqueda, fuentes=fuentes)
         except Exception as e:
             self._responder_json({"error": str(e)}, status=500)
             return
+        resultados = providencias.anotar(resultados)
+        info_filtros = None
+        if filtros:
+            candidatos = len(resultados)
+            resultados = [r for r in resultados if providencias.cumple(r, filtros)][:k]
+            info_filtros = {
+                "aplicados": filtros,
+                "candidatos_revisados": candidatos,
+                "nota": (
+                    f"Filtré los {candidatos} primeros resultados de la Corte Suprema para esta consulta; "
+                    "puede haber más providencias que cumplan el filtro."
+                ),
+                "disponible": providencias.disponible(),
+            }
 
         # El índice sabe cuándo no tiene la respuesta, y hasta hoy no se lo
         # decía a nadie. `index/enrutador.py` calcula la abstención con un
@@ -339,6 +391,8 @@ class Handler(BaseHTTPRequestHandler):
                 ids = {x["id"] for x in exactos}
                 nuevos = (exactos + [x for x in nuevos if x.get("id") not in ids])[: max(k, len(exactos))]
             resultados = nuevos
+        # la cita exacta y la búsqueda asistida pueden traer documentos nuevos
+        resultados = providencias.anotar(resultados)
         # Solo el índice remoto tiene cuota; en "todo local" no existe este aviso.
         aviso_aporte = aviso_aporte_publico or getattr(indice, "ultimo_aviso_aporte", None)
         salida = {
@@ -349,6 +403,7 @@ class Handler(BaseHTTPRequestHandler):
             "aviso_aporte": aviso_aporte,
             "busqueda_asistida": asistida,
             "cita": info_cita,
+            "filtros_providencia": info_filtros,
             # "claro" | "condicional" (coincidencia débil: se redacta, pero solo se
             # muestra si pasa index.respaldo) | "ninguno"
             "respaldo": "claro"

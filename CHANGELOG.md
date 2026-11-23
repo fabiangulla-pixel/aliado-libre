@@ -1,5 +1,77 @@
 # Changelog
 
+## 2026-11-23 — Corte Suprema a partir de OJEADOR: citas, fichas, enlaces, relaciones, tablero
+
+Rama `feat/ojeador-suprema`. Investigación de OJEADOR y evidencia en
+`docs/OJEADOR.md`. Todo local: OJEADOR es opcional y nunca recibe consultas de
+usuarios. La búsqueda por defecto no cambia.
+
+### Nuevo
+- `index/providencias.py`: reconoce identificadores de la Suprema (12 prefijos con
+  ejemplos reales; mayúsculas obligatorias; año 1990..próximo; ceros a la izquierda
+  no distinguen), lee del encabezado fecha completa (nunca inventa día/mes) y
+  radicado (CUI o interno), y construye catálogo + relaciones desde
+  `data/raw/corte_suprema*.json` (NFKC: el OCR deja guiones de ancho completo).
+- `index/resolver_citas.py`: la cita de la Suprema se resuelve antes que la de
+  normas: exacta, sin año (candidatos), radicado (avisa que identifica el proceso),
+  «no está en el índice (no quiere decir que no exista)». Radicados del Consejo de
+  Estado no se responden con la Suprema.
+- Servidor: `ficha` en los resultados de la Suprema; `/api/providencia` (solo
+  lectura, local); filtros `sala`, `tipo_providencia`, `anio_desde`, `anio_hasta`
+  como posfiltro sobre 30-60 candidatos, y la respuesta lo dice.
+- GUI:
+  - ficha plegable con «Abrir providencia oficial» solo si se verificó; si no,
+    «Buscar en Ojeador»;
+  - relaciones «cita a / es citada por» con contexto;
+  - anterior/siguiente entre coincidencias;
+  - «fragmento n.º N, no el documento completo»;
+  - aviso de cita reconocida, que ya no muestra «coincidencia débil» cuando la
+    cita exacta se encontró;
+  - filtros de jurisprudencia.
+- Tablero:
+  - colecciones y notas propias;
+  - exportación con radicado, fecha, ponente, enlace, fragmento y nota;
+  - datos versionados con migración desde v1;
+  - persistencia en `localStorage` **solo** con «Recordar en este equipo»
+    marcado (apagada por defecto, con advertencia);
+  - «Borrar todo» limpia ambos almacenes.
+- MCP: ficha en `buscar_normativa` y `resolver_cita`; herramienta nueva
+  `relaciones_providencia`.
+- `scripts/ojeador.py`: `verificar` (enlaces), `muestrear` y `comparar` (cobertura
+  con metodología y sin extrapolar). Pausa ≥1 s y alto ante 429/403.
+- `finetune/medir_citas_suprema.py`: banco reproducible de citas.
+
+### Corregido
+- `resaltar()` reemplazaba sobre HTML ya escapado: «amp» o «quot» en la consulta
+  partían entidades. Ahora resalta sobre el texto crudo y escapa cada trozo.
+- La etiqueta «Ver texto completo» se mostraba sobre un fragmento: ahora dice
+  «Ver el fragmento entero».
+- `aliado_libre.spec`: `index.providencias` en `hiddenimports`; sin él el `.exe`
+  fallaría en cada búsqueda.
+
+### Medido (23-nov-2026; índice de 3.296.273 fragmentos, por defecto, CPU, máquina quieta)
+- Citas a la Suprema (60, 4 formas de escribirlas):
+  - la búsqueda sola, primera 19/60 y entre las 5 primeras 22/60;
+  - con el resolvedor, primera **60/60**;
+  - citas inexistentes avisadas 10/10;
+  - 0 falsos positivos en 180 consultas reales.
+- Fichas contra OJEADOR (31 al azar):
+  - 30 verificadas, 1 ambigua;
+  - fecha igual 29/29;
+  - radicado único igual 3/3;
+  - para SL131-2026, las 73 citas salientes coinciden.
+- Cobertura, muestra oficial 2025 (2 páginas al azar por sala):
+  - Laboral, 9 de 100 identificadores; de las sentencias, 9 de 11;
+  - Civil, 0 de 97 (son tutelas).
+  - El hueco es de diseño de la ingesta: solo trae SL y SC.
+
+### Privacidad (cambio consciente, explícito)
+- El tablero seguía la regla «nunca localStorage». Ahora: sessionStorage por
+  defecto; localStorage solo con la casilla marcada; desmarcarla o «Borrar todo»
+  lo borra. El test cambió de «nunca» a «solo si se pide» y verifica las tres cosas.
+- `/api/providencia` se agregó a la lista cerrada de endpoints del test de
+  privacidad: GET de solo lectura, no recibe nada del tablero.
+
 ## 2026-11-22 — Verificación única en prueba: la mejora de dev NO se confirma
 
 **Resultado principal, negativo.** La configuración elegida en dev (fusión

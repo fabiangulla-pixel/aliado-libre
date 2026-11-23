@@ -64,3 +64,10 @@ finetune/eval/reordenador_cpu/pools_*.json
 finetune/doc2query/fragmentos.jsonl
 index/preguntas_sinteticas.npz
 index/adaptador_consulta.npz
+# Derivados de data/raw/corte_suprema*.json: python -m index.providencias --construir
+index/catalogo_suprema.json
+index/relaciones_suprema.db
+index/*.tmp
+# Verificaciones y muestras tomadas de Ojeador (scripts/ojeador.py): datos de
+# corrida, se regeneran; la metodologia queda en docs/OJEADOR.md
+data/ojeador/
