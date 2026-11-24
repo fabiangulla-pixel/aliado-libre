@@ -139,6 +139,202 @@ def canonica(identificador: str) -> str | None:
     return r[0].canonica if r and r[0].original.strip() == identificador.strip() else None
 
 
+# --- citas antiguas: sala + fecha + radicado -------------------------------
+#
+# Antes de los identificadores SL/SC (la Sala Laboral los usa desde 2016) la
+# Suprema se citaba por fecha y radicado: «CSJ SL, 5 ago. 2014, rad. 45678»,
+# «Sala de Casación Laboral, sentencia del 5 de agosto de 2014, radicación
+# 45678». Se reconocen solo con un ancla de la Suprema antes de la fecha o con
+# un radicado pegado a ella: una fecha suelta en prosa no es una cita.
+
+_MESES_ABREV = {
+    "ene": 1, "feb": 2, "mar": 3, "abr": 4, "may": 5, "jun": 6,
+    "jul": 7, "ago": 8, "sep": 9, "sept": 9, "set": 9, "oct": 10, "nov": 11, "dic": 12,
+}  # fmt: skip
+_ALT_MES = "|".join(sorted(list(_MESES_ABREV) + ["enero", "febrero", "marzo", "abril", "mayo", "junio",
+                    "julio", "agosto", "septiembre", "setiembre", "octubre", "noviembre", "diciembre"],
+                   key=len, reverse=True))  # fmt: skip
+_RE_FECHA_CITA = re.compile(
+    rf"(?<![\d])(\d{{1,2}})(?:\s*(?:de|-|/))?\s*({_ALT_MES})\b\.?(?:\s*(?:de|del|-|/|,))?\s*(\d{{4}})(?!\d)",
+    re.I,
+)
+# Sala por la sigla tras «CSJ» o por el nombre: SL / SCL = Laboral, SC / SCC = Civil, SP / SCP = Penal.
+_RE_SALA_SIGLA = re.compile(r"\bCSJ\b[\s,.]*(SCL|SCC|SCP|STL|STC|STP|SL|SC|SP|AL|AC|AP)\b")
+_SIGLA_SALA = {"L": "Laboral", "C": "Civil", "P": "Penal"}
+_RE_SALA_NOMBRE = re.compile(r"Sala\s+(?:de\s+)?(?:Casaci[oó]n\s+)?(Laboral|Civil|Penal)", re.I)
+_RE_ANCLA = re.compile(r"\bCSJ\b|Corte\s+Suprema|Sala\s+de\s+Casaci[oó]n", re.I)
+_RE_RAD_CITA = re.compile(
+    r"\brad(?:icaci[oó]n|icado|\.)?\s*(?:n(?:[uú]mero|o)?\s*\.?\s*[°º]?\s*\.?)?\s*:?\s*"
+    r"(\d{5}-\d{2}-\d{2}-\d{3}-\d{4}-\d{5}-\d{2}|\d{3,7})(?![\d-])",
+    re.I,
+)
+_RE_OTRA_CORPORACION = re.compile(
+    r"Consejo\s+de\s+Estado|Corte\s+Constitucional|Tribunal|Juzgado|Secci[oó]n\s+(?:Primera|Segunda|Tercera|Cuarta|Quinta)"
+    r"|\bC\.\s?E\.|\bCE\b|\bCC\b",
+    re.I,
+)
+# «Sala de Casación Laboral. Sentencia del 5 de agosto…» sigue siendo la misma cita
+_RE_FIN_ORACION = re.compile(r"[.;]\s+(?=[A-ZÁÉÍÓÚÑ¿])(?!Sentencia|Providencia|Auto\b|M\.\s?P|Rad)|\n\s*\n")
+_VENTANA_ANCLA = 160
+_VENTANA_RAD = 70
+
+
+@dataclass(frozen=True)
+class RefAntigua:
+    sala: str | None
+    fecha: str  # ISO, completa: sin día no hay cita antigua que resolver
+    radicado: str | None
+    original: str
+    inicio: int
+    fin: int
+    # «CSJ SC1171, rad. …, 8 abr. 2022»: número sin año + año de la fecha
+    identificador: str | None = None
+
+    @property
+    def etiqueta(self) -> str:
+        if self.identificador:
+            return self.identificador
+        partes = ["CSJ" + (f" {self.sala}" if self.sala else ""), self.fecha]
+        if self.radicado:
+            partes.append(f"rad. {self.radicado}")
+        return ", ".join(partes)
+
+
+def _sala_en(texto: str) -> str | None:
+    ultima = None
+    for m in _RE_SALA_SIGLA.finditer(texto):
+        ultima = (m.start(), _SIGLA_SALA[m.group(1)[-1]])
+    for m in _RE_SALA_NOMBRE.finditer(texto):
+        if ultima is None or m.start() > ultima[0]:
+            ultima = (m.start(), m.group(1).capitalize())
+    return ultima[1] if ultima else None
+
+
+def referencias_antiguas(texto: str) -> list[RefAntigua]:
+    """Citas de la Suprema por fecha (y radicado), sin identificador SL/SC."""
+    texto = texto or ""
+    nuevas = referencias(texto)
+    salida = []
+    for m in _RE_FECHA_CITA.finditer(texto):
+        mes = m.group(2).lower()
+        mes_n = _MESES.get(mes) or _MESES_ABREV.get(mes)
+        try:
+            fecha = _dt.date(int(m.group(3)), mes_n, int(m.group(1)))
+        except (ValueError, TypeError):
+            continue
+        if not 1886 <= fecha.year <= _dt.date.today().year:
+            continue
+        # si hay un identificador nuevo pegado, la cita ya está resuelta por él
+        # («SL131-2026 del 11 de febrero de 2026», «11 feb. 2026 (SL131-2026)»)
+        if any(0 <= m.start() - r.fin <= 8 or 0 <= r.inicio - m.end() <= 3 for r in nuevas):
+            continue
+        antes = texto[max(0, m.start() - _VENTANA_ANCLA) : m.start()]
+        # el ancla tiene que estar en la misma oración: «rad.» o «ago.» no la cortan
+        cortes = list(_RE_FIN_ORACION.finditer(antes))
+        cerca = antes[cortes[-1].end() :] if cortes else antes
+        fin, radicado = m.end(), None
+        tras = _RE_RAD_CITA.search(texto[m.end() : m.end() + _VENTANA_RAD])
+        # «…de 2014, rad. 45678»; no «…2017». SCLAPT-10 V.00 10 Radicación n.° 79767»,
+        # que es el encabezado de página del propio documento
+        if (
+            tras
+            and tras.start() <= 25
+            and not re.search(r"[.;»)]\s", texto[m.end() : m.end() + tras.start()])
+        ):
+            fin, radicado = m.end() + tras.end(), tras.group(1)
+        else:  # «rad. 45678 del 5 de agosto de 2014»
+            previos = list(_RE_RAD_CITA.finditer(cerca[-_VENTANA_RAD:]))
+            radicado = previos[-1].group(1) if previos else None
+        # un identificador completo en la misma frase se lleva el ancla: «CSJ
+        # SL1671-2023, esta Sala CASÓ la proferida el 30 de septiembre…» no cita
+        # una providencia del 30 de septiembre, habla del fallo del tribunal
+        ancla = list(_RE_ANCLA.finditer(cerca))
+        desde = m.start() - len(cerca) + (ancla[-1].start() if ancla else 0)
+        if any(r.inicio >= desde and r.fin <= m.start() for r in nuevas):
+            continue
+        otra = list(_RE_OTRA_CORPORACION.finditer(cerca))
+        if otra and (not ancla or otra[-1].start() > ancla[-1].start()):
+            continue  # la corporación más cercana a la fecha no es la Suprema
+        if not ancla and radicado is None:
+            continue
+        inicio = m.start()
+        if ancla:
+            inicio = m.start() - len(cerca) + ancla[-1].start()
+        # número sin año entre el ancla y la fecha: el año lo pone la fecha
+        tramo = cerca[ancla[-1].start() :] if ancla else cerca
+        sin_anio = list(_RE_INCOMPLETA.finditer(tramo))
+        identificador = None
+        if sin_anio:
+            s = sin_anio[-1]
+            identificador = f"{s.group(1)}{int(s.group(2))}{s.group(3)}-{fecha.year}"
+        salida.append(
+            RefAntigua(
+                sala=PREFIJOS[sin_anio[-1].group(1)][0] if sin_anio else _sala_en(cerca),
+                fecha=fecha.isoformat(),
+                radicado=radicado,
+                original=re.sub(r"\s+", " ", texto[inicio:fin]).strip(),
+                inicio=inicio,
+                fin=fin,
+                identificador=identificador,
+            )
+        )
+    return salida
+
+
+def parsear_antigua(texto: str) -> RefAntigua | None:
+    refs = referencias_antiguas(texto)
+    return refs[0] if refs else None
+
+
+def _indices(documentos: dict) -> tuple[dict, dict]:
+    por_fecha: dict[str, list[str]] = {}
+    por_rad: dict[str, list[str]] = {}
+    for did, f in documentos.items():
+        if f.get("fecha_precision") == "dia" and f.get("fecha"):
+            por_fecha.setdefault(f["fecha"], []).append(did)
+        if f.get("radicado"):
+            por_rad.setdefault(f["radicado"], []).append(did)
+    return por_fecha, por_rad
+
+
+def candidatos_antigua(
+    ref: RefAntigua,
+    documentos: dict,
+    indices: tuple[dict, dict] | None = None,
+    por_canonica: dict | None = None,
+) -> list[str]:
+    """Providencias del catálogo compatibles con la cita antigua.
+
+    Con número de providencia (SC1171 + año de la fecha): esa, si está. Si no,
+    con radicado: las de ese radicado y esa fecha; si ninguna tiene fecha
+    completa, las de ese radicado y ese AÑO (la fecha del índice se quedó en el
+    año: compatibles, no confirmadas). Sin radicado: las de esa fecha (y sala),
+    salvo que la cita traiga un número que no está: entonces ninguna.
+    Nunca se elige entre varias: se devuelven todas."""
+    if ref.identificador:
+        pc = por_canonica if por_canonica is not None else catalogo().get("por_canonica", {})
+        if pc.get(ref.identificador):
+            return list(pc[ref.identificador])
+        if not ref.radicado:
+            return []  # «SC22056 de 19 dic. 2017» no es «la otra de esa fecha»
+    por_fecha, por_rad = indices or _indices(documentos)
+    if ref.radicado:
+        mismas = por_rad.get(ref.radicado, [])
+        c = [d for d in mismas if documentos[d].get("fecha") == ref.fecha]
+        if not c:
+            c = [
+                d
+                for d in mismas
+                if documentos[d].get("fecha_precision") != "dia"
+                and str(documentos[d].get("fecha") or "")[:4] == ref.fecha[:4]
+            ]
+    else:
+        c = list(por_fecha.get(ref.fecha, []))
+    if ref.sala:
+        c = [d for d in c if documentos[d].get("sala") in (ref.sala, None)]
+    return c
+
+
 # --- metadatos desde el texto ---------------------------------------------
 
 _MESES = {
@@ -303,6 +499,8 @@ def construir(rutas=RAW, catalogo: Path = CATALOGO, relaciones: Path = RELACIONE
         if f["canonica"]:
             por_canonica.setdefault(f["canonica"], []).append(did)
 
+    indices = _indices(documentos)
+
     tmp = relaciones.with_suffix(".tmp")
     tmp.unlink(missing_ok=True)
     con = sqlite3.connect(tmp)
@@ -331,6 +529,36 @@ def construir(rutas=RAW, catalogo: Path = CATALOGO, relaciones: Path = RELACIONE
                 1,
                 _contexto(texto, r.inicio, r.fin),
             ]
+        # Citas antiguas: «confirmada» con número + año o con radicado + fecha
+        # exactos; radicado + año (el índice no sabe el día) es «probable»;
+        # varias, «ambigua». Con SOLO la fecha no se crea relación: medido el
+        # 23-nov, casi siempre es la fecha del fallo de instancia («NO CASA la
+        # sentencia proferida el 13 de diciembre de 2018»), no una cita.
+        for r in referencias_antiguas(texto):
+            if not (r.radicado or r.identificador):
+                continue
+            clave = r.etiqueta
+            if clave == propia:
+                continue
+            if clave in vistas:
+                vistas[clave][5] += 1
+                continue
+            destinos = [d for d in candidatos_antigua(r, documentos, indices, por_canonica) if d != did]
+            if len(destinos) == 1:
+                f = documentos[destinos[0]]
+                exacta = f.get("canonica") == r.identificador or f.get("fecha") == r.fecha
+                estado = "confirmada" if exacta else "probable"
+            else:
+                estado = "ambigua" if destinos else "no_resuelta"
+            vistas[clave] = [
+                did,
+                clave,
+                r.original,
+                estado,
+                destinos[0] if len(destinos) == 1 else None,
+                1,
+                _contexto(texto, r.inicio, r.fin),
+            ]
         filas.extend(vistas.values())
     con.executemany("insert into citas values (?,?,?,?,?,?,?)", filas)
     con.execute("create index i_origen on citas(origen)")
@@ -348,6 +576,7 @@ def construir(rutas=RAW, catalogo: Path = CATALOGO, relaciones: Path = RELACIONE
         "relaciones": {
             "total": len(filas),
             "confirmadas": sum(f[3] == "confirmada" for f in filas),
+            "probables": sum(f[3] == "probable" for f in filas),
             "ambiguas": sum(f[3] == "ambigua" for f in filas),
             "no_resueltas": sum(f[3] == "no_resuelta" for f in filas),
         },

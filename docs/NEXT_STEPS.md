@@ -39,10 +39,15 @@ Hecho en la rama `feat/ojeador-suprema` (ver `docs/OJEADOR.md`). Siguiente:
 2. Si se autoriza: ampliar `ingest/fuentes/corte_suprema.py` a tutelas y autos
    y a la Sala Penal, con checkpoint, y medir si mejoran las respuestas antes de
    reindexar todo.
-3. Reconocer citas antiguas por fecha y radicado («CSJ SL, 5 ago. 2014, rad.
-   45678»).
-4. Servidor del índice remoto: anotar la ficha del lado del servidor, para
-   que el `.exe` la muestre sin llevar el catálogo de 28 MB.
+3. ~~Citas antiguas por fecha y radicado~~ HECHO (23-nov, tarde): resolvedor
+   y relaciones (6.900 relaciones antiguas confirmadas en el corpus).
+4. ~~Ficha del lado del servidor~~ HECHO (23-nov, tarde): falta subir
+   `catalogo_suprema.json` al servidor cuando se despliegue
+   (`docs/DESPLIEGUE_INDICE.md`).
+5. El catálogo (`index/catalogo_suprema.json`, `relaciones_suprema.db`) no se
+   versiona: reconstruirlo con `python -m index.providencias --construir`
+   (~2 min) tras cualquier cambio en `data/raw/corte_suprema*.json`. El 23-nov
+   no existía en disco: la GUI no mostraba fichas.
 
 ## Meta de precisión (actualizado 22-nov)
 
@@ -63,10 +68,12 @@ usar para elegir**. Siguiente, en orden:
    un banco generado con el mismo método que piloto. Si se genera con API de
    pago: estimar costo y confirmar antes.
 3. Atacar el fallo medido en los dos bancos: el enrutador nombra la ley
-   general en vez del decreto u oficio específico. Ideas: no promover cuando
-   el documento del #1 original es un decreto reglamentario de la misma
-   materia; pedir al LLM la norma "más específica". Medir en dev, verificar
-   en el banco nuevo.
+   general en vez del decreto u oficio específico. **Ya descartadas con datos
+   en dev**: pedir al LLM la norma "más específica" (elección 25,3%, prompt v2
+   34,7% frente a 44,2%) y no promover cuando el #1 de la búsqueda ya cita la
+   ley (33,7-38,9%, pierde 5-11 casos; `_run/exp_no_promover.py`, 23-nov). En
+   piloto la promoción acierta; el fallo es de prueba_200 (respuestas ancladas
+   a oficios). Sin banco nuevo no hay cómo elegir la siguiente idea.
 4. Afinar e5 con las preguntas sintéticas (BSARD: el denso afinado gana).
 
 ## Estado al 20-nov
@@ -99,7 +106,10 @@ usar para elegir**. Siguiente, en orden:
   resolver el desplazamiento de arriba (p. ej. pesos o cupos por fuente) y
   medir.
 
-## OCR de la Corte Suprema (en curso desde el 15-nov)
+## OCR de la Corte Suprema (TERMINADO el 19-nov e indexado en la etapa 3; histórico)
+
+Pendiente solo de Fabián: quitar la tarea programada, que ya no hace nada
+(`powershell -ExecutionPolicy Bypass -File scripts\ocr_cs_tarea.ps1 -Quitar`).
 
 17.907 sentencias publicadas que no teníamos (casi todas Laboral 2013-2020,
 PDF escaneados; también ~440 de 2024 cuyo .docx no existe en el servidor y sí
@@ -136,9 +146,15 @@ el .pdf). Corre solo en la GPU:
    dominio. Fase 2: medir cuánta calidad se pierde con el reordenador en CPU
    (`finetune/medir_reordenador_cpu.py`: bge-m3 con 60/20/10 candidatos, int8,
    mMiniLM; 4 hilos; elegir en piloto_100, comprobar una vez en prueba_200).
-   Si la pérdida es pequeña, servidor sin GPU de ~30-80 USD/mes. Correr las
-   variantes **con el OCR terminado y la máquina quieta** (los candidatos ya
-   están fijados en `finetune/eval/reordenador_cpu/pools_*.json`).
+   Si la pérdida es pequeña, servidor sin GPU de ~30-80 USD/mes.
+   **Medido en dev el 20-nov** (piloto, 95, máquina quieta, 4 hilos; pools de
+   la etapa 3): sin reordenar 24,2%; bge 60 26,3% a 41 s/consulta; bge 20
+   int8 25,3% a 6,4 s; **mMiniLM 60 26,3% a 4,3 s**. Entre la mejor y nada, 2
+   casos de 95: no se detecta diferencia con esta muestra. **Comprobación única
+   en prueba_200 (23-nov): sin reordenar 25,5% = mMiniLM 25,5% (16 y 16).**
+   Conclusión: servidor sin GPU y sin reordenador es viable para la búsqueda.
+   Ojo: el enrutador de norma (gemma4:26b) sí pide GPU, pero está apagado y
+   sin confirmar. **Decide Fabián** el hosting.
 3. Recompilar el `.exe` y publicar el índice ampliado en HF (decidir antes el
    acceso con registro).
 4. **Troceo por artículo** como experimento de una sola variable.

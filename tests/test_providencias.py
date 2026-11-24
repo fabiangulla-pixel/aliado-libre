@@ -286,3 +286,129 @@ def test_radicado_del_consejo_de_estado_no_se_resuelve_con_la_suprema(corpus, si
 def test_sin_referencias_de_la_suprema_sigue_la_resolucion_de_normas(corpus, sin_vigencia):
     assert rc._resolver_suprema("art. 64 del CST", _Col(), 5) is None
     assert rc._resolver_suprema("T-760/08", _Col(), 5) is None
+
+
+# --- citas antiguas: sala + fecha + radicado ----------------------------------
+
+
+@pytest.mark.parametrize(
+    "texto, sala, fecha, radicado",
+    [
+        ("CSJ SL, 5 ago. 2014, rad. 45678", "Laboral", "2014-08-05", "45678"),
+        ("(CSJ SL 10 mar. 2026, rad. 45678)", "Laboral", "2026-03-10", "45678"),
+        (
+            "Sala de Casación Laboral, sentencia del 5 de agosto de 2014, radicación 45678",
+            "Laboral",
+            "2014-08-05",
+            "45678",
+        ),
+        ("CSJ SCC, 12 de diciembre de 2005, rad. n.° 1999-00123", "Civil", "2005-12-12", None),
+        ("Corte Suprema de Justicia, sentencia de 1 de febrero de 2011", None, "2011-02-01", None),
+        ("rad. 45678 del 5 de agosto de 2014", None, "2014-08-05", "45678"),
+        ("CSJ SP, 3 sept. 2008, rad. 29.000", "Penal", "2008-09-03", None),
+        (
+            "Corte Suprema, Sala de Casación Civil. Sentencia de 7 de mayo de 1998",
+            "Civil",
+            "1998-05-07",
+            None,
+        ),
+    ],
+)
+def test_reconoce_citas_antiguas(texto, sala, fecha, radicado):
+    r = P.parsear_antigua(texto)
+    assert r is not None and (r.sala, r.fecha) == (sala, fecha)
+    if radicado:
+        assert r.radicado == radicado
+
+
+@pytest.mark.parametrize(
+    "texto",
+    [
+        "el 5 de agosto de 2014 me despidieron sin justa causa",  # fecha suelta: prosa
+        "Consejo de Estado, Sección Tercera, sentencia del 5 de agosto de 2014, rad. 45678",
+        "Corte Constitucional, sentencia del 5 de agosto de 2014",
+        "CSJ SL, 31 feb. 2014, rad. 45678",  # fecha imposible
+        "CSJ SL131-2026 del 11 de febrero de 2026",  # el identificador nuevo ya la resuelve
+        "la Corte Suprema dijo algo. Luego, el 5 de agosto de 2014, renuncié",  # otra oración
+        # visto en el corpus: la fecha es del fallo del tribunal, no una cita
+        "Mediante sentencia CSJ SL1671-2023, esta Sala CASÓ la proferida el 30 de septiembre de 2022",
+    ],
+)
+def test_no_inventa_citas_antiguas(texto):
+    assert P.referencias_antiguas(texto) == []
+
+
+def test_el_encabezado_de_pagina_no_es_el_radicado_de_la_cita():
+    r = P.parsear_antigua(
+        "Corte Suprema, sentencia del 25 de enero 2017». SCLAPT-10 V.00 10 Radicación n.° 79767"
+    )
+    assert r is not None and r.radicado is None
+
+
+def test_numero_sin_anio_toma_el_anio_de_la_fecha():
+    # vistos en el corpus (23-nov-2026)
+    r = P.parsear_antigua("(CSJ SC1171, rad. 2012-00715-01, 8 abr. 2022)")
+    assert (r.identificador, r.sala, r.fecha) == ("SC1171-2022", "Civil", "2022-04-08")
+    assert P.parsear_antigua("CSJ, SC 2407 de 21 de julio de 2020").identificador == "SC2407-2020"
+
+
+def test_numero_que_no_esta_no_se_cambia_por_otra_de_la_misma_fecha(corpus, sin_vigencia):
+    # SL99001-2026 es del 10 de marzo de 2026; la cita nombra otra (SL99009)
+    r = rc.resolver("CSJ SL99009, 10 mar. 2026", _Col())
+    assert r.resultados == [] and "no quiere decir que no exista" in r.aviso
+    ok = rc.resolver("CSJ SL99001, 10 mar. 2026", _Col())
+    assert [f["id"] for f in ok.resultados] == [
+        "corte_suprema:laboral:SL99001-2026::frag0"
+    ] and ok.aviso == ""
+
+
+def test_cita_antigua_exacta_se_resuelve_y_confirma_relacion(corpus, sin_vigencia):
+    r = rc.resolver("qué dijo la CSJ SL, 10 mar. 2026, rad. 45678", _Col())
+    assert [f["id"] for f in r.resultados] == ["corte_suprema:laboral:SL99001-2026::frag0"]
+    assert r.aviso == "" and r.cita.sentencia == "CSJ Laboral, 2026-03-10, rad. 45678"
+
+
+def test_cita_antigua_con_fecha_solo_de_anio_avisa(corpus, sin_vigencia):
+    # SL99002-2026 tiene el radicado 45678 pero el índice solo sabe el año
+    r = rc.resolver("CSJ SL, 4 may. 2026, rad. 45678", _Col())
+    assert [f["id"] for f in r.resultados] == ["corte_suprema:laboral:SL99002-2026::frag0"]
+    assert "no tiene la fecha completa" in r.aviso
+
+
+def test_cita_antigua_sin_radicado_y_sin_coincidencias(corpus, sin_vigencia):
+    r = rc.resolver("Corte Suprema, sentencia del 10 de marzo de 2026", _Col())
+    assert len(r.resultados) == 1 and "puede haber otras" in r.aviso
+    nada = rc.resolver("CSJ SL, 9 ene. 2001, rad. 11111", _Col())
+    assert nada.resultados == [] and "no quiere decir que no exista" in nada.aviso
+
+
+def test_relacion_por_cita_antigua(tmp_path, monkeypatch):
+    citada = _crudo(
+        "corte_suprema:laboral:SL99010-2016",
+        "SL99010-2016",
+        "SL99010-2016\nRadicación n.° 41000\n"
+        "Bogotá, cinco (5) de agosto de dos mil dieciséis (2016)\nresuelve",
+        fecha="2016",
+    )
+    citante = _crudo(
+        "corte_suprema:laboral:SL99011-2020",
+        "SL99011-2020",
+        "SL99011-2020\nComo lo ha dicho la Sala (CSJ SL, 5 ago. 2016, rad. 41000) y también "
+        "CSJ SL, 6 ago. 2016, rad. 42000, se reitera. La Corte Suprema NO CASA la sentencia "
+        "proferida el 5 de agosto de 2016.",  # solo fecha: no crea relación
+        fecha="2020",
+    )
+    ruta = tmp_path / "cs.json"
+    ruta.write_text(json.dumps([citada, citante]), encoding="utf-8")
+    cat, rel = tmp_path / "cat.json", tmp_path / "rel.db"
+    monkeypatch.setattr(P, "RELACIONES", rel)
+    monkeypatch.setattr(P, "CATALOGO", cat)
+    monkeypatch.setattr(P, "_cat", None)
+    monkeypatch.setattr(P, "leer_verificacion", lambda ruta=None: {})
+    datos = P.construir((ruta,), cat, rel)
+    assert datos["relaciones"]["confirmadas"] == 1 and datos["relaciones"]["no_resueltas"] == 1
+    sal = {c["identificador"]: c for c in P.relaciones("corte_suprema:laboral:SL99011-2020")["cita_a"]}
+    assert sal["CSJ Laboral, 2016-08-05, rad. 41000"]["documento_id"] == "corte_suprema:laboral:SL99010-2016"
+    assert sal["CSJ Laboral, 2016-08-06, rad. 42000"]["estado"] == "no_resuelta"
+    entra = P.relaciones("corte_suprema:laboral:SL99010-2016")["citada_por"]
+    assert [c["documento_id"] for c in entra] == ["corte_suprema:laboral:SL99011-2020"]

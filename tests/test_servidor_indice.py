@@ -63,6 +63,16 @@ def base(indice):
 
 
 @pytest.fixture(autouse=True)
+def sin_catalogo_real(monkeypatch):
+    """El catálogo de la Suprema del disco (decenas de MB) no entra en estos tests."""
+    import importlib
+
+    P = importlib.import_module("index.providencias")
+    monkeypatch.setattr(P, "_cat", {})
+    return P
+
+
+@pytest.fixture(autouse=True)
 def sin_token(monkeypatch):
     """Por defecto los tests corren con el servidor abierto; los de auth
     definen la variable explícitamente."""
@@ -118,6 +128,23 @@ def test_buscar_devuelve_el_mismo_esquema_de_fragmentos(base, indice):
     # el servidor no reordena ni renombra claves: reemplazo transparente
     assert set(datos["resultados"][0]) == set(FRAGMENTO)
     assert indice.llamadas == [("carrera administrativa", 3, None)]
+
+
+def test_buscar_anota_la_ficha_de_la_suprema_del_lado_del_servidor(
+    base, indice, sin_catalogo_real, monkeypatch
+):
+    # el .exe no lleva el catálogo: la ficha tiene que venir del servidor
+    sup = {"id": "corte_suprema:laboral:SL99001-2026::frag0", "fuente": "corte_suprema", "texto": "x"}
+    indice.resultados = [sup, FRAGMENTO]
+    ficha = {"numerador": "SL99001-2026", "canonica": "SL99001-2026", "sala": "Laboral"}
+    monkeypatch.setattr(
+        sin_catalogo_real, "_cat", {"documentos": {"corte_suprema:laboral:SL99001-2026": ficha}}
+    )
+    monkeypatch.setattr(sin_catalogo_real, "_verif", {})
+    res = json.loads(_post(base, "/buscar", {"consulta": "despido", "n": 2}).read())["resultados"]
+    assert res[0]["ficha"]["numerador"] == "SL99001-2026"
+    assert res[0]["ficha"]["enlaces"]["ficha"] is None  # sin verificar no se presenta como ficha oficial
+    assert res[1] == FRAGMENTO  # lo que no es de la Suprema no se toca
 
 
 def test_buscar_usa_n_por_defecto_si_no_se_manda(base, indice):

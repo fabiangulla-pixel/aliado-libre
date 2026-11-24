@@ -345,6 +345,12 @@ class Handler(BaseHTTPRequestHandler):
             # dijo nada. Aqui no se duplica: tener dos sitios que ensanchan la
             # ventana y reordenan es tener dos sitios donde se desincroniza.
             resultados = obtener_indice().buscar(texto, k=n, fuentes=fuentes)
+            # Ficha de la Corte Suprema del lado del servidor: el .exe no lleva
+            # el catálogo (decenas de MB) y sin esto no la mostraría. Sin
+            # catálogo en el servidor, no se toca nada.
+            from index import providencias
+
+            resultados = providencias.anotar(resultados)
         except RuntimeError as e:
             self._error(503, str(e))
             return

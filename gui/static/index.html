@@ -243,7 +243,7 @@
   .relaciones h4 { margin: 0.6rem 0 0.2rem; font-size: 0.9rem; }
   .relaciones ul { margin: 0; padding-left: 1.1rem; }
   .estado-relacion { font-size: 0.75rem; padding: 0 0.35rem; border-radius: 3px; background: var(--acento-suave); }
-  .estado-relacion.no_resuelta, .estado-relacion.ambigua { background: transparent; border: 1px dashed var(--borde); }
+  .estado-relacion.no_resuelta, .estado-relacion.ambigua, .estado-relacion.probable { background: transparent; border: 1px dashed var(--borde); }
   .contexto-cita { font-size: 0.85rem; margin: 0.2rem 0; overflow-wrap: anywhere; }
   .pie-fragmento { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0.5rem; color: var(--texto-suave); margin: 0.3rem 0; }
   .navegar-coincidencias button { padding: 0 0.4rem; }
@@ -847,7 +847,8 @@ function fichaProvidencia(f) {
 
 const ESTADO_RELACION = {
   confirmada: 'en el índice',
-  ambigua: 'identificador ambiguo',
+  probable: 'probable: coincide la fecha o el año, revísala',
+  ambigua: 'varias posibles en el índice',
   no_resuelta: 'no está en el índice',
 };
 function listaRelaciones(items, campoId) {
@@ -870,7 +871,7 @@ async function cargarRelaciones(boton) {
     if (datos.error) { caja.innerHTML = `<p class="nota-enlace">${escaparHtml(datos.error)}</p>`; return; }
     const r = datos.relaciones;
     caja.innerHTML = `
-      <p class="nota-enlace">Relaciones por coincidencia del número de la providencia en el texto. No dicen si
+      <p class="nota-enlace">Relaciones por coincidencia del número de la providencia (o de su fecha y radicado) en el texto. No dicen si
       la reitera, la cambia o se aparta de ella: eso exige leerlas.</p>
       <h4>Cita a (${r.total_cita_a})</h4>${listaRelaciones(r.cita_a)}
       ${r.total_cita_a > r.cita_a.length ? `<p class="nota-enlace">Se muestran ${r.cita_a.length}.</p>` : ''}

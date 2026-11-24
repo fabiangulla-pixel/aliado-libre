@@ -162,6 +162,9 @@ def _resolver_suprema(texto: str, coleccion, k: int) -> Resolucion | None:
     from index.vigencia import anotar
 
     ref = P.parsear(texto)
+    ant = P.parsear_antigua(texto)
+    if ref is not None and not ref.completa and ant is not None and ant.identificador:
+        ref = None  # «CSJ SC1171, 8 abr. 2022»: el año lo trae la fecha
     docs: list[str] = []
     aviso = ""
     if ref is not None:
@@ -199,6 +202,37 @@ def _resolver_suprema(texto: str, coleccion, k: int) -> Resolucion | None:
                 cita,
                 aviso=f"La providencia {ref.canonica} no está en el índice (no quiere decir que no exista). "
                 "Puedes buscarla en Ojeador, el buscador oficial de la Corte Suprema.",
+            )
+    elif ant is not None and P.disponible():
+        # cita antigua: «CSJ SL, 5 ago. 2014, rad. 45678». Fecha y radicado
+        # juntos identifican la decisión; solo la fecha, o solo el año, no.
+        cita = Cita(tipo="sentencia", numero=ant.radicado or "", anio=ant.fecha[:4], sentencia=ant.etiqueta)
+        documentos = P.catalogo().get("documentos", {})
+        docs = P.candidatos_antigua(ant, documentos)
+        if not docs:
+            return Resolucion(
+                cita,
+                aviso=f"«{ant.original}»: no hay en el índice una providencia de la Corte Suprema con "
+                + ("ese radicado y esa fecha" if ant.radicado else "esa fecha")
+                + " (no quiere decir que no exista). Puedes buscarla en Ojeador.",
+            )
+        if len(docs) > 1:
+            aviso = (
+                f"«{ant.original}» coincide con {len(docs)} providencias del índice"
+                + ("" if ant.radicado else " de esa fecha")
+                + ": revisa cuál es."
+            )
+        elif ant.identificador and documentos[docs[0]].get("canonica") == ant.identificador:
+            pass  # «CSJ SC1171, 8 abr. 2022»: número y año la identifican
+        elif documentos[docs[0]].get("fecha") != ant.fecha:
+            aviso = (
+                f"«{ant.original}»: coincide el radicado y el año, pero el índice no tiene la fecha "
+                "completa de esta providencia: confírmala antes de citarla."
+            )
+        elif not ant.radicado:
+            aviso = (
+                f"«{ant.original}» no trae radicado: es la única del índice con esa fecha, "
+                "pero puede haber otras."
             )
     else:
         rad = parsear_radicado(texto)

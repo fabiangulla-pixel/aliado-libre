@@ -164,6 +164,16 @@ Construye en local, sube el tar nuevo a `/datos/nuevo/`, y solo cuando termine
 mueve y reinicia. Si sobrescribes en caliente, Chroma sirve un índice a medias
 sin avisar.
 
+### Ficha de la Corte Suprema (desde el 23-nov-2026)
+
+`POST /buscar` añade `ficha` (sala, radicado, fecha, ponente, enlaces) a los
+resultados de la Suprema si el servidor tiene el catálogo; el `.exe` no lo
+lleva. Constrúyelo en local (`python -m index.providencias --construir`), sube
+`index/catalogo_suprema.json` a `/datos/` y define
+`ALIADO_CATALOGO_SUPREMA=/datos/catalogo_suprema.json`. Sin él el servidor
+responde igual, sin ficha. Las relaciones («cita a / es citada por») siguen
+siendo solo locales (`/api/providencia` de la GUI).
+
 ## RAM — medido con e5-large el 7-sep-2026
 
 > ⚠️ **Cifra superada.** El índice de hoy pide **6,43 GB** (remedido el

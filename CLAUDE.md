@@ -43,7 +43,7 @@ esfuerzo en la capa que redacta mientras la recuperación no esté medida.
 ## Verificación antes de dar algo por bueno
 
 ```bash
-./.venv/Scripts/python.exe -m pytest tests/ -q     # 344 esperadas, ~71 s
+./.venv/Scripts/python.exe -m pytest tests/ -q     # 657 esperadas (23-nov-2026), ~2 min
 check.bat                                          # lint + formato + tests
 ```
 

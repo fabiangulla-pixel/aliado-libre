@@ -1,5 +1,57 @@
 # Changelog
 
+## 2026-11-23 (tarde) — Citas antiguas de la Suprema, ficha en el servidor, descartes medidos
+
+Rama `feat/ojeador-suprema` fusionada en `main` (fast-forward; 634 pruebas verdes).
+
+### Nuevo
+- Citas antiguas de la Corte Suprema por fecha y radicado («CSJ SL, 5 ago.
+  2014, rad. 45678»; «Sala de Casación Laboral. Sentencia del 5 de agosto de
+  2014, radicación 45678»; «rad. 45678 del 5 de agosto de 2014»):
+  `providencias.referencias_antiguas` / `candidatos_antigua`.
+  - Solo con un ancla de la Suprema (CSJ, Corte Suprema, Sala de Casación) en
+    la misma oración o con radicado pegado a la fecha; si la corporación más
+    cercana es otra (Consejo de Estado, Corte Constitucional, Tribunal…), no.
+  - Resolución: radicado + fecha exactos = la providencia; radicado + año (el
+    índice solo sabe el año) = se muestra con aviso de confirmarla; solo fecha
+    = las de esa fecha, con aviso de que puede haber otras. Nunca elige entre
+    varias.
+  - Relaciones: «confirmada» (radicado y fecha exactos), «probable» (una sola
+    candidata sin esa certeza), «ambigua», «no_resuelta». La GUI lo dice.
+- Servidor del índice: `POST /buscar` anota la `ficha` de la Suprema si tiene el
+  catálogo (`ALIADO_CATALOGO_SUPREMA`); el `.exe` no lo lleva. Ver
+  `docs/DESPLIEGUE_INDICE.md`.
+
+### Corregido
+- `index/catalogo_suprema.json` no existía en disco: la GUI no mostraba fichas
+  ni relaciones. Reconstruido (39.374 providencias, 450.959 relaciones; ~2 min).
+
+### Medido
+- Falsos positivos de citas antiguas: 0 en 1.576 textos (1.276 consultas
+  reales de Google + bancos piloto y prueba).
+- Relaciones antiguas en el corpus: ~6.900 confirmadas, 386 probables. Muestra
+  revisada a mano: las confirmadas, bien; la primera versión emparejaba por
+  solo fecha y casi siempre era el fallo de instancia («NO CASA la sentencia
+  proferida el…»), y cambiaba «SC22056 de 19 dic. 2017» por la SC22055 de esa
+  fecha. Corregido: solo fecha no crea relación; número sin año usa el año de
+  la fecha y no se sustituye por otra.
+- **¿Servir sin GPU?** Comprobación única en banco_prueba_200 (CPU, 4 hilos,
+  máquina quieta, pools de la etapa 3) de la variante elegida en dev el 20-nov:
+  sin reordenar 25,5% recall@5; mMiniLM 60 25,5% a 4,1 s/consulta (gana 16,
+  pierde 16). En dev, bge 60 (el mismo modelo que corre en GPU) 26,3% frente a
+  24,2% sin reordenar (2 casos de 95). No se detecta que el reordenador aporte
+  con esta muestra: **un servidor sin GPU y sin reordenador no pierde nada
+  medible**. Decide Fabián el hosting (fase 2 del plan del 15-nov).
+- Banco de citas de la Suprema (`medir_citas_suprema.py`) sin regresión:
+  60/60 primera, 10/10 inexistentes avisadas, 0 falsos positivos en 180.
+- Descartado (dev, piloto 95, sugerencias de gemma4:26b en caché, gratis):
+  **no promover la ley general cuando el #1 de la búsqueda ya la cita**
+  (`_run/exp_no_promover.py`). Enrutador actual 44,2% #1; sin promover si el #1
+  la menciona 33,7% (gana 1, pierde 11, p=0,006); solo si el #1 no es norma ni
+  sentencia 38,9% (gana 0, pierde 5, p=0,06). El #1 que menciona la ley suele
+  ser una sentencia de la SIC o una ley modificatoria, no la respuesta. El fallo
+  de prueba_200 (respuestas ancladas a oficios) no se arregla con esta regla.
+
 ## 2026-11-23 — Corte Suprema a partir de OJEADOR: citas, fichas, enlaces, relaciones, tablero
 
 Rama `feat/ojeador-suprema`. Investigación de OJEADOR y evidencia en
