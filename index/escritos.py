@@ -50,6 +50,9 @@ class Plantilla:
     cierre: str
     avisos: tuple[str, ...]
     juramento: str = ""
+    # Plazo general de respuesta en días hábiles, para calcular la fecha con
+    # index/plazos.py (27-nov-2026). None = no hay un plazo único que decir.
+    plazo_dias_habiles: int | None = None
 
 
 PLANTILLAS: dict[str, Plantilla] = {
@@ -57,6 +60,7 @@ PLANTILLAS: dict[str, Plantilla] = {
     for p in (
         Plantilla(
             clave="peticion",
+            plazo_dias_habiles=15,
             nombre="Derecho de petición",
             titulo="DERECHO DE PETICIÓN",
             destinatario_defecto="[Nombre de la entidad o empresa a la que te diriges]",
@@ -81,6 +85,7 @@ PLANTILLAS: dict[str, Plantilla] = {
         ),
         Plantilla(
             clave="servicios",
+            plazo_dias_habiles=15,
             nombre="Reclamo a la empresa de servicios públicos",
             titulo="RECLAMO ANTE LA EMPRESA DE SERVICIOS PÚBLICOS DOMICILIARIOS",
             destinatario_defecto="[Nombre de la empresa de energía, agua, gas, aseo o telefonía fija]",
@@ -264,6 +269,17 @@ def armar(datos: dict, hoy: date | None = None) -> dict:
         )
 
     hoy = hoy or date.today()
+    plazo = None
+    if plantilla.plazo_dias_habiles:
+        from index.plazos import vencimiento
+
+        plazo = vencimiento(hoy, plantilla.plazo_dias_habiles)
+        avisos.insert(
+            1,
+            f"Si lo radicas hoy, el plazo general de {plantilla.plazo_dias_habiles} días hábiles para "
+            f"responderte vence el {plazo['vence_texto']}. Si lo radicas otro día, recalcula con la "
+            "calculadora de plazos.",
+        )
     lineas = [
         f"{ciudad}, {fecha_larga(hoy)}",
         "",
@@ -307,7 +323,7 @@ def armar(datos: dict, hoy: date | None = None) -> dict:
         "[Tu nombre completo]",
         "C.C. [__________]",
     ]
-    return {"titulo": plantilla.nombre, "texto": "\n".join(lineas), "avisos": avisos}
+    return {"titulo": plantilla.nombre, "texto": "\n".join(lineas), "avisos": avisos, "plazo": plazo}
 
 
 def catalogo() -> list[dict]:

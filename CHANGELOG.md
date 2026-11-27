@@ -1,5 +1,75 @@
 # Changelog
 
+## 2026-11-27 (tarde) — Lo siguiente de la investigación de competencia
+
+### Nuevo, activo
+- **Verificador de citas** (`index/verificar_citas.py`, `POST /api/verificar_citas`,
+  herramienta MCP `verificar_citas`). Recibe un texto pegado y revisa cada cita: normas,
+  códigos, la Constitución, sentencias de la Corte Constitucional y providencias de la
+  Corte Suprema. De cada una dice si está en el índice, si tiene nota de que no rige y
+  su enlace oficial.
+  - Sin año y con varios años posibles, no elige: lista los candidatos, el más
+    reciente primero.
+  - Toma el artículo más cercano antes de la norma.
+  - Sin IA.
+- **Plazos en días hábiles** (`index/plazos.py`, `GET /api/plazo`, MCP `calcular_plazo`).
+  - Festivos de Colombia: fijos, los trasladables al lunes (Ley 51 de 1983) y los de
+    Pascua.
+  - 2025 y 2026 comprobados contra el calendario oficial.
+  - El día de radicación no cuenta.
+  - El derecho de petición y el reclamo de servicios públicos dicen ahora en qué fecha
+    vence la respuesta.
+- **Página de cobertura** (`/cobertura.html`, `GET /api/cobertura`). Muestra documentos
+  y fragmentos por fuente, la fecha del índice, lo que no está y las herramientas sobre
+  el índice.
+  - Las cifras salen de los archivos, no se escriben a mano: 242.298 documentos y
+    3.296.273 fragmentos al 27-nov.
+  - El acierto no se publica hasta tener un banco de prueba limpio, y la página lo dice.
+  - **Corregido:** una fuente del catálogo con cero fragmentos desaparecía sin aviso;
+    ahora se declara ausente. Era el caso del Consejo de Estado.
+- **Página MCP** (`/mcp.html`) con instrucciones para Claude Code y Claude Desktop.
+  - MCP: `relaciones_providencia` acepta también la Corte Constitucional (T-760/08).
+- **Corregido** en `resolver_citas`: los candidatos de una cita sin año leían como año
+  los últimos dígitos de ids numéricos del Gestor. Por ejemplo, «Decreto 1072» ofrecía
+  el «año 5343». Ahora se usa `anio_de_documento`, que lee el título o un id con forma
+  TIPO-NUM-AAAA.
+
+### Nuevo, APAGADO hasta una decisión o una revisión
+- **Liquidación laboral** (`index/liquidacion.py`, `POST /api/liquidacion`,
+  `ALIADO_LIQUIDACION=1`).
+  - Calcula cesantías, intereses, prima, vacaciones e indemnización (art. 64). Cada
+    línea lleva su fórmula y su artículo.
+  - Comprobado en el texto de la Ley 2466 de 2025 del corpus: no modifica los arts. 64,
+    186, 189, 249 ni 306.
+  - El salario mínimo y el auxilio de transporte los escribe la persona: no se pudieron
+    confirmar las cifras de 2026 en fuente primaria.
+  - **Necesita revisión de una abogada antes de encenderse.**
+- **Pagos con Wompi** (`gui/pagos.py`, `ALIADO_PAGOS=wompi`). El flujo es: checkout
+  con firma de integridad → evento con checksum → clave emitida, guardando solo su
+  hash → `pago.html`.
+  - **Corregido:** la web no aceptaba claves de pago. Ahora acepta la cabecera
+    `X-Aliado-Clave` y la clave salta el cupo de redacciones (el presupuesto mensual
+    sigue mandando).
+  - Los precios no tienen valor por defecto (`ALIADO_PRECIOS_COP`).
+  - El checksum de eventos sigue la doc al pie de la letra, pero el ejemplo de la doc no
+    cuadra con su propia cadena: **probar en sandbox antes de cobrar**. Si no cuadra,
+    no se emite la clave.
+- **WhatsApp** (`gui/whatsapp.py`, `ALIADO_WHATSAPP=1`, Cloud API de Meta).
+  - Solo búsqueda, sin IA. Verifica la firma `X-Hub-Signature-256` y deduplica por id.
+  - Cuota diaria por la huella HMAC del número; el número no se guarda.
+  - Tope mensual por defecto de 1.000 mensajes: Meta cobra los mensajes de servicio
+    desde el 1-oct-2026, con 1.000 gratis.
+
+### No hecho
+- **Minutas del Ministerio de Justicia:** LegalApp no respondió (conexión rechazada) y
+  en minjusticia.gov.co no hay modelos ni términos de uso que permitan reproducirlos. No
+  se copia contenido sin licencia confirmada.
+
+### Probado
+- 731 pruebas.
+- Paneles y páginas abiertos en Chrome headless por CDP, sin errores de JavaScript.
+- 0 USD de API.
+
 ## 2026-11-27 — Lo que la competencia hace y le sirve al ciudadano
 
 Origen: revisión de Magnar y de una docena de productos para abogados en Colombia

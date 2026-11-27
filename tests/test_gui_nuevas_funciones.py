@@ -199,3 +199,66 @@ def test_cupo_semanal_de_las_claves():
     assert cuotas.segundos_hasta_renovar(bloqueo, domingo) == 3600
     assert q.consumir("ip", clave, otro_lunes).permitido
     assert cuotas._plan_desde_dict({"tope": 5, "periodo": "semana"}).periodo == "semana"
+
+
+# --- 27-nov-2026 (tarde) ----------------------------------------------------------
+
+
+def test_plazo_por_get(web):
+    url, _ = web
+    c, d = _get(url + "/api/plazo?desde=2026-11-27&dias=15")
+    assert c == 200 and d["vence"] == "2026-12-21"
+    c, d = _get(url + "/api/plazo?desde=ayer&dias=15")
+    assert c == 400
+
+
+def test_verificar_citas_por_post(web):
+    url, _ = web
+    c, d = _post(url + "/api/verificar_citas", {"texto": "Según la Ley 99999 de 2020."})
+    assert (
+        c == 200
+        and d["resumen"]["total"] == 1
+        and d["citas"][0]["estado"] in ("no_en_indice", "sin_catalogo")
+    )
+    c, _ = _post(url + "/api/verificar_citas", {"texto": "   "})
+    assert c == 400
+
+
+def test_liquidacion_apagada_y_encendida(web, monkeypatch):
+    url, _ = web
+    datos = {"fecha_ingreso": "2025-01-01", "fecha_retiro": "2025-12-31", "salario": 3000000}
+    monkeypatch.delenv("ALIADO_LIQUIDACION", raising=False)
+    c, _ = _post(url + "/api/liquidacion", datos)
+    assert c == 404
+    monkeypatch.setenv("ALIADO_LIQUIDACION", "1")
+    c, d = _post(url + "/api/liquidacion", datos)
+    assert c == 200 and d["total"] > 0
+
+
+def test_pagos_y_whatsapp_apagados_responden_sin_error(web, monkeypatch):
+    url, _ = web
+    monkeypatch.delenv("ALIADO_PAGOS", raising=False)
+    monkeypatch.delenv("ALIADO_WHATSAPP", raising=False)
+    c, d = _get(url + "/api/pago/planes")
+    assert c == 404 and "no están activos" in d["error"]
+    try:
+        urllib.request.urlopen(
+            url + "/api/whatsapp?hub.mode=subscribe&hub.verify_token=x&hub.challenge=1", timeout=5
+        )
+        codigo = 200
+    except urllib.error.HTTPError as e:
+        codigo = e.code
+    assert codigo == 403
+
+
+def test_clave_de_membresia_invalida_se_rechaza_en_publico(web, monkeypatch):
+    url, _ = web
+    monkeypatch.setenv("ALIADO_PUBLICO", "1")
+    publico.reiniciar()
+    req = urllib.request.Request(url + "/api/buscar?q=licencia", headers={"X-Aliado-Clave": "al_inventada"})
+    try:
+        urllib.request.urlopen(req, timeout=5)
+        codigo = 200
+    except urllib.error.HTTPError as e:
+        codigo, cuerpo = e.code, json.loads(e.read())
+    assert codigo == 401 and cuerpo["clave_invalida"] is True

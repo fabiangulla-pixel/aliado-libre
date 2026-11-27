@@ -117,6 +117,17 @@ def catalogo() -> dict:
     return _cache
 
 
+def anio_de_documento(documento_id: str, titulo: str) -> str:
+    """Año de una norma: del título («Decreto 1072 de 2015») o del id con forma
+    TIPO-NUM-AAAA. Nunca de los últimos cuatro dígitos de cualquier id: los del
+    Gestor son numéricos («gestor_normativo:5343») y se leían como el año 5343
+    (encontrado el 27-nov-2026 en los candidatos de «Decreto 1072»)."""
+    m = re.search(r"\bde\s+(\d{4})\b", titulo or "") or re.search(r"-(\d{4})$", documento_id)
+    if m and 1800 <= int(m.group(1)) <= 2100:
+        return m.group(1)
+    return "?"
+
+
 @dataclass
 class Resolucion:
     cita: Cita | None
@@ -283,8 +294,7 @@ def resolver(texto: str, coleccion, k: int = 5) -> Resolucion:
         docs_sin = cat["sin_anio"].get(clave_sin_anio(cita), [])
         anios = {}
         for d in docs_sin:
-            m = re.search(r"(\d{4})\D*$", d) or re.search(r"de (\d{4})", cat["titulos"].get(d, ""))
-            anios.setdefault(m.group(1) if m else "?", d)
+            anios.setdefault(anio_de_documento(d, cat["titulos"].get(d, "")), d)
         if len(anios) > 1:
             return Resolucion(
                 cita,

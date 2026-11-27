@@ -145,7 +145,14 @@ escritos (petición, servicios públicos, consumidor, tutela), preguntas de segu
 explicar un documento propio, relaciones de la Corte Constitucional y cupo semanal para
 claves de pago. Además, la línea «no entrenamos con tus datos».
 
-**Lo siguiente**, ordenado por el valor para el ciudadano dividido por el costo:
+**Hecho el 27-nov-2026 por la tarde:** el verificador de citas (1), la calculadora de
+plazos (2), la página de cobertura (4) y la página MCP (5). Además quedaron construidos
+**pero apagados** la liquidación (3), que espera la revisión de una abogada, Wompi (8),
+que espera la cuenta y los precios, y WhatsApp (7), que espera la cuenta de Meta. Las
+minutas (6) **no se hicieron**: la licencia no se pudo confirmar y LegalApp no
+respondió. Detalle en el CHANGELOG.
+
+**La lista original**, ordenada por el valor para el ciudadano dividido por el costo:
 
 1. **Verificador de citas.** La persona pega un texto, por ejemplo la respuesta de una
    entidad o un escrito que le hicieron, y la app dice qué normas y sentencias existen

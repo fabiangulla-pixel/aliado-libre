@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Qué cubrimos y qué no</title>
+<style>
+  :root { --texto: #1d1d1b; --fondo: #fbfaf7; --suave: #5b5b57; --acento: #8a5a00; --borde: #e3e1da; }
+  @media (prefers-color-scheme: dark) { :root { --texto: #eceae4; --fondo: #161614; --suave: #a8a69f; --acento: #e0b060; --borde: #2b2f3a; } }
+  body { font: 17px/1.6 Georgia, "Times New Roman", serif; color: var(--texto); background: var(--fondo);
+         max-width: 780px; margin: 0 auto; padding: 24px 16px 64px; }
+  h1 { font-size: 1.6rem; } h2 { font-size: 1.15rem; margin-top: 2rem; }
+  .nota { color: var(--suave); font-size: 0.95rem; } a { color: var(--acento); }
+  table { width: 100%; border-collapse: collapse; font: 15px/1.4 ui-sans-serif, system-ui, sans-serif; }
+  th, td { text-align: left; padding: 0.45rem 0.3rem; border-bottom: 1px solid var(--borde); vertical-align: top; }
+  td.n, th.n { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .cifras { display: flex; gap: 1.5rem; flex-wrap: wrap; font-family: ui-sans-serif, system-ui, sans-serif; }
+  .cifras div { min-width: 9rem; } .cifras strong { display: block; font-size: 1.5rem; }
+</style>
+</head>
+<body>
+<p><a href="/">← Volver al buscador</a></p>
+<h1>Qué cubrimos y qué no</h1>
+<p>Un buscador jurídico sirve hasta donde llega su índice. Aquí está, con números que salen del índice que
+usa esta página, lo que tenemos y lo que <strong>no</strong> tenemos. Si tu tema está en la segunda lista,
+que no encontremos nada no quiere decir que no exista.</p>
+
+<div id="contenido"><p class="nota">Cargando…</p></div>
+
+<h2>Cómo lo comprobamos</h2>
+<ul>
+  <li>Cada respuesta redactada cita el texto de la norma entre comillas angulares (« »), y comprobamos por
+  programa que esa cita está palabra por palabra en la fuente. Si no lo está, lo marcamos.</li>
+  <li>La vigencia (derogada, inexequible…) se lee de las notas oficiales de cada norma. Que una norma no tenga
+  nota no prueba que esté vigente, y así lo decimos.</li>
+  <li>El código es libre (AGPL-3.0): cualquiera puede revisar cómo funciona.</li>
+</ul>
+
+<p class="nota"><a href="/privacidad.html">Privacidad</a> · <a href="/terminos.html">Términos de uso</a></p>
+
+<script>
+function esc(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function n(x) { return Number(x || 0).toLocaleString('es-CO'); }
+fetch('/api/cobertura').then(r => r.json()).then(d => {
+  const filas = (d.fuentes || []).map(f => `<tr><td><strong>${esc(f.nombre)}</strong><br><small>${esc(f.entidad)}. ${esc(f.descripcion)}</small></td>
+    <td class="n">${n(f.documentos)}</td><td class="n">${n(f.fragmentos)}</td></tr>`).join('');
+  const ausentes = (d.ausentes || []).map(a => `<li><strong>${esc(a.nombre)}:</strong> ${esc(a.motivo)}</li>`).join('');
+  const x = d.extras || {};
+  document.getElementById('contenido').innerHTML = `
+    <div class="cifras">
+      <div><strong>${n(d.total_documentos)}</strong>documentos</div>
+      <div><strong>${n(d.total_fragmentos)}</strong>fragmentos buscables</div>
+      <div><strong>${n((d.fuentes || []).length)}</strong>fuentes oficiales</div>
+      ${d.indice_actualizado ? `<div><strong>${esc(d.indice_actualizado)}</strong>última actualización del índice</div>` : ''}
+    </div>
+    <h2>Lo que está</h2>
+    <table><tr><th>Fuente</th><th class="n">Documentos</th><th class="n">Fragmentos</th></tr>${filas}</table>
+    <h2>Lo que NO está</h2>
+    <ul>${ausentes}</ul>
+    <p class="nota">El índice es una instantánea: no incluye normas ni sentencias posteriores a su última actualización.</p>
+    <h2>Herramientas sobre el índice</h2>
+    <ul>
+      ${x.documentos_con_nota_de_vigencia ? `<li>${n(x.documentos_con_nota_de_vigencia)} documentos con nota oficial de vigencia (derogada, inexequible, etc.).</li>` : ''}
+      ${x.relaciones_corte_constitucional ? `<li>${n(x.relaciones_corte_constitucional)} citas entre sentencias de la Corte Constitucional.</li>` : ''}
+      ${x.relaciones_corte_suprema ? `<li>${n(x.relaciones_corte_suprema)} citas entre providencias de la Corte Suprema.</li>` : ''}
+    </ul>
+    <h2>¿Qué tanto acierta?</h2>
+    <p>${esc(d.acierto)}</p>`;
+}).catch(() => {
+  document.getElementById('contenido').innerHTML = '<p class="nota">No se pudo cargar la cobertura en este momento.</p>';
+});
+</script>
+</body>
+</html>

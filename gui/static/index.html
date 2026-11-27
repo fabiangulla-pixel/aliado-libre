@@ -583,6 +583,12 @@
   #bloqueDocumento { max-width: 780px; margin: -1rem auto 1.6rem; padding: 0 1.5rem; }
   .explicacion-doc p { white-space: pre-wrap; }
   #salidaDocumento .citar-en-escrito { display: none; }
+  #panelLiquidacion[hidden] { display: none; }
+  li.cita-ok .tiene-cita { color: #2e7d32; }
+  li.cita-falta .tiene-cita { color: var(--acento); }
+  li.cita-duda .tiene-cita { color: var(--dorado); }
+  #salidaVerificar li { margin-bottom: 0.6rem; }
+  #salidaLiquidacion td { border-bottom: 1px solid var(--borde); padding: 0.4rem 0.2rem; vertical-align: top; }
 </style>
 </head>
 <body>
@@ -634,8 +640,14 @@
       No guardamos tu clave ni tus consultas. Al recargar la pagina tendras que
       pegarla de nuevo: es el precio de no almacenar nada.
     </div>
+
+    <label for="claveMembresia">Clave de membresía (si compraste un plan)</label>
+    <input id="claveMembresia" type="password" autocomplete="off" placeholder="al_…">
+    <label style="font-weight:normal"><input id="recordarMembresia" type="checkbox"> Recordarla en este equipo</label>
   </div>
 </div>
+
+<div id="bloquePlanes" class="config" hidden></div>
 
 <div class="fuentes">
   <div class="fuentes-cabecera">
@@ -695,6 +707,69 @@
     </div>
     <div id="salidaDocumento"></div>
   </details>
+
+  <details class="panel-accion" id="panelVerificar">
+    <summary>¿Las normas que te citaron existen? Verifica las citas de un texto</summary>
+    <p class="nota">Pega la respuesta de una entidad, un escrito o un texto hecho con IA. Te decimos, cita por
+      cita, si está en nuestro índice, si tiene nota de que ya no rige y dónde leerla. Sin IA y sin guardar nada.
+      «No está en el índice» no quiere decir que no exista.</p>
+    <label for="textoVerificar">Texto a revisar</label>
+    <textarea id="textoVerificar" placeholder="Ej. «…de conformidad con el artículo 64 del Código Sustantivo del Trabajo y la sentencia T-760 de 2008…»"></textarea>
+    <div class="fila"><button id="botonVerificar" type="button">Verificar citas</button></div>
+    <div id="salidaVerificar"></div>
+  </details>
+
+  <details class="panel-accion" id="panelPlazo">
+    <summary>¿Hasta cuándo tienen para responderte? Calcula un plazo en días hábiles</summary>
+    <p class="nota">Cuenta días hábiles en Colombia: sin sábados, domingos ni festivos (incluidos los que se
+      pasan al lunes y los de Semana Santa). El día en que radicas no cuenta.</p>
+    <div class="fila">
+      <label for="fechaPlazo" style="margin:0">Radicado el</label>
+      <input id="fechaPlazo" type="date">
+      <label for="diasPlazo" style="margin:0">Días hábiles</label>
+      <input id="diasPlazo" type="number" min="1" max="400" value="15" style="width:5rem">
+      <button id="botonPlazo" type="button">Calcular</button>
+    </div>
+    <p class="nota">Derecho de petición: 15 días hábiles por regla general (10 para documentos e información,
+      30 para consultas). Reclamo de servicios públicos: 15 días hábiles.</p>
+    <div id="salidaPlazo"></div>
+  </details>
+
+  <details class="panel-accion" id="panelLiquidacion" hidden>
+    <summary>¿Cuánto te deben de liquidación? Cálculo orientativo</summary>
+    <p class="nota"><strong>En revisión jurídica.</strong> Es una estimación con las reglas generales del
+      Código Sustantivo del Trabajo; no reemplaza la liquidación del empleador ni la asesoría de un abogado,
+      un consultorio jurídico o el inspector de trabajo. No guardamos lo que escribes.</p>
+    <div class="fila">
+      <label style="margin:0">Ingreso <input id="liqIngreso" type="date"></label>
+      <label style="margin:0">Retiro <input id="liqRetiro" type="date"></label>
+    </div>
+    <label for="liqSalario">Salario mensual (pesos, sin auxilio de transporte)</label>
+    <input id="liqSalario" type="text" inputmode="numeric" placeholder="Ej. 2000000">
+    <label for="liqAuxilio">Auxilio de transporte mensual (míralo en tu desprendible; 0 si no lo recibías)</label>
+    <input id="liqAuxilio" type="text" inputmode="numeric" placeholder="Ej. 200000">
+    <label for="liqVacaciones">Días de vacaciones que ya disfrutaste en todo el contrato</label>
+    <input id="liqVacaciones" type="text" inputmode="numeric" value="0">
+    <div class="fila">
+      <label style="margin:0">Contrato
+        <select id="liqTipo"><option value="indefinido">Término indefinido</option><option value="fijo">Término fijo</option><option value="obra">Obra o labor</option></select>
+      </label>
+      <label style="margin:0">Cómo terminó
+        <select id="liqMotivo">
+          <option value="renuncia">Renuncié</option>
+          <option value="despido_sin_justa_causa">Me despidieron sin justa causa</option>
+          <option value="justa_causa">Me despidieron con justa causa</option>
+          <option value="mutuo_acuerdo">De mutuo acuerdo</option>
+          <option value="fin_del_plazo">Se acabó el plazo o la obra</option>
+        </select>
+      </label>
+    </div>
+    <label><input id="liqAlto" type="checkbox"> Mi salario era de 10 salarios mínimos o más</label>
+    <label for="liqFaltantes">Si era a término fijo u obra y te despidieron: días que faltaban para terminar</label>
+    <input id="liqFaltantes" type="text" inputmode="numeric" value="0">
+    <div class="fila"><button id="botonLiquidacion" type="button">Calcular</button></div>
+    <div id="salidaLiquidacion"></div>
+  </details>
 </div>
 
 <main id="resultados">
@@ -729,7 +804,8 @@
   Software libre y gratuito. No guardamos tus consultas ni registramos quién pregunta,
   y no las usamos para entrenar ningún modelo.
   <br>Orientación, no asesoría jurídica: verifica siempre la norma en su fuente oficial.
-  <br><a href="/terminos.html">Términos de uso</a> · <a href="/privacidad.html">Privacidad</a>
+  <br><a href="/cobertura.html">Qué cubrimos y qué no</a> · <a href="/mcp.html">Úsalo desde Claude</a>
+  · <a href="/terminos.html">Términos de uso</a> · <a href="/privacidad.html">Privacidad</a>
 </footer>
 
 <script>
@@ -760,6 +836,8 @@ fetch('/api/estado').then(r => r.json()).then(estado => {
     documentoServidor = !!estado.documento_servidor;
     plantillasEscrito = estado.escritos || [];
     redaccionesDiarias = estado.redacciones_diarias;
+    document.getElementById('panelLiquidacion').hidden = !estado.liquidacion;
+    if (estado.pagos) pintarPlanes();
   }
   if (estado && estado.nombre) {
     document.title = estado.nombre;
@@ -1045,7 +1123,8 @@ async function buscar(opciones = {}) {
       + (filtro.length ? '&fuentes=' + encodeURIComponent(filtro.join(',')) : '')
       + antes.map(a => '&antes=' + encodeURIComponent(a)).join('')
       + parametrosFiltrosProvidencia();
-    const resp = await fetch(url);
+    const membresia = document.getElementById('claveMembresia').value.trim();
+    const resp = await fetch(url, membresia ? { headers: { 'X-Aliado-Clave': membresia } } : {});
     const datos = await leerJson(resp);
 
     if (datos.error) {
@@ -2120,6 +2199,199 @@ async function explicarDocumento(cuerpo) {
 }
 
 document.getElementById('estimarDocumento').addEventListener('click', estimarDocumento);
+
+
+/* ---------------------------------------------------------------------------
+   Verificador de citas (index/verificar_citas.py). Sin IA.
+--------------------------------------------------------------------------- */
+const ESTADO_CITA = {
+  en_indice: ['Está en el índice', 'ok'],
+  no_en_indice: ['No está en el índice', 'falta'],
+  sin_anio: ['Sin año: hay varias con ese número', 'duda'],
+  ambigua: ['Coincide con varias', 'duda'],
+  sin_catalogo: ['No se pudo verificar aquí', 'duda'],
+};
+
+function htmlCitaVerificada(c) {
+  const [etiqueta, clase] = ESTADO_CITA[c.estado] || [c.estado, 'duda'];
+  const art = c.articulo ? `, artículo ${escaparHtml(c.articulo)}` : '';
+  const veces = c.veces > 1 ? ` <small>(${c.veces} veces)</small>` : '';
+  let vig = '';
+  if (c.vigencia && c.vigencia.estado && c.vigencia.estado !== 'sin_nota') {
+    vig = `<div>${selloVigencia({ estado: c.vigencia.estado, alcance: c.vigencia.alcance, nota: c.vigencia.texto })}
+      <small>${escaparHtml(c.vigencia.texto || '')}</small></div>`;
+  }
+  const docs = (c.documentos || []).map(d => d.url
+    ? `<a href="${escaparHtml(d.url)}" target="_blank" rel="noopener noreferrer">${escaparHtml(d.titulo || d.id)}</a>`
+    : escaparHtml(d.titulo || d.id)).join(' · ');
+  const cands = (c.candidatos || []).slice(0, 8).map(x => escaparHtml(x.anio)).join(', ');
+  const artOk = c.articulo_comprobado === true ? ' — artículo encontrado en el texto' : '';
+  return `
+    <li class="cita-${clase}">
+      <strong>${escaparHtml(c.reconocida)}${art}</strong>${veces}
+      <span class="tiene-cita" style="border-color:currentColor">${etiqueta}</span>${artOk}
+      ${docs ? `<div><small>${docs}</small></div>` : ''}
+      ${cands ? `<div><small>Años posibles: ${cands}${c.candidatos.length > 8 ? '…' : ''}</small></div>` : ''}
+      ${vig}
+      ${c.aviso ? `<div><small>${escaparHtml(c.aviso)}</small></div>` : ''}
+    </li>`;
+}
+
+async function verificarCitas() {
+  const salida = document.getElementById('salidaVerificar');
+  const texto = document.getElementById('textoVerificar').value;
+  if (!texto.trim()) { salida.innerHTML = '<div class="aviso">Pega primero el texto.</div>'; return; }
+  salida.innerHTML = '<p class="nota">Revisando…</p>';
+  try {
+    const datos = await leerJson(await fetch('/api/verificar_citas', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ texto }),
+    }));
+    if (datos.error) { salida.innerHTML = `<div class="aviso">${escaparHtml(datos.error)}</div>`; return; }
+    const r = datos.resumen || {};
+    if (!r.total) { salida.innerHTML = '<p class="nota">No reconocí citas de normas ni de sentencias en el texto.</p>'; return; }
+    salida.innerHTML = `
+      <p><strong>${r.total} ${r.total === 1 ? 'cita' : 'citas'}:</strong> ${r.en_indice} en el índice,
+        ${r.no_en_indice} no están, ${r.sin_anio + r.ambigua} por precisar${r.no_rigen ? `, <strong>${r.no_rigen} con nota de que no rige</strong>` : ''}.</p>
+      ${datos.aviso ? `<p class="nota">${escaparHtml(datos.aviso)}</p>` : ''}
+      ${datos.aviso_articulos ? `<p class="nota">${escaparHtml(datos.aviso_articulos)}</p>` : ''}
+      <ul class="fundamentos">${datos.citas.map(htmlCitaVerificada).join('')}</ul>`;
+  } catch (e) {
+    salida.innerHTML = `<div class="aviso">No se pudo verificar: ${escaparHtml(String(e))}</div>`;
+  }
+}
+document.getElementById('botonVerificar').addEventListener('click', verificarCitas);
+
+
+/* ---------------------------------------------------------------------------
+   Plazos en días hábiles (index/plazos.py).
+--------------------------------------------------------------------------- */
+function hoyIso() {
+  const d = new Date();
+  return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+}
+document.getElementById('fechaPlazo').value = hoyIso();
+
+async function calcularPlazo() {
+  const salida = document.getElementById('salidaPlazo');
+  const desde = document.getElementById('fechaPlazo').value;
+  const dias = document.getElementById('diasPlazo').value;
+  try {
+    const datos = await leerJson(await fetch(`/api/plazo?desde=${encodeURIComponent(desde)}&dias=${encodeURIComponent(dias)}`));
+    if (datos.error) { salida.innerHTML = `<div class="aviso">${escaparHtml(datos.error)}</div>`; return; }
+    const fest = (datos.festivos_saltados || []).map(f => `${escaparHtml(f.fecha)} (${escaparHtml(f.festivo)})`).join(', ');
+    salida.innerHTML = `
+      <p style="font-size:1.05rem">Vence el <strong>${escaparHtml(datos.vence_texto)}</strong>
+        <small>(${datos.dias_calendario} días calendario)</small>.</p>
+      ${fest ? `<p class="nota">Festivos que no cuentan: ${fest}.</p>` : ''}
+      <p class="nota">${escaparHtml(datos.aviso || '')}</p>`;
+  } catch (e) {
+    salida.innerHTML = `<div class="aviso">No se pudo calcular: ${escaparHtml(String(e))}</div>`;
+  }
+}
+document.getElementById('botonPlazo').addEventListener('click', calcularPlazo);
+
+
+/* ---------------------------------------------------------------------------
+   Liquidación laboral orientativa (index/liquidacion.py). Solo se muestra con
+   ALIADO_LIQUIDACION=1, mientras pasa la revisión jurídica.
+--------------------------------------------------------------------------- */
+function pesos(n) { return '$ ' + Number(n || 0).toLocaleString('es-CO'); }
+function soloDigitos(id) { return (document.getElementById(id).value || '').replace(/[^\d]/g, '') || '0'; }
+
+async function calcularLiquidacion() {
+  const salida = document.getElementById('salidaLiquidacion');
+  const cuerpo = {
+    fecha_ingreso: document.getElementById('liqIngreso').value,
+    fecha_retiro: document.getElementById('liqRetiro').value,
+    salario: Number(soloDigitos('liqSalario')),
+    auxilio_transporte: Number(soloDigitos('liqAuxilio')),
+    vacaciones_disfrutadas: Number(soloDigitos('liqVacaciones')),
+    tipo_contrato: document.getElementById('liqTipo').value,
+    motivo: document.getElementById('liqMotivo').value,
+    salario_mayor_10_smmlv: document.getElementById('liqAlto').checked,
+    dias_faltantes: Number(soloDigitos('liqFaltantes')),
+  };
+  try {
+    const datos = await leerJson(await fetch('/api/liquidacion', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(cuerpo),
+    }));
+    if (datos.error) { salida.innerHTML = `<div class="aviso">${escaparHtml(datos.error)}</div>`; return; }
+    const filas = datos.lineas.map(l => `
+      <tr><td>${escaparHtml(l.concepto)}<br><small>${escaparHtml(l.formula)} — ${escaparHtml(l.fuente)}</small></td>
+      <td style="text-align:right;white-space:nowrap">${pesos(l.valor)}</td></tr>`).join('');
+    salida.innerHTML = `
+      <table style="width:100%;border-collapse:collapse;margin-top:0.8rem">${filas}
+        <tr><td><strong>Total estimado</strong></td><td style="text-align:right"><strong>${pesos(datos.total)}</strong></td></tr>
+      </table>
+      <ul class="nota">${datos.avisos.map(a => `<li>${escaparHtml(a)}</li>`).join('')}</ul>`;
+  } catch (e) {
+    salida.innerHTML = `<div class="aviso">No se pudo calcular: ${escaparHtml(String(e))}</div>`;
+  }
+}
+document.getElementById('botonLiquidacion').addEventListener('click', calcularLiquidacion);
+
+
+/* ---------------------------------------------------------------------------
+   Membresía y planes (gui/pagos.py, Wompi). La clave se guarda en este equipo
+   SOLO si la persona lo marca; si no, vive en la memoria de la pestaña.
+--------------------------------------------------------------------------- */
+const CLAVE_MEMBRESIA = 'aliado_clave_membresia';
+try {
+  const guardada = localStorage.getItem(CLAVE_MEMBRESIA);
+  if (guardada) {
+    document.getElementById('claveMembresia').value = guardada;
+    document.getElementById('recordarMembresia').checked = true;
+  }
+} catch (e) { /* almacenamiento bloqueado */ }
+
+function guardarMembresia() {
+  try {
+    const valor = document.getElementById('claveMembresia').value.trim();
+    if (document.getElementById('recordarMembresia').checked && valor) localStorage.setItem(CLAVE_MEMBRESIA, valor);
+    else localStorage.removeItem(CLAVE_MEMBRESIA);
+  } catch (e) { /* idem */ }
+}
+document.getElementById('recordarMembresia').addEventListener('change', guardarMembresia);
+document.getElementById('claveMembresia').addEventListener('change', guardarMembresia);
+
+const NOMBRE_PLAN = {
+  'pase-dia': ['Pase de un día', 'Sigue consultando hoy, pasado el límite gratuito.'],
+  semanal: ['Semanal', 'Cupo que se renueva cada lunes.'],
+  mensual: ['Mensual', 'Membresía de un mes.'],
+  pro: ['Pro', 'Sin tope durante un mes.'],
+  empresarial: ['Empresarial', 'Para equipos.'],
+  gold: ['Gold', 'Pago único: sin tope durante π años.'],
+};
+
+async function pintarPlanes() {
+  const bloque = document.getElementById('bloquePlanes');
+  try {
+    const datos = await leerJson(await fetch('/api/pago/planes'));
+    const planes = Object.entries(datos.planes || {});
+    if (!planes.length) return;
+    bloque.hidden = false;
+    bloque.innerHTML = `
+      <div class="config-cabecera"><h2>Apoya el proyecto con un plan</h2></div>
+      <p class="config-aviso">Buscar sigue siendo gratis. Pagas en Wompi (Nequi, PSE, Bancolombia o tarjeta);
+        nosotros no vemos tus datos de pago. Al aprobarse, recibes una clave para pegar arriba.
+        ${datos.ambiente === 'test' ? '<strong>(Modo de pruebas: no se cobra dinero real.)</strong>' : ''}</p>
+      <div class="fila" style="display:flex;gap:0.6rem;flex-wrap:wrap">
+        ${planes.map(([p, precio]) => `
+          <button type="button" class="comprar" data-plan="${escaparHtml(p)}" title="${escaparHtml((NOMBRE_PLAN[p] || [p, ''])[1])}">
+            ${escaparHtml((NOMBRE_PLAN[p] || [p])[0])} — $ ${Number(precio).toLocaleString('es-CO')}
+          </button>`).join('')}
+      </div>`;
+    bloque.querySelectorAll('button.comprar').forEach(b => b.addEventListener('click', async () => {
+      b.disabled = true;
+      try {
+        const r = await leerJson(await fetch('/api/pago/iniciar?plan=' + encodeURIComponent(b.dataset.plan)));
+        if (r.url) { window.location.href = r.url; return; }
+        alert(r.error || 'No se pudo iniciar el pago.');
+      } catch (e) { alert('No se pudo iniciar el pago.'); }
+      b.disabled = false;
+    }));
+  } catch (e) { /* sin planes: no se muestra nada */ }
+}
 
 cargarFuentes();
 

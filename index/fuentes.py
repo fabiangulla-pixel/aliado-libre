@@ -136,26 +136,30 @@ AUSENTES = (
 )
 
 _conteos: dict[str, int] | None = None
+_documentos: dict[str, int] | None = None
 _candado = threading.Lock()
 
 
-def _contar() -> dict[str, int]:
-    """Fragmentos por fuente, leídos del índice léxico.
+def _contar() -> tuple[dict[str, int], dict[str, int]]:
+    """(fragmentos por fuente, documentos por fuente), leídos del índice léxico.
 
     El id de cada fragmento empieza por su fuente ("sic:123::frag0"), así que
-    contar por prefijo evita recorrer la metadata de la colección vectorial.
+    contar por prefijo evita recorrer la metadata de la colección vectorial. Los
+    documentos son los ids sin "::fragN" (rsplit: hay ids que terminan en ":").
     """
     if not DB_FTS.exists():
-        return {}
+        return {}, {}
     conteos: dict[str, int] = {}
+    docs: dict[str, set[str]] = {}
     con = sqlite3.connect(f"file:{DB_FTS}?mode=ro", uri=True)
     try:
         for (fid,) in con.execute("SELECT id FROM fragmentos_fts"):
             clave = fid.split(":", 1)[0]
             conteos[clave] = conteos.get(clave, 0) + 1
+            docs.setdefault(clave, set()).add(fid.rsplit("::", 1)[0])
     finally:
         con.close()
-    return conteos
+    return conteos, {k: len(v) for k, v in docs.items()}
 
 
 def catalogo(refrescar: bool = False) -> list[Fuente]:
@@ -164,10 +168,10 @@ def catalogo(refrescar: bool = False) -> list[Fuente]:
     Se cachea: recorrer 718.388 ids toma unos segundos y el resultado no cambia
     entre consultas.
     """
-    global _conteos
+    global _conteos, _documentos
     with _candado:
         if _conteos is None or refrescar:
-            _conteos = _contar()
+            _conteos, _documentos = _contar()
     salida = []
     for clave, fuente in CATALOGO.items():
         n = _conteos.get(clave, 0)
@@ -205,8 +209,65 @@ def resumen() -> dict:
             }
             for f in disponibles
         ],
-        "ausentes": list(AUSENTES),
+        # Una fuente del catálogo con cero fragmentos se declara ausente en vez de
+        # desaparecer en silencio (27-nov-2026: el Consejo de Estado estaba
+        # descargado y sin indexar, y la página simplemente no lo nombraba).
+        "ausentes": list(AUSENTES)
+        + [
+            {"nombre": f.nombre, "motivo": "Todavía no está incorporada al índice."}
+            for clave, f in CATALOGO.items()
+            if _conteos is not None and not _conteos.get(clave)
+        ],
     }
+
+
+def cobertura() -> dict:
+    """Página pública de cobertura: qué hay, cuánto, desde cuándo y qué falta.
+
+    Solo cifras que salen de los archivos del índice en este equipo; nada
+    escrito a mano que pueda quedarse viejo. El acierto medido NO va aquí
+    todavía: el banco de prueba vigente está gastado (22-nov-2026) y una cifra
+    sin banco limpio sería publicidad, no medición."""
+    import datetime as _dt
+    import json as _json
+
+    base = resumen()
+    docs = _documentos or {}
+    for f in base["fuentes"]:
+        f["documentos"] = docs.get(f["clave"], 0)
+    base["total_documentos"] = sum(f["documentos"] for f in base["fuentes"])
+    base["indice_actualizado"] = (
+        _dt.date.fromtimestamp(DB_FTS.stat().st_mtime).isoformat() if DB_FTS.exists() else None
+    )
+    extras: dict = {}
+    raiz = DB_FTS.parent
+    try:
+        vig = _json.loads((raiz / "vigencia_documentos.json").read_text(encoding="utf-8"))
+        extras["documentos_con_nota_de_vigencia"] = len(vig.get("documentos", {}))
+    except (OSError, ValueError):
+        pass
+    try:
+        cat = _json.loads((raiz / "catalogo_suprema.json").read_text(encoding="utf-8"))
+        extras["relaciones_corte_suprema"] = cat.get("relaciones", {}).get("total")
+    except (OSError, ValueError):
+        pass
+    try:
+        con = sqlite3.connect(f"file:{raiz / 'relaciones_constitucional.db'}?mode=ro", uri=True)
+        try:
+            extras["relaciones_corte_constitucional"] = con.execute("select count(*) from citas").fetchone()[
+                0
+            ]
+        finally:
+            con.close()
+    except sqlite3.Error:
+        pass
+    base["extras"] = extras
+    base["acierto"] = (
+        "Todavía no publicamos una cifra de acierto: la estamos midiendo con un banco de preguntas "
+        "reales nuevo. "
+        "Mientras tanto, cada respuesta muestra sus citas literales para que las compruebes."
+    )
+    return base
 
 
 if __name__ == "__main__":

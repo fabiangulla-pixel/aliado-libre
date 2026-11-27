@@ -42,6 +42,27 @@ consultas a la semana, un tope propuesto sin decidir**. Los anónimos no pueden 
 semanal sin romper la regla 2. Precios de la competencia y dónde quedamos: ver
 `docs/COMPETENCIA.md`.
 
+## Cobro con Wompi (construido el 27-nov-2026, apagado)
+
+`gui/pagos.py` vende claves con Nequi, PSE, Bancolombia o tarjeta. Para encenderlo:
+
+1. Crear la cuenta de comercio en Wompi. Este paso lo hace Fabián: pide RUT y cuenta
+   bancaria.
+2. Guardar las llaves en `~/.aliado_libre/credenciales.json`, **nunca en el repo**.
+   Las claves del archivo son `wompi_llave_publica`, `wompi_llave_privada`,
+   `wompi_secreto_integridad` y `wompi_secreto_eventos`. Se puede usar en su lugar el
+   entorno `WOMPI_*`.
+3. Fijar estas variables:
+   - `ALIADO_PAGOS=wompi`;
+   - `ALIADO_PRECIOS_COP='{"pase-dia": 3500, "mensual": 37000}'` (los precios los
+     decides tú);
+   - `ALIADO_CLAVES_API=<ruta a un archivo .json>`;
+   - `ALIADO_URL_PUBLICA=https://…`.
+4. En el panel de Wompi, poner como URL de eventos `https://…/api/pago/evento`.
+5. **Primero en sandbox** (llaves `pub_test_`): hacer un pago de prueba y confirmar que
+   el evento pasa la verificación. El ejemplo de checksum de la doc de Wompi no cuadra
+   con su propia cadena, así que eso solo se sabe con un evento real.
+
 ## Pendiente de decidir antes de cobrar
 
 - **Incoherencia de la membresía mensual**: como estaba planteada (100 consultas al

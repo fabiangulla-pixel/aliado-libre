@@ -118,6 +118,19 @@ def test_el_servidor_no_recibe_notas():
         "/api/responder",
         "/api/escrito",
         "/api/documento",
+        # 27-nov-2026 (tarde): ninguno recibe el tablero. Verificar citas y
+        # liquidación reciben el texto o los datos de ESA consulta; plazo y
+        # cobertura son GET sin datos personales; pago y WhatsApp son webhooks
+        # de terceros con firma verificada.
+        "/api/verificar_citas",
+        "/api/liquidacion",
+        "/api/plazo",
+        "/api/cobertura",
+        "/api/pago/evento",
+        "/api/pago/planes",
+        "/api/pago/iniciar",
+        "/api/pago/estado",
+        "/api/whatsapp",
     }
     assert rutas <= permitidos, f"endpoints inesperados: {rutas - permitidos}"
     for sospechoso in ("notas", "tablero", "favoritos"):

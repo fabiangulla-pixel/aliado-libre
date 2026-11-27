@@ -99,6 +99,14 @@ hiddenimports = [
     "index.ubicar_citas",
     "index.documento_usuario",
     "index.verificar_anclaje",
+    # 27-nov-2026 (tarde): verificador de citas, plazos, liquidación y los
+    # módulos de pagos y WhatsApp (en el .exe quedan apagados, pero sus rutas
+    # se importan y deben responder «no activo» en vez de un error 500).
+    "index.verificar_citas",
+    "index.plazos",
+    "index.liquidacion",
+    "gui.pagos",
+    "gui.whatsapp",
     # Lee los PDF que sube la persona. Python puro y pequeño, a diferencia de
     # docx (arrastra lxml): en el .exe un Word se pide pegado como texto.
     "pypdf",

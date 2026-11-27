@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Resultado del pago</title>
+<style>
+  :root { --texto: #1d1d1b; --fondo: #fbfaf7; --suave: #5b5b57; --acento: #8a5a00; --borde: #e3e1da; }
+  @media (prefers-color-scheme: dark) { :root { --texto: #eceae4; --fondo: #161614; --suave: #a8a69f; --acento: #e0b060; --borde: #2b2f3a; } }
+  body { font: 17px/1.6 Georgia, "Times New Roman", serif; color: var(--texto); background: var(--fondo);
+         max-width: 640px; margin: 0 auto; padding: 24px 16px 64px; }
+  a { color: var(--acento); } .nota { color: var(--suave); font-size: 0.95rem; }
+  code { display: block; font: 1.05rem ui-monospace, Consolas, monospace; padding: 0.8rem; border: 1px solid var(--borde);
+         border-radius: 8px; word-break: break-all; margin: 0.8rem 0; }
+  button { font: inherit; padding: 0.4rem 0.9rem; border-radius: 999px; border: 1px solid var(--acento);
+           background: var(--acento); color: #fff; cursor: pointer; }
+</style>
+</head>
+<body>
+<p><a href="/">← Volver al buscador</a></p>
+<h1>Resultado del pago</h1>
+<div id="estado"><p class="nota">Consultando el pago…</p></div>
+<script>
+function esc(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+const id = new URLSearchParams(location.search).get('id') || '';
+const caja = document.getElementById('estado');
+fetch('/api/pago/estado?id=' + encodeURIComponent(id)).then(r => r.json()).then(d => {
+  if (d.error) { caja.innerHTML = `<p>${esc(d.error)}</p>`; return; }
+  let html = `<p>${esc(d.mensaje)}</p>`;
+  if (d.clave) {
+    html += `<code id="clave">${esc(d.clave)}</code>
+      <button id="copiar" type="button">Copiar la clave</button>
+      <p class="nota">Pégala en «Clave de membresía», dentro de «IA externa (opcional) → configurar», en el buscador.
+      Guárdala en un lugar seguro: no podemos recuperarla, porque solo guardamos una huella cifrada de ella.</p>`;
+  }
+  caja.innerHTML = html;
+  const b = document.getElementById('copiar');
+  if (b) b.addEventListener('click', async () => {
+    try { await navigator.clipboard.writeText(d.clave); b.textContent = 'Copiada'; } catch (e) {}
+  });
+}).catch(() => { caja.innerHTML = '<p>No se pudo consultar el pago. Recarga la página en un momento.</p>'; });
+</script>
+</body>
+</html>

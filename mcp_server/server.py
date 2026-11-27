@@ -202,9 +202,19 @@ def relaciones_providencia(identificador: str) -> str:
     "Es citada por" cuenta solo lo que está en el índice."""
     from index import providencias
 
-    ref = providencias.parsear((identificador or "").strip()[:60])
+    texto = (identificador or "").strip()[:60]
+    # Corte Constitucional («T-760/08», 27-nov-2026)
+    from index import relaciones_constitucional as rc
+
+    canon_cc = rc.canonica_de_identificador(texto)
+    if canon_cc and providencias.parsear(texto) is None:
+        return _relaciones_constitucional(canon_cc)
+    ref = providencias.parsear(texto)
     if ref is None or not ref.completa:
-        return "Identificador no reconocido: usa la forma SL131-2026 (prefijo, número y año)."
+        return (
+            "Identificador no reconocido: usa la forma SL131-2026 (Corte Suprema) o T-760/08 "
+            "(Corte Constitucional)."
+        )
     if not providencias.disponible():
         return "Falta el catálogo de la Corte Suprema en este servidor."
     docs = providencias.documentos_de(ref.canonica)
@@ -220,6 +230,87 @@ def relaciones_providencia(identificador: str) -> str:
         partes.append(f"Es citada por, en el índice ({rel['total_citada_por']}):")
         partes.extend(f"- {c['identificador']} [{c['estado']}]: «{c['contexto']}»" for c in rel["citada_por"])
     return "\n".join(partes)
+
+
+def _relaciones_constitucional(canonica: str) -> str:
+    import sqlite3
+
+    from index import relaciones_constitucional as rc
+
+    if not rc.disponible():
+        return "Faltan las relaciones de la Corte Constitucional en este servidor."
+    con = sqlite3.connect(f"file:{rc.RELACIONES}?mode=ro", uri=True)
+    try:
+        docs = [d for (d,) in con.execute("select id from docs where canonica=?", (canonica,))]
+    finally:
+        con.close()
+    if not docs:
+        return f"{canonica} no está en el índice (no quiere decir que no exista)."
+    partes = []
+    for did in docs:
+        rel = rc.relaciones(did, limite=30)
+        p = rel["providencia"]
+        partes.append(
+            f"### {p['identificador']} ({p.get('fecha') or 'fecha no registrada'}) — {p.get('url') or ''}"
+        )
+        partes.append(f"Cita a ({rel['total_cita_a']}):")
+        partes.extend(f"- {c['identificador']} [{c['estado']}]: «{c['contexto']}»" for c in rel["cita_a"])
+        partes.append(f"Es citada por, en el índice ({rel['total_citada_por']}):")
+        partes.extend(f"- {c['identificador']} [{c['estado']}]: «{c['contexto']}»" for c in rel["citada_por"])
+    return "\n".join(partes)
+
+
+@mcp.tool()
+def verificar_citas(texto: str) -> str:
+    """Revisa TODAS las citas de un texto (normas, códigos, sentencias de la Corte
+    Constitucional, providencias de la Corte Suprema) y dice de cada una si está en
+    el índice, si tiene nota de que no rige (derogada, inexequible…) y su enlace.
+    Úsala para comprobar un escrito, la respuesta de una entidad o un texto
+    generado por IA antes de confiar en sus citas. «No está en el índice» NO
+    significa que no exista."""
+    from index.verificar_citas import verificar
+
+    indice = _indice  # el artículo solo se comprueba si el índice ya está cargado
+    r = verificar((texto or "")[:30000], getattr(indice, "_coleccion", None))
+    if not r["citas"]:
+        return "No reconocí citas normativas en el texto."
+    partes = []
+    for c in r["citas"]:
+        linea = (
+            f"- {c['reconocida']}" + (f", art. {c['articulo']}" if c["articulo"] else "") + f": {c['estado']}"
+        )
+        if c["vigencia"] and c["vigencia"].get("estado") != "sin_nota":
+            linea += f" — VIGENCIA: {c['vigencia']['estado']} ({c['vigencia'].get('texto') or ''})"
+        if c["documentos"]:
+            linea += " — " + "; ".join(f"{d['titulo']} {d['url']}".strip() for d in c["documentos"][:2])
+        if c["candidatos"]:
+            linea += " — años posibles: " + ", ".join(x["anio"] for x in c["candidatos"][:8])
+        if c["aviso"]:
+            linea += f" — {c['aviso']}"
+        partes.append(linea)
+    return "\n".join(partes)
+
+
+@mcp.tool()
+def calcular_plazo(fecha_radicacion: str, dias_habiles: int = 15) -> str:
+    """Fecha en que vence un término en días hábiles en Colombia (excluye sábados,
+    domingos y festivos nacionales, incluidos los trasladados al lunes y los de
+    Semana Santa). El día de radicación no cuenta. Fecha en formato AAAA-MM-DD.
+    Ej.: derecho de petición, 15 días hábiles (Ley 1755 de 2015, art. 14)."""
+    from datetime import date
+
+    from index.plazos import vencimiento
+
+    try:
+        r = vencimiento(date.fromisoformat(fecha_radicacion.strip()), int(dias_habiles))
+    except ValueError as e:
+        return f"No pude calcular el plazo: {e}"
+    festivos = ", ".join(f"{f['fecha']} ({f['festivo']})" for f in r["festivos_saltados"]) or "ninguno"
+    return (
+        f"Vence el {r['vence_texto']} ({r['dias_habiles']} días hábiles, {r['dias_calendario']} días "
+        "calendario). "
+        f"Festivos saltados: {festivos}. {r['aviso']}"
+    )
 
 
 if __name__ == "__main__":

@@ -103,6 +103,7 @@ class Handler(BaseHTTPRequestHandler):
     # Se pone en True en cuanto el cuerpo se lee o se drena, para que dos
     # caminos de error seguidos no intenten leerlo dos veces.
     cuerpo_consumido = False
+    _clave_pago_valida = False
 
     def log_message(self, formato, *args):  # silencia el log por defecto, ruidoso
         pass
@@ -121,7 +122,7 @@ class Handler(BaseHTTPRequestHandler):
             # recibia un error tecnico sobre un archivo que le faltaba. Ofrecer
             # lo que no se tiene es la version pequena de inventar cobertura.
             from gui import publico
-            from index import escritos, relaciones_constitucional
+            from index import escritos, liquidacion, relaciones_constitucional
             from index.responder import ruta_modelo
 
             self._responder_json(
@@ -133,6 +134,8 @@ class Handler(BaseHTTPRequestHandler):
                     "nombre": publico.nombre_producto(),
                     "redacciones_diarias": publico.cuota_redaccion().tope_ip if publico.activo() else None,
                     "escritos": escritos.catalogo(),
+                    "liquidacion": liquidacion.activa(),
+                    "pagos": self._pagos_activos(),
                     "relaciones_constitucional": relaciones_constitucional.disponible(),
                     # Explicar un documento con la clave del servidor (sin la de la
                     # persona): en público siempre que quede presupuesto; en local,
@@ -144,6 +147,37 @@ class Handler(BaseHTTPRequestHandler):
 
         if ruta.path == "/api/providencia":
             self._responder_providencia(ruta)
+            return
+
+        if ruta.path == "/api/plazo":
+            self._responder_plazo(ruta)
+            return
+
+        if ruta.path.startswith("/api/pago/"):
+            self._responder_pago_get(ruta)
+            return
+
+        if ruta.path == "/api/whatsapp":
+            # Verificación de la suscripción del webhook (Meta).
+            from gui import whatsapp
+
+            reto = whatsapp.verificar_suscripcion(parse_qs(ruta.query)) if whatsapp.activo() else None
+            if reto is None:
+                self.send_error(403)
+                return
+            cuerpo = reto.encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "text/plain; charset=utf-8")
+            self.send_header("Content-Length", str(len(cuerpo)))
+            self.end_headers()
+            self.wfile.write(cuerpo)
+            return
+
+        if ruta.path == "/api/cobertura":
+            # Página pública de cobertura: lo que hay, cuánto y qué falta.
+            from index.fuentes import cobertura
+
+            self._responder_json(cobertura())
             return
 
         if ruta.path == "/api/fuentes":
@@ -168,12 +202,33 @@ class Handler(BaseHTTPRequestHandler):
         if ruta.path == "/api/documento":
             self._responder_documento()
             return
+        if ruta.path == "/api/verificar_citas":
+            self._responder_verificar_citas()
+            return
+        if ruta.path == "/api/liquidacion":
+            self._responder_liquidacion()
+            return
+        if ruta.path == "/api/pago/evento":
+            self._responder_evento_pago()
+            return
+        if ruta.path == "/api/whatsapp":
+            self._responder_whatsapp()
+            return
         # El cuerpo se lee y se tira ANTES de contestar. Sin esto el cliente
         # sigue escribiendo en un socket ya cerrado y en Windows recibe una
         # conexión abortada en vez del 404: era el fallo intermitente de
         # tests/test_ia_externa_endpoint.py. Ver drenar_cuerpo.py.
         descartar_cuerpo(self)
         self.send_error(404)
+
+    @staticmethod
+    def _pagos_activos() -> bool:
+        try:
+            from gui import pagos
+
+            return pagos.activo()
+        except Exception:  # noqa: BLE001 - en el .exe no hay scripts/ ni pagos: simplemente no se ofrecen
+            return False
 
     @staticmethod
     def _hay_clave_servidor() -> bool:
@@ -188,6 +243,147 @@ class Handler(BaseHTTPRequestHandler):
         if publico.activo():
             return hay and publico.presupuesto().queda(publico.mes_actual())
         return hay
+
+    def _leer_crudo(self, maximo: int = 3 * 1024 * 1024) -> bytes | None:
+        """Bytes del cuerpo tal cual (las firmas de webhooks se calculan sobre
+        ellos, no sobre el JSON re-serializado). None si no sirve."""
+        try:
+            largo = int(self.headers.get("Content-Length") or 0)
+        except ValueError:
+            descartar_cuerpo(self)
+            return None
+        if largo <= 0 or largo > maximo:
+            descartar_cuerpo(self)
+            return None
+        self.cuerpo_consumido = True
+        return self.rfile.read(largo)
+
+    def _responder_pago_get(self, ruta) -> None:
+        from gui import pagos
+
+        if not pagos.activo():
+            self._responder_json({"error": "Los pagos no están activos en este servidor."}, status=404)
+            return
+        params = parse_qs(ruta.query)
+        try:
+            if ruta.path == "/api/pago/planes":
+                self._responder_json({"planes": pagos.precios(), "ambiente": pagos.ambiente()})
+            elif ruta.path == "/api/pago/iniciar":
+                plan = (params.get("plan") or [""])[0]
+                base = os.environ.get("ALIADO_URL_PUBLICA", "").strip().rstrip("/") or (
+                    f"http://127.0.0.1:{self.server.server_address[1]}"
+                )
+                self._responder_json(pagos.iniciar(plan, base + "/pago.html"))
+            elif ruta.path == "/api/pago/estado":
+                self._responder_json(pagos.estado((params.get("id") or [""])[0]))
+            else:
+                self._responder_json({"error": "No existe."}, status=404)
+        except pagos.ErrorPago as e:
+            self._responder_json({"error": str(e)}, status=400)
+
+    def _responder_evento_pago(self) -> None:
+        """Evento de Wompi. Siempre 200 si el cuerpo es legible: un evento con
+        firma mala se IGNORA (no se reintenta), y uno bueno ya quedó procesado."""
+        from gui import pagos
+
+        crudo = self._leer_crudo()
+        if crudo is None or not pagos.activo():
+            self._responder_json({"ok": False}, status=400 if crudo is None else 404)
+            return
+        try:
+            evento = json.loads(crudo.decode("utf-8"))
+        except (UnicodeDecodeError, json.JSONDecodeError):
+            self._responder_json({"ok": False}, status=400)
+            return
+        resultado = pagos.procesar_evento(evento, self.headers.get("X-Event-Checksum"))
+        print(f"[pagos] {resultado}", flush=True)
+        self._responder_json({"ok": True})
+
+    def _responder_whatsapp(self) -> None:
+        """Mensajes entrantes de WhatsApp: se valida la firma, se responde 200 de
+        inmediato y la búsqueda corre en un hilo (Meta reintenta si tardamos)."""
+        from gui import whatsapp
+
+        crudo = self._leer_crudo()
+        if crudo is None or not whatsapp.activo():
+            self.send_error(400 if crudo is None else 404)
+            return
+        if not whatsapp.firma_valida(
+            crudo, self.headers.get("X-Hub-Signature-256"), os.environ.get("ALIADO_WA_APP_SECRET", "")
+        ):
+            self.send_error(401)
+            return
+        try:
+            mensajes = whatsapp.mensajes_de_texto(json.loads(crudo.decode("utf-8")))
+        except (UnicodeDecodeError, json.JSONDecodeError):
+            mensajes = []
+        self._responder_json({"ok": True})
+
+        def buscar(consulta: str):
+            from index.enrutador import decidir
+            from index.vigencia import anotar
+
+            resultados = anotar(_obtener_indice().buscar(consulta, k=3))
+            return resultados, decidir(resultados, hay_clave_externa=True).responde
+
+        def trabajar():
+            for m in mensajes:
+                try:
+                    whatsapp.atender(m, buscar)
+                except Exception as e:  # noqa: BLE001 - un envío fallido no tumba el resto
+                    print(f"[whatsapp] no se pudo responder: {type(e).__name__}", flush=True)
+
+        threading.Thread(target=trabajar, daemon=True).start()
+
+    def _responder_verificar_citas(self) -> None:
+        """Verifica las citas de un texto pegado (index/verificar_citas.py). Sin
+        IA. El artículo solo se comprueba si el índice local ya está cargado:
+        cargarlo para esto haría esperar minutos a quien solo pegó un texto."""
+        from index.verificar_citas import MAX_TEXTO, verificar
+
+        datos = self._leer_json()
+        texto = (datos or {}).get("texto")
+        if not isinstance(texto, str) or not texto.strip():
+            self._responder_json({"error": "Pega el texto cuyas citas quieres verificar."}, status=400)
+            return
+        coleccion = getattr(_indice, "_coleccion", None) if _indice is not None else None
+        r = verificar(texto, coleccion)
+        if r["recortado"]:
+            r["aviso"] = f"El texto es largo: revisé los primeros {MAX_TEXTO:,} caracteres.".replace(",", ".")
+        if coleccion is None:
+            r["aviso_articulos"] = "No comprobé si cada artículo existe dentro de su norma en esta consulta."
+        self._responder_json(r)
+
+    def _responder_plazo(self, ruta) -> None:
+        from datetime import date
+
+        from index.plazos import vencimiento
+
+        params = parse_qs(ruta.query)
+        try:
+            desde = date.fromisoformat((params.get("desde") or [""])[0])
+            dias = int((params.get("dias") or ["15"])[0])
+            self._responder_json(vencimiento(desde, dias))
+        except ValueError as e:
+            self._responder_json({"error": f"No pude calcular el plazo: {e}"}, status=400)
+
+    def _responder_liquidacion(self) -> None:
+        """Liquidación laboral orientativa. APAGADA hasta la revisión jurídica
+        (ALIADO_LIQUIDACION=1): un cálculo de dinero no se publica sin revisar."""
+        from index import liquidacion
+
+        if not liquidacion.activa():
+            descartar_cuerpo(self)
+            self._responder_json({"error": "La calculadora de liquidación no está activa."}, status=404)
+            return
+        datos = self._leer_json()
+        if datos is None:
+            self._responder_json({"error": "Cuerpo inválido."}, status=400)
+            return
+        try:
+            self._responder_json(liquidacion.calcular(datos))
+        except liquidacion.ErrorLiquidacion as e:
+            self._responder_json({"error": str(e)}, status=400)
 
     def _responder_escrito(self) -> None:
         """Arma un borrador de escrito (index/escritos.py). Sin IA y sin guardar
@@ -506,10 +702,24 @@ class Handler(BaseHTTPRequestHandler):
         from gui import publico
 
         aviso_aporte_publico = None
+        self._clave_pago_valida = False
         if publico.activo():
             from servidor_indice.cuotas import mensaje_aporte, mensaje_bloqueo
 
-            v = publico.cuota_busqueda().consumir(publico.ip_cliente(self))
+            # Clave de membresía (27-nov-2026): antes la web no las aceptaba, solo
+            # el servidor del índice; comprar un plan no cambiaba nada aquí.
+            clave = (self.headers.get("X-Aliado-Clave") or "").strip() or None
+            if clave is not None and publico.cuota_busqueda().plan_de(clave) is None:
+                self._responder_json(
+                    {
+                        "error": "Esa clave de membresía no es válida. Revísala o escríbenos.",
+                        "clave_invalida": True,
+                    },
+                    status=401,
+                )
+                return
+            v = publico.cuota_busqueda().consumir(publico.ip_cliente(self), clave)
+            self._clave_pago_valida = clave is not None and v.permitido
             if not v.permitido:
                 self._responder_json({"error": mensaje_bloqueo(v), "limite": True}, status=429)
                 return
@@ -769,8 +979,10 @@ class Handler(BaseHTTPRequestHandler):
                 "del servicio gratuito). Las normas y sus citas de abajo siguen disponibles."
             )
             return None
-        v = publico.cuota_redaccion().consumir(publico.ip_cliente(self))
-        if not v.permitido:
+        # Con membresía no se aplica el cupo diario gratis de redacciones: su
+        # uso ya lo cuenta la clave. El presupuesto mensual sigue mandando.
+        v = None if self._clave_pago_valida else publico.cuota_redaccion().consumir(publico.ip_cliente(self))
+        if v is not None and not v.permitido:
             self._aviso_redaccion = (
                 f"Ya usaste tus {v.tope} respuestas redactadas gratis de hoy. Puedes seguir buscando: "
                 "las normas y sus citas de abajo no tienen ese límite."

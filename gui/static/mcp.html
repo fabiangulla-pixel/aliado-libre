@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Úsalo desde Claude u otra IA (MCP)</title>
+<style>
+  :root { --texto: #1d1d1b; --fondo: #fbfaf7; --suave: #5b5b57; --acento: #8a5a00; --borde: #e3e1da; --codigo: #f0eee8; }
+  @media (prefers-color-scheme: dark) { :root { --texto: #eceae4; --fondo: #161614; --suave: #a8a69f; --acento: #e0b060; --borde: #2b2f3a; --codigo: #22221f; } }
+  body { font: 17px/1.6 Georgia, "Times New Roman", serif; color: var(--texto); background: var(--fondo);
+         max-width: 780px; margin: 0 auto; padding: 24px 16px 64px; }
+  h1 { font-size: 1.6rem; } h2 { font-size: 1.15rem; margin-top: 2rem; }
+  .nota { color: var(--suave); font-size: 0.95rem; } a { color: var(--acento); }
+  pre, code { font-family: ui-monospace, Consolas, monospace; font-size: 0.85rem; background: var(--codigo); }
+  pre { padding: 0.8rem 1rem; border-radius: 8px; overflow-x: auto; border: 1px solid var(--borde); }
+  code { padding: 0.05rem 0.3rem; border-radius: 4px; }
+  dt { font-weight: bold; margin-top: 0.6rem; } dd { margin-left: 1rem; }
+</style>
+</head>
+<body>
+<p><a href="/">← Volver al buscador</a></p>
+<h1>Úsalo desde Claude u otra IA</h1>
+<p>El índice de esta página también funciona como <strong>servidor MCP</strong> (Model Context Protocol): una
+forma estándar de darle herramientas a un asistente de IA. Con él, Claude (u otro cliente compatible) busca
+en las mismas fuentes oficiales, cita el texto literal y te avisa de la vigencia, en vez de responder de
+memoria.</p>
+
+<h2>Herramientas que ofrece</h2>
+<dl>
+  <dt>buscar_normativa</dt><dd>Busca en lenguaje natural en todo el índice y devuelve fragmentos con su fuente y su vigencia.</dd>
+  <dt>resolver_cita</dt><dd>Trae una norma o sentencia por su cita exacta: «art. 64 del CST», «T-760/08», «SL131-2026».</dd>
+  <dt>verificar_citas</dt><dd>Revisa todas las citas de un texto: si están en el índice, si tienen nota de que no rigen y su enlace.</dd>
+  <dt>calcular_plazo</dt><dd>Fecha en que vence un término en días hábiles en Colombia, con festivos.</dd>
+  <dt>verificar_vigencia</dt><dd>Estado de vigencia de un documento del índice.</dd>
+  <dt>leer_fragmento</dt><dd>El texto completo de un fragmento.</dd>
+  <dt>relaciones_providencia</dt><dd>Qué sentencias cita una providencia de la Corte Suprema o de la Corte Constitucional y cuáles la citan.</dd>
+</dl>
+
+<h2>Cómo instalarlo hoy</h2>
+<p class="nota">Por ahora el servidor MCP corre en tu propio equipo, junto con una copia del índice (unos 20 GB).
+Estamos preparando un servidor público para que baste con una dirección; cuando exista, lo anunciaremos aquí.</p>
+<ol>
+  <li>Descarga el código: <code>git clone</code> del repositorio <em>aliado-libre</em> e instala sus dependencias
+  en un entorno de Python 3.12 (instrucciones en el README).</li>
+  <li><strong>Claude Code</strong>, desde la carpeta del proyecto:
+<pre>claude mcp add juris-consulta -- .venv\Scripts\python.exe mcp_server\server.py</pre></li>
+  <li><strong>Claude Desktop</strong>: en <em>Configuración → Desarrollador → Editar configuración</em>, agrega:
+<pre>{
+  "mcpServers": {
+    "juris-consulta": {
+      "command": "C:\\ruta\\a\\aliado-libre\\.venv\\Scripts\\python.exe",
+      "args": ["C:\\ruta\\a\\aliado-libre\\mcp_server\\server.py"]
+    }
+  }
+}</pre>
+  Cambia <code>C:\ruta\a\aliado-libre</code> por la carpeta donde lo descargaste y reinicia Claude Desktop.</li>
+</ol>
+
+<h2>Qué tener en cuenta</h2>
+<ul>
+  <li>El asistente sigue pudiendo equivocarse al interpretar. Las herramientas le dan el texto oficial; la cita
+  literal y el enlace son lo que debes revisar.</li>
+  <li>«No está en el índice» no quiere decir que la norma no exista: mira <a href="/cobertura.html">qué cubrimos y qué no</a>.</li>
+  <li>El servidor MCP local no envía tus consultas a ningún servidor nuestro.</li>
+</ul>
+</body>
+</html>
