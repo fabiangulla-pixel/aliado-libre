@@ -67,6 +67,9 @@ index/adaptador_consulta.npz
 # Derivados de data/raw/corte_suprema*.json: python -m index.providencias --construir
 index/catalogo_suprema.json
 index/relaciones_suprema.db
+# compilaciones alternas cuando dist/ está bloqueado por un .exe abierto
+dist_nuevo/
+build_nuevo/
 # python -m index.relaciones_constitucional --construir (~2 min, 27-nov-2026)
 index/relaciones_constitucional.db
 index/*.tmp
