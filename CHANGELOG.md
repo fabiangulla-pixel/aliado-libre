@@ -65,6 +65,14 @@
   en minjusticia.gov.co no hay modelos ni términos de uso que permitan reproducirlos. No
   se copia contenido sin licencia confirmada.
 
+### Empaquetado
+- El `.exe` lleva `index/catalogo_citas.json`: sin él, el verificador de citas solo
+  podía responder «no se pudo verificar aquí». El binario sube de 39,8 a 43,5 MB.
+- Probado arrancando el `.exe`: la Ley 1943 de 2018 sale como inexequible y el
+  «Decreto 1072» sale sin año.
+- Desplegado en `C:\Users\fabia\Programas\AliadoLibre`; la versión anterior quedó en
+  `_anterior_20261127_tarde`.
+
 ### Probado
 - 731 pruebas.
 - Paneles y páginas abiertos en Chrome headless por CDP, sin errores de JavaScript.

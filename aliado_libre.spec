@@ -32,6 +32,10 @@ datas = [
     # cliente solo ve la nota del propio fragmento: la de "decreto derogado"
     # suele estar en el frag0 y no en el que trae la búsqueda.
     (str(RAIZ / "index" / "vigencia_documentos.json"), "index"),
+    # Catálogo de citas (index/resolver_citas.py --construir, ~26 MB). Sin él el
+    # verificador de citas del .exe solo puede decir «no se pudo verificar aquí»
+    # (visto el 27-nov-2026). No versionado: hay que construirlo antes de compilar.
+    (str(RAIZ / "index" / "catalogo_citas.json"), "index"),
 ]
 
 # --- pila que NO debe entrar --------------------------------------------

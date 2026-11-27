@@ -23,6 +23,15 @@ es opcional.** PyInstaller cachea el análisis de dependencias; si se cambian lo
 `excludes` del `.spec` y no se limpia, el binario sigue arrastrando módulos que
 uno cree haber quitado, compila sin errores y pesa de más.
 
+**Antes de compilar**, `index/catalogo_citas.json` tiene que existir (no se
+versiona): `./.venv/Scripts/python.exe index/resolver_citas.py --construir`. Va
+dentro del .exe desde el 27-nov-2026 (~26 MB, el binario pasa de ~40 a ~43 MB)
+para que el verificador de citas funcione sin el índice local.
+
+Si `dist/AliadoLibre.exe` está abierto (otra instancia corriendo), Windows no deja
+borrarlo: compilar en otra carpeta con
+`python -m PyInstaller aliado_libre.spec --clean --noconfirm --distpath dist_nuevo --workpath build_nuevo`.
+
 ## Qué va dentro y qué no
 
 | Va dentro | Se queda fuera |
