@@ -513,6 +513,76 @@
     color: var(--texto-suave);
     padding: 1rem 0 3rem;
   }
+
+  /* 27-nov-2026: cita de la respuesta ubicada en su fuente */
+  mark.cita-usada {
+    background: rgba(184, 134, 44, 0.28);
+    border-bottom: 2px solid var(--dorado);
+    color: inherit;
+    padding: 0 1px;
+  }
+  .respuesta-ia a.ir-cita { color: inherit; text-decoration: underline dotted var(--dorado); text-underline-offset: 3px; }
+  .respuesta-ia a.ir-cita::after { content: " \2197"; font-size: 0.75em; color: var(--dorado); }
+  .tiene-cita {
+    display: inline-block;
+    font-family: ui-sans-serif, system-ui, sans-serif;
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: var(--dorado);
+    border: 1px solid var(--dorado);
+    border-radius: 999px;
+    padding: 0.05rem 0.5rem;
+  }
+  .resultado.destacada { outline: 2px solid var(--dorado); outline-offset: 2px; }
+
+  /* Paneles nuevos: seguimiento, escrito, documento */
+  .panel-accion {
+    background: var(--panel);
+    border: 1px solid var(--borde);
+    border-radius: 14px;
+    padding: 1rem 1.2rem;
+    margin-bottom: 1.4rem;
+    font-family: ui-sans-serif, system-ui, sans-serif;
+    font-size: 0.92rem;
+    box-shadow: var(--sombra);
+  }
+  .panel-accion summary { cursor: pointer; font-weight: 700; }
+  .panel-accion label { display: block; margin: 0.7rem 0 0.25rem; font-weight: 600; font-size: 0.85rem; }
+  .panel-accion input[type=text], .panel-accion select, .panel-accion textarea {
+    width: 100%;
+    padding: 0.55rem 0.7rem;
+    border-radius: 8px;
+    border: 1px solid var(--borde);
+    background: var(--bg);
+    color: var(--texto);
+    font: inherit;
+  }
+  .panel-accion textarea { min-height: 5.5rem; resize: vertical; }
+  .panel-accion .fila { display: flex; gap: 0.6rem; align-items: center; flex-wrap: wrap; margin-top: 0.7rem; }
+  .panel-accion button {
+    padding: 0.45rem 0.9rem;
+    border-radius: 999px;
+    border: 1px solid var(--acento);
+    background: var(--acento);
+    color: #fff;
+    cursor: pointer;
+    font: inherit;
+  }
+  .panel-accion button.secundario { background: transparent; color: var(--acento); }
+  .panel-accion button[disabled] { opacity: 0.55; cursor: default; }
+  .panel-accion .nota { color: var(--texto-suave); font-size: 0.82rem; margin: 0.4rem 0 0; }
+  .panel-accion ul.fundamentos { margin: 0.3rem 0 0; padding-left: 1.1rem; }
+  .panel-accion textarea.escrito-final {
+    min-height: 22rem;
+    font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+    font-size: 0.85rem;
+    line-height: 1.5;
+  }
+  .hilo { color: var(--texto-suave); font-size: 0.85rem; margin: 0 0 0.4rem; }
+  .citar-en-escrito { font-family: ui-sans-serif, system-ui, sans-serif; font-size: 0.8rem; margin-left: 0.6rem; color: var(--texto-suave); }
+  #bloqueDocumento { max-width: 780px; margin: -1rem auto 1.6rem; padding: 0 1.5rem; }
+  .explicacion-doc p { white-space: pre-wrap; }
+  #salidaDocumento .citar-en-escrito { display: none; }
 </style>
 </head>
 <body>
@@ -609,6 +679,24 @@
 
 <div id="bloqueIaExterna" style="max-width:780px;margin:0 auto;padding:0 1.5rem"></div>
 
+<div id="bloqueDocumento">
+  <details class="panel-accion" id="panelDocumento">
+    <summary>¿Te llegó un documento y no lo entiendes? (factura, cobro, contrato, respuesta de una entidad)</summary>
+    <p class="nota">Lo explicamos en lenguaje sencillo y buscamos las normas que lo regulan. Antes de enviarlo
+      a la IA ocultamos cédulas, NIT, números de cuenta, correos y teléfonos; <strong>los nombres no se pueden
+      quitar de forma fiable: bórralos tú</strong> si prefieres. No guardamos el documento.</p>
+    <label for="archivoDocumento">Sube el archivo (.pdf con texto, .docx o .txt, máximo 4 MB)</label>
+    <input id="archivoDocumento" type="file" accept=".pdf,.docx,.txt">
+    <label for="textoDocumento">…o pega aquí el texto</label>
+    <textarea id="textoDocumento" placeholder="Pega el texto de la carta, la factura o el contrato"></textarea>
+    <div class="fila">
+      <button id="estimarDocumento" type="button">Explicar el documento</button>
+      <span class="nota" id="notaDocumento"></span>
+    </div>
+    <div id="salidaDocumento"></div>
+  </details>
+</div>
+
 <main id="resultados">
   <div class="estado">Escribe una consulta y presiona Buscar.</div>
 </main>
@@ -638,7 +726,8 @@
 </section>
 
 <footer>
-  Software libre y gratuito. No guardamos tus consultas ni registramos quién pregunta.
+  Software libre y gratuito. No guardamos tus consultas ni registramos quién pregunta,
+  y no las usamos para entrenar ningún modelo.
   <br>Orientación, no asesoría jurídica: verifica siempre la norma en su fuente oficial.
   <br><a href="/terminos.html">Términos de uso</a> · <a href="/privacidad.html">Privacidad</a>
 </footer>
@@ -650,12 +739,28 @@ const contenedor = document.getElementById('resultados');
 const casillaConversacional = document.getElementById('conversacional');
 let modoPublico = false;
 let etiquetaIA = 'IA local';
+/* Capacidades que anuncia /api/estado (27-nov-2026). */
+let relacionesCC = false;          // hay relaciones de la Corte Constitucional
+let documentoServidor = false;     // el servidor puede explicar documentos con su clave
+let plantillasEscrito = [];        // [{clave, nombre}]
+let redaccionesDiarias = null;
+/* Hilo de preguntas de seguimiento: SOLO en esta variable, en memoria. No va a
+   sessionStorage ni a localStorage, y el servidor no lo guarda: se manda con
+   cada búsqueda y se olvida al recargar o al empezar un tema nuevo. */
+let hilo = [];
+let ultimosDatos = null;           // la última respuesta de /api/buscar, para el escrito
 
 /* Si el modelo local no esta instalado, no se ofrece redactar con el. Antes la
    casilla se mostraba siempre y quien la marcaba esperaba un rato para recibir
    un error tecnico sobre un .gguf que le faltaba: ofrecer lo que no se tiene es
    la version pequena de inventar cobertura. */
 fetch('/api/estado').then(r => r.json()).then(estado => {
+  if (estado) {
+    relacionesCC = !!estado.relaciones_constitucional;
+    documentoServidor = !!estado.documento_servidor;
+    plantillasEscrito = estado.escritos || [];
+    redaccionesDiarias = estado.redacciones_diarias;
+  }
   if (estado && estado.nombre) {
     document.title = estado.nombre;
     if (estado.publico) document.getElementById('nombreProducto').textContent = estado.nombre;
@@ -915,9 +1020,14 @@ function navegarCoincidencias(articulo, paso) {
   if (contador) contador.textContent = `${i + 1} de ${marcas.length}`;
 }
 
-async function buscar() {
-  const consulta = input.value.trim();
+async function buscar(opciones = {}) {
+  /* Una pregunta de seguimiento llega por `opciones.seguimiento` y arrastra el
+     hilo; una búsqueda desde la caja principal empieza un tema nuevo. */
+  const esSeguimiento = typeof opciones.seguimiento === 'string';
+  const consulta = (esSeguimiento ? opciones.seguimiento : input.value).trim();
   if (!consulta) return;
+  if (!esSeguimiento) hilo = [];
+  const antes = hilo.slice(-2);
 
   const quiereRespuesta = casillaConversacional.checked;
 
@@ -933,6 +1043,7 @@ async function buscar() {
     const url = '/api/buscar?q=' + encodeURIComponent(consulta) + '&k=8'
       + (quiereRespuesta ? '&conversacional=1' : '')
       + (filtro.length ? '&fuentes=' + encodeURIComponent(filtro.join(',')) : '')
+      + antes.map(a => '&antes=' + encodeURIComponent(a)).join('')
       + parametrosFiltrosProvidencia();
     const resp = await fetch(url);
     const datos = await leerJson(resp);
@@ -1011,8 +1122,9 @@ async function buscar() {
           <div class="respuesta-ia">
             <div class="etiqueta">Respuesta redactada por ${etiquetaIA}</div>
             ${avisoDebil}
-            <p>${formatearRespuesta(datos.respuesta)}</p>
+            <p>${enlazarCitas(formatearRespuesta(datos.respuesta), datos.citas_ubicadas)}</p>
             ${avisoAnclaje}
+            ${notaCitas(datos.citas_ubicadas)}
           </div>`;
       } else {
         bloqueRespuesta = `
@@ -1047,7 +1159,39 @@ async function buscar() {
         </div>`;
     }
 
-    contenedor.innerHTML = bloqueAporte + bloqueCita + bloqueCobertura + bloqueAfirmacion + bloqueRespuesta + datos.resultados.map(r => {
+    hilo.push(consulta);
+    const bloqueHilo = antes.length
+      ? `<p class="hilo">Pregunta de seguimiento sobre: ${antes.map(a => '«' + escaparHtml(a) + '»').join(' → ')}</p>`
+      : '';
+    /* El escrito solo se ofrece cuando hay algo en que apoyarlo: con «no
+       encontré una norma» un borrador sería fundamentar en el aire. */
+    const ofrecerEscrito = citaEncontrada || datos.hay_respaldo !== false || !!datos.respuesta;
+    contenedor.innerHTML = bloqueAporte + bloqueHilo + bloqueCita + bloqueCobertura + bloqueAfirmacion + bloqueRespuesta
+      + htmlSeguimiento()
+      + (ofrecerEscrito ? htmlPanelEscrito(datos) : '')
+      + datos.resultados.map(r => htmlResultado(r, consulta)).join('');
+    ultimosDatos = { ...datos, consulta };
+    activarResultados(datos.resultados, consulta);
+    marcarCitasEnFuentes(datos.citas_ubicadas, datos.resultados, consulta);
+    activarSeguimiento();
+    if (ofrecerEscrito) activarPanelEscrito();
+    pintarAvisoFiltros(datos.filtros_providencia);
+    pintarTablero();
+    // se guarda lo ultimo buscado para poder ofrecer la redaccion
+    // con IA externa sin repetir la busqueda
+    ultimaBusqueda = { consulta: consulta, resultados: datos.resultados };
+    pintarBloqueIaExterna();
+  } catch (e) {
+    contenedor.innerHTML = `<div class="error">No se pudo conectar con el servidor: ${escaparHtml(String(e))}</div>`;
+  } finally {
+    boton.disabled = false;
+    boton.textContent = 'Buscar';
+  }
+}
+
+/* Un resultado de búsqueda. Lo usan la búsqueda y la explicación de documentos. */
+function htmlResultado(r, consulta) {
+  {
       const textoCompleto = r.texto || '';
       const preview = textoCompleto.slice(0, 400);
       const tieneExtension = textoCompleto.length > 400;
@@ -1084,15 +1228,32 @@ async function buscar() {
           </span>` : ''}
         </div>
         ${fichaProvidencia(r.ficha)}
+        ${relacionesConstitucional(r)}
         <button class="guardar" data-id="${escaparHtml(r.id)}">+ Guardar en mi tablero</button>
+        <label class="citar-en-escrito"><input type="checkbox" class="citar" data-id="${escaparHtml(r.id)}"> Citar en mi escrito</label>
       </article>`;
-    }).join('');
+  }
+}
 
+/* Botón de relaciones para la Corte Constitucional (index/relaciones_constitucional.py).
+   La Suprema lo trae dentro de su ficha. */
+function relacionesConstitucional(r) {
+  const doc = r.documento_id || String(r.id || '').split('::')[0];
+  if (!relacionesCC || !doc.startsWith('corte_constitucional:')) return '';
+  return `
+    <div class="ficha-providencia">
+      <button type="button" class="ver-relaciones" data-doc="${escaparHtml(doc)}">Ver qué sentencias cita y cuáles la citan</button>
+      <div class="relaciones" hidden></div>
+    </div>`;
+}
+
+/* Botones de cada resultado: guardar, relaciones, coincidencias. */
+function activarResultados(resultados, consulta, raiz = contenedor) {
     // El boton guarda el fragmento COMPLETO, no el recorte que se muestra: lo
     // que el usuario exporta tiene que servirle para citar.
-    contenedor.querySelectorAll('.guardar').forEach(b => {
+    raiz.querySelectorAll('.guardar').forEach(b => {
       b.addEventListener('click', () => {
-        const r = datos.resultados.find(x => x.id === b.dataset.id);
+        const r = resultados.find(x => x.id === b.dataset.id);
         if (!r) return;
         const f = r.ficha || null;
         const enl = (f && f.enlaces) || {};
@@ -1113,24 +1274,279 @@ async function buscar() {
         });
       });
     });
-    contenedor.querySelectorAll('.ver-relaciones').forEach(b => {
+    raiz.querySelectorAll('.ver-relaciones').forEach(b => {
       b.addEventListener('click', () => cargarRelaciones(b));
     });
-    contenedor.querySelectorAll('.navegar-coincidencias button').forEach(b => {
+    raiz.querySelectorAll('.navegar-coincidencias button').forEach(b => {
       b.addEventListener('click', () => navegarCoincidencias(b.closest('.resultado'), Number(b.dataset.paso)));
     });
-    pintarAvisoFiltros(datos.filtros_providencia);
-    pintarTablero();
-    // se guarda lo ultimo buscado para poder ofrecer la redaccion
-    // con IA externa sin repetir la busqueda
-    ultimaBusqueda = { consulta: consulta, resultados: datos.resultados };
-    pintarBloqueIaExterna();
+    raiz.querySelectorAll('input.citar').forEach(c => {
+      c.addEventListener('change', pintarFundamentosEscrito);
+    });
+}
+
+
+/* ---------------------------------------------------------------------------
+   Cita de la respuesta -> pasaje exacto en su fuente (27-nov-2026).
+
+   El servidor (index/ubicar_citas.py) dice, para cada «cita» de la respuesta,
+   en qué fragmento está y entre qué posiciones del texto. Aquí se resalta ese
+   pasaje y cada cita de la respuesta pasa a ser un enlace que salta a él. Una
+   cita que no se ubicó NO se enlaza: la marca del servidor ya avisa.
+--------------------------------------------------------------------------- */
+function pintarTexto(texto, consulta, rangos) {
+  let html = '', pos = 0;
+  for (const r of [...rangos].sort((a, b) => a.inicio - b.inicio)) {
+    if (r.inicio < pos || r.inicio >= texto.length) continue;
+    const fin = Math.min(r.fin, texto.length);
+    html += resaltar(texto.slice(pos, r.inicio), consulta)
+      + `<mark class="cita-usada" data-cita="${r.n}">` + escaparHtml(texto.slice(r.inicio, fin)) + '</mark>';
+    pos = fin;
+  }
+  return html + resaltar(texto.slice(pos), consulta);
+}
+
+function rangosPorFragmento(citas) {
+  const mapa = {};
+  for (const c of citas || []) {
+    for (const u of c.ubicaciones || []) {
+      (mapa[u.id] = mapa[u.id] || []).push({ inicio: u.inicio, fin: u.fin, n: c.n });
+    }
+  }
+  return mapa;
+}
+
+function marcarCitasEnFuentes(citas, resultados, consulta) {
+  const mapa = rangosPorFragmento(citas);
+  for (const r of resultados || []) {
+    const rangos = mapa[r.id];
+    if (!rangos) continue;
+    const art = [...contenedor.querySelectorAll('article.resultado')].find(a => a.dataset.id === r.id);
+    if (!art) continue;
+    const texto = r.texto || '';
+    const prev = art.querySelector('.fragmento-preview');
+    if (prev) {
+      const corte = texto.length > 400 ? ' […]' : '';
+      prev.innerHTML = pintarTexto(texto.slice(0, 400), consulta, rangos) + corte;
+    }
+    const comp = art.querySelector('.fragmento-completo');
+    if (comp) comp.innerHTML = pintarTexto(texto, consulta, rangos);
+    const meta = art.querySelector('.meta');
+    if (meta && !meta.querySelector('.tiene-cita')) {
+      meta.insertAdjacentHTML('beforeend', '<span class="tiene-cita">Contiene la cita de la respuesta</span>');
+    }
+    const casilla = art.querySelector('input.citar');
+    if (casilla) casilla.checked = true;   // lo que la respuesta cita se propone como fundamento
+  }
+  pintarFundamentosEscrito();
+}
+
+/* Convierte cada «cita» del HTML de la respuesta en un enlace a su fuente. El
+   orden es el mismo en que el servidor las numeró (de izquierda a derecha). */
+function enlazarCitas(html, citas) {
+  if (!citas || !citas.length) return html;
+  let n = 0;
+  return html.replace(/«([^»]{15,})»/g, (todo) => {
+    const c = citas[n++];
+    if (!c || !(c.ubicaciones || []).length) return todo;
+    return `<a href="#" class="ir-cita" data-cita="${c.n}" title="Ver este texto en su fuente">${todo}</a>`;
+  });
+}
+
+function notaCitas(citas) {
+  const total = (citas || []).length;
+  if (!total) return '';
+  const ubicadas = citas.filter(c => (c.ubicaciones || []).length).length;
+  return `<div class="aviso">${ubicadas} de ${total} ${total === 1 ? 'cita está' : 'citas están'} en las fuentes de abajo, palabra por palabra.
+    ${ubicadas ? 'Haz clic en una cita para ver el pasaje resaltado.' : ''}</div>`;
+}
+
+function irACita(n) {
+  const marca = contenedor.querySelector(`.fragmento-completo mark.cita-usada[data-cita="${n}"]`)
+    || contenedor.querySelector(`mark.cita-usada[data-cita="${n}"]`);
+  if (!marca) return;
+  const det = marca.closest('details');
+  if (det) det.open = true;
+  const art = marca.closest('article.resultado');
+  contenedor.querySelectorAll('article.destacada').forEach(a => a.classList.remove('destacada'));
+  if (art) art.classList.add('destacada');
+  marca.scrollIntoView({ block: 'center', behavior: 'smooth' });
+}
+
+document.addEventListener('click', ev => {   // también la respuesta de la IA externa, fuera del contenedor
+  const enlace = ev.target.closest('a.ir-cita');
+  if (!enlace) return;
+  ev.preventDefault();
+  irACita(enlace.dataset.cita);
+});
+
+
+/* ---------------------------------------------------------------------------
+   Preguntas de seguimiento. El hilo vive en `hilo` (memoria de la pestaña).
+--------------------------------------------------------------------------- */
+function htmlSeguimiento() {
+  return `
+    <div class="panel-accion" id="panelSeguimiento">
+      <label for="preguntaSeguimiento" style="margin-top:0">¿Tienes otra pregunta sobre lo mismo?</label>
+      <input type="text" id="preguntaSeguimiento" placeholder="Ej. ¿y si no me responden en ese plazo?">
+      <div class="fila">
+        <button type="button" id="botonSeguimiento">Preguntar</button>
+        <button type="button" class="secundario" id="temaNuevo">Empezar un tema nuevo</button>
+      </div>
+      <p class="nota">Tu pregunta se busca junto con las anteriores de este tema. No las guardamos: se olvidan al recargar la página.</p>
+    </div>`;
+}
+
+function activarSeguimiento() {
+  const caja = document.getElementById('preguntaSeguimiento');
+  const enviar = () => { if (caja.value.trim()) buscar({ seguimiento: caja.value }); };
+  document.getElementById('botonSeguimiento').addEventListener('click', enviar);
+  caja.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); enviar(); } });
+  document.getElementById('temaNuevo').addEventListener('click', () => {
+    hilo = [];
+    input.value = '';
+    ajustarAltura();
+    contenedor.innerHTML = '<div class="estado">Escribe una consulta y presiona Buscar.</div>';
+    input.focus();
+  });
+}
+
+
+/* ---------------------------------------------------------------------------
+   Borrador de escrito (index/escritos.py): derecho de petición, reclamo de
+   servicios públicos, reclamación al proveedor, tutela. Sin IA: hechos de la
+   persona + normas que ella marca. Los datos personales quedan en blanco y no
+   se piden: los escribe en su copia.
+--------------------------------------------------------------------------- */
+function htmlPanelEscrito(datos) {
+  if (!plantillasEscrito.length) return '';
+  const opciones = plantillasEscrito.map(p => `<option value="${escaparHtml(p.clave)}">${escaparHtml(p.nombre)}</option>`).join('');
+  const af = datos.afirmacion;
+  const advertencia = af && af.tipo === 'afirma'
+    ? ''
+    : '<p class="nota"><strong>Elige tú las normas que aplican a tu caso</strong> (casilla «Citar en mi escrito» en cada resultado): no puedo asegurar cuál es la correcta.</p>';
+  return `
+    <details class="panel-accion" id="panelEscrito">
+      <summary>Armar un escrito con esto (derecho de petición, reclamo, tutela)</summary>
+      <p class="nota">Un borrador para presentar, gratis y sin IA: usa tus hechos tal como los escribas y las normas que marques, con su texto literal. Lo que solo tú sabes (nombre, cédula, dirección) queda en blanco para que lo completes en tu copia.</p>
+      ${advertencia}
+      <label for="tipoEscrito">Tipo de escrito</label>
+      <select id="tipoEscrito">${opciones}</select>
+      <label for="destinatarioEscrito">¿A quién va dirigido? (opcional)</label>
+      <input type="text" id="destinatarioEscrito" placeholder="Ej. Empresa de Energía de …, Banco …, Alcaldía de …">
+      <label for="ciudadEscrito">Ciudad (opcional)</label>
+      <input type="text" id="ciudadEscrito" placeholder="Ej. Bogotá">
+      <label for="hechosEscrito">Hechos: qué pasó, cuándo y con quién</label>
+      <textarea id="hechosEscrito"></textarea>
+      <label for="peticionesEscrito">Qué pides (opcional; una petición por línea)</label>
+      <textarea id="peticionesEscrito" placeholder="Si lo dejas vacío, el borrador trae peticiones para completar."></textarea>
+      <label>Normas que se citarán</label>
+      <div id="fundamentosEscrito"></div>
+      <div class="fila"><button type="button" id="generarEscrito">Generar borrador</button></div>
+      <div id="salidaEscrito"></div>
+    </details>`;
+}
+
+function activarPanelEscrito() {
+  const panel = document.getElementById('panelEscrito');
+  if (!panel) return;
+  // Los hechos arrancan con lo que la persona contó en su PRIMERA consulta del
+  // tema; las de seguimiento son preguntas («¿y si ya pagué?»), no hechos.
+  document.getElementById('hechosEscrito').value = hilo[0] || '';
+  // Con confianza alta en la norma, se propone esa como fundamento.
+  const af = ultimosDatos && ultimosDatos.afirmacion;
+  if (af && af.tipo === 'afirma') {
+    const r = (ultimosDatos.resultados || []).find(x => x.identificador_documento === af.documento);
+    const casilla = r && [...contenedor.querySelectorAll('input.citar')].find(c => c.dataset.id === r.id);
+    if (casilla) casilla.checked = true;
+  }
+  document.getElementById('generarEscrito').addEventListener('click', generarEscrito);
+  pintarFundamentosEscrito();
+}
+
+function fundamentosElegidos() {
+  if (!ultimosDatos) return [];
+  const marcadas = new Set([...contenedor.querySelectorAll('input.citar:checked')].map(c => c.dataset.id));
+  const mapa = rangosPorFragmento(ultimosDatos.citas_ubicadas);
+  return (ultimosDatos.resultados || []).filter(r => marcadas.has(r.id)).map(r => {
+    const texto = r.texto || '';
+    // La cita: el pasaje que la respuesta citó, si lo hay; si no, solo la norma.
+    const citas = (mapa[r.id] || []).map(x => texto.slice(x.inicio, x.fin));
+    const enl = (r.ficha && r.ficha.enlaces) || {};
+    return {
+      titulo: r.titulo_documento || r.identificador_documento || '',
+      identificador: r.identificador_documento || '',
+      url: enl.ficha || r.url_original || '',
+      cita: citas.join(' […] '),
+      texto_fuente: texto,
+    };
+  });
+}
+
+function pintarFundamentosEscrito() {
+  const caja = document.getElementById('fundamentosEscrito');
+  if (!caja) return;
+  const f = fundamentosElegidos();
+  caja.innerHTML = f.length
+    ? '<ul class="fundamentos">' + f.map(x => `<li>${escaparHtml(x.titulo)}${x.cita ? ' — con la cita de la respuesta' : ''}</li>`).join('') + '</ul>'
+    : '<p class="nota">Ninguna todavía. Marca «Citar en mi escrito» en los resultados que apliquen.</p>';
+}
+
+async function generarEscrito() {
+  const salida = document.getElementById('salidaEscrito');
+  const boton = document.getElementById('generarEscrito');
+  boton.disabled = true;
+  salida.innerHTML = '<p class="nota">Armando el borrador…</p>';
+  try {
+    const resp = await fetch('/api/escrito', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        tipo: document.getElementById('tipoEscrito').value,
+        destinatario: document.getElementById('destinatarioEscrito').value,
+        ciudad: document.getElementById('ciudadEscrito').value,
+        hechos: document.getElementById('hechosEscrito').value,
+        peticiones: document.getElementById('peticionesEscrito').value,
+        fundamentos: fundamentosElegidos(),
+      }),
+    });
+    const datos = await leerJson(resp);
+    if (datos.error) { salida.innerHTML = `<div class="aviso">${escaparHtml(datos.error)}</div>`; return; }
+    salida.innerHTML = `
+      <div class="aviso" style="margin-top:0.8rem"><ul style="margin:0;padding-left:1.1rem">${(datos.avisos || []).map(a => `<li>${escaparHtml(a)}</li>`).join('')}</ul></div>
+      <label for="textoEscrito">Tu borrador (puedes editarlo aquí antes de descargarlo)</label>
+      <textarea id="textoEscrito" class="escrito-final">${escaparHtml(datos.texto)}</textarea>
+      <div class="fila">
+        <button type="button" id="copiarEscrito">Copiar</button>
+        <button type="button" class="secundario" id="descargarEscritoDoc">Descargar para Word</button>
+        <button type="button" class="secundario" id="descargarEscritoTxt">Descargar .txt</button>
+      </div>`;
+    const texto = () => document.getElementById('textoEscrito').value;
+    const nombre = (datos.titulo || 'escrito').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-');
+    document.getElementById('copiarEscrito').addEventListener('click', async (ev) => {
+      try { await navigator.clipboard.writeText(texto()); ev.target.textContent = 'Copiado'; }
+      catch (e) { document.getElementById('textoEscrito').select(); }
+    });
+    document.getElementById('descargarEscritoTxt').addEventListener('click', () => descargar(`${nombre}-${marcaDeTiempo()}.txt`, texto()));
+    document.getElementById('descargarEscritoDoc').addEventListener('click', () => descargarWord(`${nombre}-${marcaDeTiempo()}.doc`, texto()));
   } catch (e) {
-    contenedor.innerHTML = `<div class="error">No se pudo conectar con el servidor: ${escaparHtml(String(e))}</div>`;
+    salida.innerHTML = `<div class="aviso">No se pudo armar el borrador: ${escaparHtml(String(e))}</div>`;
   } finally {
     boton.disabled = false;
-    boton.textContent = 'Buscar';
   }
+}
+
+/* Word abre un HTML con extensión .doc: así el borrador conserva los párrafos
+   sin necesitar ninguna librería. */
+function descargarWord(nombre, texto) {
+  const cuerpo = texto.split('\n').map(l => `<p style="margin:0 0 6pt">${escaparHtml(l) || '&nbsp;'}</p>`).join('');
+  const html = `<html><head><meta charset="utf-8"></head><body style="font-family:Arial;font-size:12pt">${cuerpo}</body></html>`;
+  const blob = new Blob(['﻿', html], { type: 'application/msword' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = nombre;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }
 
 
@@ -1569,16 +1985,141 @@ async function responderConIaExterna() {
     bloque.innerHTML = `
       <div class="respuesta-ia">
         <div class="etiqueta">Respuesta de ${escaparHtml(datos.modelo || datos.proveedor)}</div>
-        <p>${formatearRespuesta(datos.respuesta || '')}</p>
+        <p>${enlazarCitas(formatearRespuesta(datos.respuesta || ''), datos.citas_ubicadas)}</p>
         ${avisoAnclaje}
+        ${notaCitas(datos.citas_ubicadas)}
       </div>
       <div class="costo">${escaparHtml((datos.costo || {}).texto || '')}</div>`;
+    if (ultimosDatos) ultimosDatos.citas_ubicadas = datos.citas_ubicadas;
+    marcarCitasEnFuentes(datos.citas_ubicadas, ultimaBusqueda.resultados, ultimaBusqueda.consulta);
   } catch (e) {
     bloque.innerHTML = `<div class="costo">Fallo la llamada: ${escaparHtml(String(e))}</div>`;
   }
 }
 
 document.getElementById('proveedor').addEventListener('change', pintarBloqueIaExterna);
+
+
+/* ---------------------------------------------------------------------------
+   Explicar un documento de la persona (index/documento_usuario.py).
+
+   Mismo trato que la IA externa: primero se dice cuánto cuesta (o que gasta
+   uno de los usos gratis del día) y solo con un segundo clic se gasta. Con la
+   clave de la persona paga ella; sin clave, el servidor si lo ofrece. El
+   archivo se lee en el navegador y viaja una sola vez; no se guarda.
+--------------------------------------------------------------------------- */
+function leerArchivoBase64(archivo) {
+  return new Promise((resolver, rechazar) => {
+    const lector = new FileReader();
+    lector.onload = () => resolver(String(lector.result).split(',')[1] || '');
+    lector.onerror = () => rechazar(lector.error);
+    lector.readAsDataURL(archivo);
+  });
+}
+
+async function cuerpoDocumento() {
+  const archivo = document.getElementById('archivoDocumento').files[0];
+  const texto = document.getElementById('textoDocumento').value;
+  const cuerpo = {};
+  if (texto.trim()) {
+    cuerpo.texto = texto;
+  } else if (archivo) {
+    if (archivo.size > 4 * 1024 * 1024) throw new Error('El archivo pasa de 4 MB. Sube solo las páginas que importan.');
+    cuerpo.nombre = archivo.name;
+    cuerpo.contenido_b64 = await leerArchivoBase64(archivo);
+  } else {
+    throw new Error('Sube un archivo o pega el texto del documento.');
+  }
+  const cfg = configIa();
+  if (cfg.proveedor) {
+    cuerpo.proveedor = cfg.proveedor;
+    cuerpo.modelo = cfg.modelo;
+  } else if (!documentoServidor) {
+    throw new Error('Para explicar documentos hace falta una IA: abre «IA externa (opcional)», elige un proveedor y pega tu clave.');
+  }
+  return cuerpo;
+}
+
+function resumenEnmascarado(info) {
+  if (!info) return '';
+  const m = info.enmascarado || {};
+  const partes = [];
+  if (m.documentos) partes.push(`${m.documentos} documento(s) de identidad`);
+  if (m.correos) partes.push(`${m.correos} correo(s)`);
+  if (m.telefonos) partes.push(`${m.telefonos} teléfono(s)`);
+  if (m.numeros) partes.push(`${m.numeros} número(s) largos (cuentas, contratos)`);
+  let t = partes.length ? `Antes de enviarlo oculté: ${partes.join(', ')}.` : 'No encontré cédulas, cuentas, correos ni teléfonos que ocultar.';
+  if (info.recortado) t += ` El documento es largo: solo se envían los primeros ${info.caracteres.toLocaleString('es-CO')} caracteres.`;
+  return t;
+}
+
+async function estimarDocumento() {
+  const salida = document.getElementById('salidaDocumento');
+  const boton = document.getElementById('estimarDocumento');
+  boton.disabled = true;
+  salida.innerHTML = '<p class="nota">Leyendo el documento…</p>';
+  try {
+    const cuerpo = await cuerpoDocumento();
+    const datos = await leerJson(await fetch('/api/documento', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...cuerpo, solo_estimar: true }),
+    }));
+    if (datos.error) { salida.innerHTML = `<div class="aviso">${escaparHtml(datos.error)}</div>`; return; }
+    const costo = cuerpo.proveedor
+      ? escaparHtml((datos.estimado || {}).texto || 'Sin estimación disponible.') + ' Lo pagas con tu clave.'
+      : (modoPublico
+          ? `Usa 1 de tus ${redaccionesDiarias || ''} usos gratis de IA de hoy (los mismos de las respuestas redactadas).`
+          : escaparHtml((datos.estimado || {}).texto || '') + ' Lo paga la clave guardada en este servidor.');
+    salida.innerHTML = `
+      <p class="nota">${escaparHtml(resumenEnmascarado(datos.documento))}</p>
+      <div class="costo">${costo}</div>
+      <div class="fila"><button type="button" id="confirmarDocumento">Sí, explicarlo</button></div>`;
+    document.getElementById('confirmarDocumento').addEventListener('click', () => explicarDocumento(cuerpo));
+  } catch (e) {
+    salida.innerHTML = `<div class="aviso">${escaparHtml(e.message || String(e))}</div>`;
+  } finally {
+    boton.disabled = false;
+  }
+}
+
+async function explicarDocumento(cuerpo) {
+  const salida = document.getElementById('salidaDocumento');
+  salida.innerHTML = '<p class="nota">Leyendo y buscando las normas… puede tardar unos segundos.</p>';
+  try {
+    const clave = configIa().clave;
+    const datos = await leerJson(await fetch('/api/documento', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(cuerpo.proveedor ? { ...cuerpo, clave } : cuerpo),
+    }));
+    if (datos.error) { salida.innerHTML = `<div class="aviso">${escaparHtml(datos.error)}</div>`; return; }
+    const puntos = (datos.puntos_clave || []).map(p => `<li>${formatearRespuesta(p)}</li>`).join('');
+    const consultas = (datos.consultas || []).map(c => `«${escaparHtml(c)}»`).join(', ');
+    const avisoAnclaje = datos.anclada === false
+      ? `<div class="aviso">&#9888; ${escaparHtml(datos.aviso_anclaje || '')} — compáralo con tu documento.</div>`
+      : '';
+    const resultados = datos.resultados || [];
+    const consultaResaltar = (datos.consultas || []).join(' ');
+    salida.innerHTML = `
+      <div class="respuesta-ia explicacion-doc" style="margin-top:0.8rem">
+        <div class="etiqueta">${escaparHtml(datos.tipo || 'Tu documento')} — explicado por IA</div>
+        <p>${formatearRespuesta(datos.explicacion || '')}</p>
+        ${puntos ? `<ul>${puntos}</ul>` : ''}
+        ${avisoAnclaje}
+        <div class="aviso">Esto describe lo que dice el documento; no dice si es legal. Para eso, revisa las normas de abajo.</div>
+      </div>
+      <div class="costo">${escaparHtml((datos.costo || {}).texto || '')}</div>
+      ${datos.aviso_busqueda ? `<div class="aviso">${escaparHtml(datos.aviso_busqueda)}</div>` : ''}
+      ${consultas ? `<p class="nota">Normas buscadas con: ${consultas}</p>` : ''}
+      ${resultados.length ? resultados.map(r => htmlResultado(r, consultaResaltar)).join('') : '<p class="nota">No encontré normas en el índice para este documento.</p>'}`;
+    activarResultados(resultados, consultaResaltar, salida);
+  } catch (e) {
+    salida.innerHTML = `<div class="aviso">No se pudo explicar el documento: ${escaparHtml(String(e))}</div>`;
+  }
+}
+
+document.getElementById('estimarDocumento').addEventListener('click', estimarDocumento);
 
 cargarFuentes();
 

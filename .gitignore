@@ -67,6 +67,8 @@ index/adaptador_consulta.npz
 # Derivados de data/raw/corte_suprema*.json: python -m index.providencias --construir
 index/catalogo_suprema.json
 index/relaciones_suprema.db
+# python -m index.relaciones_constitucional --construir (~2 min, 27-nov-2026)
+index/relaciones_constitucional.db
 index/*.tmp
 # Verificaciones y muestras tomadas de Ojeador (scripts/ojeador.py): datos de
 # corrida, se regeneran; la metodologia queda en docs/OJEADOR.md

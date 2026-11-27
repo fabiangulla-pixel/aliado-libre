@@ -41,6 +41,9 @@ DIAS_MES = 31
 PLANES = {
     "pase-dia": (100, "dia", 0),
     "mensual": (100, "mes", DIAS_MES),
+    # 27-nov-2026: cupo que se renueva cada lunes, como los créditos semanales de
+    # la competencia (Magnar). Tope PROPUESTO, sin decidir: ver docs/PLANES.md.
+    "semanal": (150, "semana", DIAS_MES),
     "pro": (None, "mes", DIAS_MES),
     "empresarial": (None, "mes", DIAS_MES),
     "gold": (None, "dia", DIAS_GOLD),

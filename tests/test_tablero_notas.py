@@ -106,7 +106,19 @@ def test_el_servidor_no_recibe_notas():
     rutas = set(re.findall(r'ruta\.path == "([^"]+)"', SERVIDOR_GUI))
     # /api/providencia: GET de solo lectura sobre el catálogo local (ficha y
     # relaciones de la Corte Suprema); no recibe nada del tablero.
-    permitidos = {"/api/buscar", "/api/estado", "/api/fuentes", "/api/providencia"}
+    # 27-nov-2026: /api/responder (existía; antes se comparaba con != y la
+    # expresión no lo veía), /api/escrito (hechos y normas de UN borrador) y
+    # /api/documento (el documento a explicar): reciben lo que la persona
+    # escribe para esa acción, se usa y se descarta; nada del tablero.
+    permitidos = {
+        "/api/buscar",
+        "/api/estado",
+        "/api/fuentes",
+        "/api/providencia",
+        "/api/responder",
+        "/api/escrito",
+        "/api/documento",
+    }
     assert rutas <= permitidos, f"endpoints inesperados: {rutas - permitidos}"
     for sospechoso in ("notas", "tablero", "favoritos"):
         assert sospechoso not in SERVIDOR_GUI.lower(), (

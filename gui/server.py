@@ -41,6 +41,7 @@ from drenar_cuerpo import descartar_cuerpo  # noqa: E402
 
 RAIZ_ESTATICA = RAIZ / "gui" / "static"
 PUERTO = 8765
+MAX_ANTES = 300  # caracteres por pregunta anterior en un hilo de seguimiento
 
 _indice = None
 _indice_lock = threading.Lock()
@@ -120,6 +121,7 @@ class Handler(BaseHTTPRequestHandler):
             # recibia un error tecnico sobre un archivo que le faltaba. Ofrecer
             # lo que no se tiene es la version pequena de inventar cobertura.
             from gui import publico
+            from index import escritos, relaciones_constitucional
             from index.responder import ruta_modelo
 
             self._responder_json(
@@ -130,6 +132,12 @@ class Handler(BaseHTTPRequestHandler):
                     "publico": publico.activo(),
                     "nombre": publico.nombre_producto(),
                     "redacciones_diarias": publico.cuota_redaccion().tope_ip if publico.activo() else None,
+                    "escritos": escritos.catalogo(),
+                    "relaciones_constitucional": relaciones_constitucional.disponible(),
+                    # Explicar un documento con la clave del servidor (sin la de la
+                    # persona): en público siempre que quede presupuesto; en local,
+                    # si el operador dejó su clave guardada.
+                    "documento_servidor": self._hay_clave_servidor(),
                 }
             )
             return
@@ -151,15 +159,162 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self):  # noqa: N802 (nombre impuesto por BaseHTTPRequestHandler)
         ruta = urlparse(self.path)
-        if ruta.path != "/api/responder":
-            # El cuerpo se lee y se tira ANTES de contestar. Sin esto el cliente
-            # sigue escribiendo en un socket ya cerrado y en Windows recibe una
-            # conexión abortada en vez del 404: era el fallo intermitente de
-            # tests/test_ia_externa_endpoint.py. Ver drenar_cuerpo.py.
-            descartar_cuerpo(self)
-            self.send_error(404)
+        if ruta.path == "/api/responder":
+            self._responder_con_ia_externa()
             return
-        self._responder_con_ia_externa()
+        if ruta.path == "/api/escrito":
+            self._responder_escrito()
+            return
+        if ruta.path == "/api/documento":
+            self._responder_documento()
+            return
+        # El cuerpo se lee y se tira ANTES de contestar. Sin esto el cliente
+        # sigue escribiendo en un socket ya cerrado y en Windows recibe una
+        # conexión abortada en vez del 404: era el fallo intermitente de
+        # tests/test_ia_externa_endpoint.py. Ver drenar_cuerpo.py.
+        descartar_cuerpo(self)
+        self.send_error(404)
+
+    @staticmethod
+    def _hay_clave_servidor() -> bool:
+        from gui import publico
+
+        try:
+            from finetune.clave_api import leer_clave
+
+            hay = bool(leer_clave(obligatoria=False))
+        except Exception:  # noqa: BLE001 - sin módulo o sin archivo: no hay clave
+            hay = False
+        if publico.activo():
+            return hay and publico.presupuesto().queda(publico.mes_actual())
+        return hay
+
+    def _responder_escrito(self) -> None:
+        """Arma un borrador de escrito (index/escritos.py). Sin IA y sin guardar
+        nada: el texto se arma con lo que llega y se devuelve."""
+        from index import escritos
+
+        datos = self._leer_json()
+        if datos is None:
+            self._responder_json({"error": "Cuerpo inválido."}, status=400)
+            return
+        try:
+            self._responder_json(escritos.armar(datos))
+        except escritos.ErrorEscrito as e:
+            self._responder_json({"error": str(e)}, status=400)
+
+    def _responder_documento(self) -> None:
+        """Explica un documento de la persona y busca las normas que lo regulan
+        (index/documento_usuario.py).
+
+        La IA la paga: la clave de la persona si la pone (con estimado previo,
+        como /api/responder), o la del servidor contra la cuota de redacciones
+        y el presupuesto del mes. El documento no se guarda en ningún lado.
+        """
+        from gui import publico
+        from index import costos
+        from index import documento_usuario as du
+        from index.proveedores import MODELOS_POR_DEFECTO, ErrorProveedor, generar
+
+        datos = self._leer_json(maximo=7 * 1024 * 1024)
+        if datos is None:
+            self._responder_json(
+                {"error": "Cuerpo inválido o archivo demasiado grande (máximo 4 MB)."}, status=400
+            )
+            return
+        try:
+            texto, info = du.preparar(du.texto_desde_peticion(datos))
+        except du.ErrorDocumento as e:
+            self._responder_json({"error": str(e)}, status=400)
+            return
+
+        proveedor = (datos.get("proveedor") or "").strip().lower()
+        clave_usuario = (datos.get("clave") or "").strip()
+        usa_servidor = not proveedor
+        if usa_servidor:
+            proveedor = "claude"
+        modelo = (datos.get("modelo") or "").strip() or MODELOS_POR_DEFECTO.get(proveedor, "")
+        entrada = du.prompt(texto)
+
+        if datos.get("solo_estimar"):
+            self._responder_json(
+                {
+                    "estimado": _costo_a_dict(costos.estimar(du.SISTEMA + entrada, modelo, 600)),
+                    "documento": info,
+                }
+            )
+            return
+
+        mes = publico.mes_actual()
+        if usa_servidor:
+            if not self._hay_clave_servidor():
+                self._responder_json(
+                    {
+                        "error": (
+                            "Este servidor no tiene IA disponible para explicar documentos. Pon tu "
+                            "propia clave en «Usar una IA externa» y vuelve a intentarlo."
+                        ),
+                        "documento": info,
+                    },
+                    status=503,
+                )
+                return
+            if publico.activo():
+                v = publico.cuota_redaccion().consumir(publico.ip_cliente(self))
+                if not v.permitido:
+                    self._responder_json(
+                        {
+                            "error": (
+                                f"Ya usaste tus {v.tope} usos gratis de IA de hoy (respuestas y "
+                                "documentos). Se renuevan a medianoche."
+                            ),
+                            "limite": True,
+                        },
+                        status=429,
+                    )
+                    return
+            from finetune.clave_api import leer_clave
+
+            clave_usuario = leer_clave(obligatoria=False) or ""
+
+        try:
+            r = generar(entrada, du.SISTEMA, proveedor, clave=clave_usuario, modelo=modelo)
+        except ErrorProveedor as e:
+            self._responder_json({"error": str(e), "documento": info}, status=502)
+            return
+        costo = costos.liquidar(r.usage, r.modelo)
+        if usa_servidor and publico.activo():
+            publico.presupuesto().registrar(mes, costo.usd)
+        try:
+            analisis = du.verificar_cifras(du.interpretar(r.texto), texto)
+        except du.ErrorDocumento as e:
+            self._responder_json(
+                {"error": str(e), "documento": info, "costo": _costo_a_dict(costo)}, status=502
+            )
+            return
+
+        resultados: list[dict] = []
+        aviso_busqueda = None
+        if analisis["consultas"]:
+            try:
+                indice = _obtener_indice()
+                listas = [indice.buscar(c, k=5) for c in analisis["consultas"]]
+                from index import providencias
+
+                resultados = providencias.anotar(du.fusionar(listas, k=8))
+            except Exception as e:  # noqa: BLE001 - la explicación ya está pagada: se entrega
+                aviso_busqueda = f"No se pudo buscar las normas: {e}"
+        self._responder_json(
+            {
+                **analisis,
+                "resultados": resultados,
+                "aviso_busqueda": aviso_busqueda,
+                "documento": info,
+                "costo": _costo_a_dict(costo),
+                "proveedor": r.proveedor,
+                "modelo": r.modelo,
+            }
+        )
 
     def _leer_json(self, maximo: int = 256 * 1024) -> dict | None:
         """Devuelve el dict del cuerpo, o None si no sirve.
@@ -259,10 +414,12 @@ class Handler(BaseHTTPRequestHandler):
                 )
                 return
         from index.respaldo import marcar_citas_no_literales
+        from index.ubicar_citas import ubicar
 
         texto, citas_marcadas = marcar_citas_no_literales(texto, usados)
         self._responder_json(
             {
+                "citas_ubicadas": ubicar(r.texto, usados),
                 "citas_no_literales": citas_marcadas,
                 "respuesta": texto if informe.anclada else marcar(texto, informe),
                 "anclada": informe.anclada,
@@ -280,6 +437,26 @@ class Handler(BaseHTTPRequestHandler):
         from index import providencias
 
         documento_id = (parse_qs(ruta.query).get("id") or [""])[0].strip()
+        if documento_id.startswith("corte_constitucional:") and len(documento_id) <= 120:
+            from index import relaciones_constitucional as rc
+
+            if not rc.disponible():
+                self._responder_json(
+                    {
+                        "error": "Faltan las relaciones de la Corte Constitucional "
+                        "(python -m index.relaciones_constitucional --construir)"
+                    },
+                    status=503,
+                )
+                return
+            rel = rc.relaciones(documento_id, limite=40)
+            if rel is None:
+                self._responder_json(
+                    {"error": "Esa providencia no está en el catálogo del índice"}, status=404
+                )
+                return
+            self._responder_json({"ficha": rel.pop("providencia"), "relaciones": rel})
+            return
         if not documento_id.startswith("corte_suprema:") or len(documento_id) > 120:
             self._responder_json({"error": "Identificador de providencia no válido"}, status=400)
             return
@@ -308,6 +485,22 @@ class Handler(BaseHTTPRequestHandler):
             k = 8
 
         quiere_respuesta = (params.get("conversacional") or ["0"])[0] == "1"
+
+        # Preguntas de seguimiento (27-nov-2026). El hilo lo guarda el NAVEGADOR,
+        # en memoria, y manda las preguntas anteriores en cada petición: el
+        # servidor sigue sin guardar consultas (regla 2). Se usan para buscar
+        # («¿y si no me devuelve el depósito?» sola no dice de qué depósito) y
+        # para que la redacción sepa de qué se venía hablando.
+        antes = [a.strip()[:MAX_ANTES] for a in params.get("antes") or [] if a.strip()][-2:]
+        consulta_busqueda = " ".join([*antes, consulta]) if antes else consulta
+        consulta_redaccion = (
+            consulta
+            + "\n\n(Pregunta de seguimiento. Antes la persona preguntó: "
+            + " / ".join(f"«{a}»" for a in antes)
+            + ". Responde la pregunta actual.)"
+            if antes
+            else consulta
+        )
 
         # Modo público (gui/publico.py): gratis con tope diario por huella de IP.
         from gui import publico
@@ -346,7 +539,7 @@ class Handler(BaseHTTPRequestHandler):
 
         try:
             indice = _obtener_indice()
-            resultados = indice.buscar(consulta, k=k_busqueda, fuentes=fuentes)
+            resultados = indice.buscar(consulta_busqueda, k=k_busqueda, fuentes=fuentes)
         except Exception as e:
             self._responder_json({"error": str(e)}, status=500)
             return
@@ -384,7 +577,9 @@ class Handler(BaseHTTPRequestHandler):
         solo_cita = bool(info_cita and info_cita["encontrada"]) and len(consulta.split()) <= 6
         asistida = False
         if not solo_cita:
-            nuevos, asistida = self._intentar_busqueda_asistida(indice, consulta, k, fuentes, resultados)
+            nuevos, asistida = self._intentar_busqueda_asistida(
+                indice, consulta_busqueda, k, fuentes, resultados
+            )
             if asistida and info_cita and info_cita["encontrada"]:
                 # La cita exacta sigue primero aunque el modelo haya reordenado.
                 exactos = [x for x in resultados if x.get("cita_exacta")]
@@ -404,6 +599,7 @@ class Handler(BaseHTTPRequestHandler):
             "busqueda_asistida": asistida,
             "cita": info_cita,
             "filtros_providencia": info_filtros,
+            "seguimiento_de": antes or None,
             # "claro" | "condicional" (coincidencia débil: se redacta, pero solo se
             # muestra si pasa index.respaldo) | "ninguno"
             "respaldo": "claro"
@@ -436,14 +632,14 @@ class Handler(BaseHTTPRequestHandler):
             usados = resultados[:max_fragmentos]
             try:
                 if publico.activo():
-                    texto = self._redactar_publico(consulta, usados)
+                    texto = self._redactar_publico(consulta_redaccion, usados)
                     if texto is None:
                         salida["respuesta"] = None
                         salida["aviso_respuesta"] = self._aviso_redaccion
                         self._responder_json(salida)
                         return
                 else:
-                    texto = responder(consulta, usados)
+                    texto = responder(consulta_redaccion, usados)
                 # Comprobación determinista antes de mostrar nada: cada número de
                 # norma, artículo, plazo o cifra de la respuesta tiene que estar
                 # en los fragmentos. Medido sobre 150 respuestas reales, marca 21
@@ -471,7 +667,11 @@ class Handler(BaseHTTPRequestHandler):
                     salida["hay_respaldo"] = True
                     salida["respaldo_debil"] = True
                 from index.respaldo import marcar_citas_no_literales
+                from index.ubicar_citas import ubicar
 
+                # Dónde está cada cita en su fuente, para resaltarla y saltar a
+                # ella. Se calcula sobre el texto SIN las marcas de aviso.
+                salida["citas_ubicadas"] = ubicar(texto, usados)
                 texto, citas_marcadas = marcar_citas_no_literales(texto, usados)
                 salida["respuesta"] = texto if informe.anclada else marcar(texto, informe)
                 salida["anclada"] = informe.anclada

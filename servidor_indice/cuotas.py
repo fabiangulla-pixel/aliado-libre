@@ -49,7 +49,11 @@ ZONA = timedelta(hours=-5)
 # Tope de huellas en memoria: con esto un ataque de IPs aleatorias no llena la
 # RAM. Al pasarlo, las huellas nuevas cuentan como agotadas hasta el día siguiente.
 MAX_HUELLAS = 200_000
-PERIODOS = ("dia", "mes")
+# "semana" (27-nov-2026): solo para claves de pago, de lunes a domingo, hora de
+# Colombia. Los anónimos NO pueden tener cupo semanal sin romper la regla 2: su
+# huella cambia cada día a propósito, así que el servidor no sabe que es la
+# misma persona del martes.
+PERIODOS = ("dia", "semana", "mes")
 
 
 def ahora_local(ahora: datetime | None = None) -> datetime:
@@ -68,7 +72,12 @@ def segundos_hasta_manana(ahora: datetime | None = None) -> int:
 
 def id_periodo(periodo: str, ahora: datetime | None = None) -> str:
     d = ahora_local(ahora).date()
-    return d.isoformat() if periodo == "dia" else f"{d.year:04d}-{d.month:02d}"
+    if periodo == "dia":
+        return d.isoformat()
+    if periodo == "semana":
+        anio, semana, _ = d.isocalendar()
+        return f"{anio:04d}-S{semana:02d}"
+    return f"{d.year:04d}-{d.month:02d}"
 
 
 def hash_clave(clave: str) -> str:
@@ -279,7 +288,9 @@ def mensaje_bloqueo(v: Veredicto) -> str:
     if v.vencida:
         return f"Tu membresía venció. Para renovarla: {enlace_pago()}."
     if v.via == "clave":
-        cuando = "el primer día del próximo mes" if v.periodo == "mes" else "a medianoche"
+        cuando = {"mes": "el primer día del próximo mes", "semana": "el próximo lunes"}.get(
+            v.periodo, "a medianoche"
+        )
         return f"Tu plan llegó a su tope de {v.tope} consultas; se renueva {cuando}. Planes: {enlace_pago()}."
     base = (
         f"Llegaste al límite de {v.tope} consultas gratuitas de hoy; se renueva a medianoche (hora de "
@@ -300,4 +311,10 @@ def segundos_hasta_renovar(v: Veredicto, ahora: datetime | None = None) -> int:
             day=1, hour=0, minute=0, second=0, microsecond=0
         )
         return max(1, int((siguiente - local).total_seconds()))
+    if v.via == "clave" and v.periodo == "semana":
+        local = ahora_local(ahora)
+        lunes = (local + timedelta(days=7 - local.weekday())).replace(
+            hour=0, minute=0, second=0, microsecond=0
+        )
+        return max(1, int((lunes - local).total_seconds()))
     return segundos_hasta_manana(ahora)

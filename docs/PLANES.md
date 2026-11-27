@@ -34,6 +34,14 @@ membresía con más de 4 tandas o cerca de 100 consultas en el mes.
 6. **Gold**: pago único de 1.000 USD, sin tope durante π años (1.147 días) desde
    la activación. Clave `gold`.
 
+## Cupo semanal (27-nov-2026)
+
+Las claves de pago ya admiten `periodo: "semana"`, que se renueva el lunes. Magnar
+cuenta así sus créditos. `crear_clave_api.py semanal` emite una clave con **150
+consultas a la semana, un tope propuesto sin decidir**. Los anónimos no pueden tener cupo
+semanal sin romper la regla 2. Precios de la competencia y dónde quedamos: ver
+`docs/COMPETENCIA.md`.
+
 ## Pendiente de decidir antes de cobrar
 
 - **Incoherencia de la membresía mensual**: como estaba planteada (100 consultas al

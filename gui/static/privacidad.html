@@ -26,6 +26,12 @@ Borrador pendiente de revisión legal.</p>
 <p>No guardamos tus consultas, no llevamos registro de acceso y no pedimos que te
 registres. Quien consulta por su despido, su deuda o su arriendo está contando algo
 sensible; lo que no se guarda no se puede filtrar ni entregar.</p>
+<p>Tampoco guardamos <strong>las preguntas de seguimiento</strong> (el hilo vive solo en
+la memoria de tu pestaña y se borra al recargar), <strong>los borradores de escritos</strong>
+(el servidor arma el texto con los hechos que escribes y te lo devuelve sin quedarse
+copia) ni <strong>los documentos que subes</strong> para que te los expliquemos.</p>
+<p><strong>No usamos tus consultas ni tus documentos para entrenar ningún modelo</strong>:
+no podríamos, porque no los guardamos.</p>
 
 <h2>Lo que tratamos, y por cuánto tiempo</h2>
 <ul>
@@ -47,7 +53,16 @@ sensible; lo que no se guarda no se puede filtrar ni entregar.</p>
   <li><strong>Anthropic</strong> (Estados Unidos), solo si pides que la IA redacte una
   respuesta: recibe tu pregunta y los fragmentos de norma encontrados, para generarla. Si no
   marcas la redacción, tu pregunta no sale del servidor.</li>
+  <li><strong>Documentos que pides explicar</strong>: su texto se envía a la IA (Anthropic, o el
+  proveedor que elijas con tu propia clave) después de ocultar cédulas, NIT, números de
+  cuenta, correos y teléfonos. <strong>Los nombres no se pueden ocultar de forma fiable</strong>:
+  si no quieres que salgan, bórralos antes de subir el documento. Las fotos y los PDF
+  escaneados no se procesan.</li>
+  <li>Los <strong>borradores de escritos</strong> no usan IA: no salen del servidor.</li>
 </ul>
+<p class="nota">Según sus términos comerciales, Anthropic no usa para entrenar sus modelos el
+texto que recibe por API. Si usas tu propia clave de otro proveedor, revisa sus términos:
+algunos planes gratuitos sí usan lo que se les envía.</p>
 <p>No vendemos ni compartimos datos con nadie más.</p>
 
 <h2>Recomendación</h2>

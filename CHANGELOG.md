@@ -1,5 +1,62 @@
 # Changelog
 
+## 2026-11-27 — Lo que la competencia hace y le sirve al ciudadano
+
+Origen: revisión de Magnar y de una docena de productos para abogados en Colombia
+(`docs/COMPETENCIA.md`, con un DOFA de cada uno). Se tomó lo que sirve a quien pregunta
+contando su problema; lo que es negocio de firmas (agentes, Word, vigilancia de
+procesos) se dejó fuera a propósito.
+
+### Nuevo
+- **La cita de la respuesta, resaltada en su fuente** (`index/ubicar_citas.py`). Para
+  cada «cita» de la respuesta, el servidor devuelve en qué fragmento está y entre qué
+  posiciones exactas del texto original (`citas_ubicadas` en `/api/buscar` y en
+  `/api/responder`). La página la resalta y cada cita se vuelve un enlace al pasaje.
+  Ignora tildes, mayúsculas y espacios como `respaldo`, pero devuelve posiciones del
+  texto crudo. Una cita con elisión se ubica por trozos y en orden.
+- **Borradores de escritos sin IA** (`index/escritos.py`, `POST /api/escrito`): derecho de
+  petición, reclamo a la empresa de servicios públicos, reclamación al proveedor y
+  tutela. Los hechos son los de la persona, tal cual; el fundamento, las normas que ella
+  marca, con su texto literal. Una cita que no coincide con la fuente se avisa. Lo que
+  no se sabe (nombre, cédula, dirección) queda en blanco y no se pide. Cuesta cero y no
+  gasta la cuota de redacciones. Se descarga para Word (HTML con extensión .doc) o .txt.
+- **Preguntas de seguimiento.** El hilo vive en una variable del navegador y viaja en
+  cada búsqueda como `antes=`, con un máximo de las 2 últimas y 300 caracteres cada una.
+  La búsqueda usa las preguntas anteriores más la actual. La redacción sabe de qué se
+  venía hablando. El servidor no guarda nada (regla 2).
+- **Explicar un documento propio** (`index/documento_usuario.py`, `POST /api/documento`):
+  .pdf con texto, .docx, .txt o texto pegado. Antes de la IA se enmascaran cédulas,
+  NIT, cuentas, correos y teléfonos; los valores en pesos se conservan. La IA solo
+  describe y propone hasta 3 búsquedas; no dictamina. Cada cifra de la explicación se
+  comprueba contra el documento (`verificar_anclaje`). El estimado se muestra antes de
+  gastar. Paga la clave de la persona o la del servidor, contra la misma cuota y el
+  mismo presupuesto que las respuestas.
+- **Relaciones de la Corte Constitucional** (`index/relaciones_constitucional.py`):
+  «cita a» y «es citada por», como en la Suprema. Se construye con
+  `python -m index.relaciones_constitucional --construir` (~2 min) y queda en
+  `index/relaciones_constitucional.db`, que no se versiona. Construido hoy: 49.918
+  providencias, 97.231 relaciones, 94.824 confirmadas.
+- **Cupo semanal para claves de pago** (`periodo: "semana"`, de lunes a domingo, hora de
+  Colombia; plan `semanal` en `scripts/crear_clave_api.py`, tope PROPUESTO). Los
+  anónimos siguen con cupo diario: contarlos por semana exigiría reconocerlos de un día
+  para otro, y eso rompe la regla 2.
+- Privacidad y pie de página: «no usamos tus consultas para entrenar ningún modelo»,
+  con lo que pasa con los documentos y los escritos y con el límite real: los nombres
+  no se pueden ocultar de forma fiable.
+
+### Probado
+- 692 pruebas (35 nuevas). La página se abrió en Chrome headless contra un índice
+  falso, con las funciones invocadas por CDP y sin clics: cita enlazada y resaltada,
+  seguimiento, escrito generado, relaciones de la Corte Constitucional y documento
+  explicado, sin errores de JavaScript.
+- No se gastó API: los tests y la prueba de la página usan IA falsa.
+
+### Empaquetado
+- `.spec`: los cuatro módulos nuevos más `verificar_anclaje` en `hiddenimports`
+  (`/api/estado` importa dos de ellos: sin esto el `.exe` falla al abrir la página).
+  `pypdf` sale de las exclusiones. `docx` sigue fuera: en el `.exe` un Word se pide
+  pegado. **El `.exe` no se recompiló.**
+
 ## 2026-11-23 (tarde) — Citas antiguas de la Suprema, ficha en el servidor, descartes medidos
 
 Rama `feat/ojeador-suprema` fusionada en `main` (fast-forward; 634 pruebas verdes).

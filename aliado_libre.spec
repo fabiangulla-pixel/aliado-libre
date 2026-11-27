@@ -56,7 +56,7 @@ EXCLUDES_CIENTIFICO = [
 ]
 # ingesta / crawling / herramientas de desarrollo: no se usan en el .exe
 EXCLUDES_HERRAMIENTAS = [
-    "bs4", "lxml", "pypdf", "docx", "mcp", "tqdm",
+    "bs4", "lxml", "docx", "mcp", "tqdm",
     "pytest", "ruff", "IPython", "jupyter", "notebook", "setuptools", "pip",
     "tkinter", "PyQt5", "PyQt6", "PySide2", "PySide6", "wx",
 ]
@@ -91,6 +91,17 @@ hiddenimports = [
     # gui/server.py lo importa al arrancar: sin el, el .exe muere en el import.
     # Ver drenar_cuerpo.py.
     "drenar_cuerpo",
+    # 27-nov-2026: /api/estado importa escritos y relaciones_constitucional; sin
+    # ellos el .exe falla al abrir la página. Las otras dos se importan al
+    # responder (citas ubicadas) y al explicar un documento.
+    "index.escritos",
+    "index.relaciones_constitucional",
+    "index.ubicar_citas",
+    "index.documento_usuario",
+    "index.verificar_anclaje",
+    # Lee los PDF que sube la persona. Python puro y pequeño, a diferencia de
+    # docx (arrastra lxml): en el .exe un Word se pide pegado como texto.
+    "pypdf",
 ]
 try:
     import index.cliente_remoto  # noqa: F401
